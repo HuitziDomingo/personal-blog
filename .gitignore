@@ -1,0 +1,30 @@
+# Go
+bin/
+*.exe
+*.so
+*.dylib
+*.test
+*.out
+coverage.*
+
+# Node / pnpm
+node_modules/
+.pnpm-store/
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Next.js
+.next/
+out/
+next-env.d.ts
+.vercel/
+
+# Angular
+dist/
+.angular/
+
+# Entorno y sistema
+.env*
+.DS_Store
