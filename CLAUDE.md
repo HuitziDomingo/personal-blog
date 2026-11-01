@@ -39,7 +39,7 @@ No inventes comandos. Cuando exista uno real, sustituye su TODO.
 
 ## Go / hexagonal
 
-Ver [ADR-002](docs/adr/002-arquitectura-backend-y-autenticacion.md).
+Ver [ADR-002](docs/adr/002-arquitectura-backend-y-autenticacion.md) y [ADR-006](docs/adr/006-correcciones-a-adr-002-y-003.md).
 
 - Las dependencias apuntan hacia adentro: `handler → service → domain ← repository`.
 - `domain` no importa gin ni mongo, ni usa tags de transporte de `encoding/json`.
