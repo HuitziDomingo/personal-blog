@@ -17,7 +17,7 @@
 - [ ] BLOG-010: Implementar script de Bootstrap / Seed para crear el primer usuario Administrador.
 - [ ] BLOG-011: Crear endpoints de autenticación (`POST /api/v1/auth/login`, `POST /api/v1/auth/refresh`).
 - [ ] BLOG-012: Implementar middleware de JWT y almacenamiento en Cookie `HttpOnly`.
-- [ ] BLOG-013: Generar el contrato OpenAPI según ADR-005 (bloqueada: TODO León).
+- [ ] BLOG-013: Generar el contrato OpenAPI (bloqueada: falta el ADR que resuelva el TODO León de ADR-005).
 - [ ] BLOG-014: Crear colección de pruebas en Bruno (vía MCP).
 
 ## Fase 3: Dashboard de Administración (Angular + Spartan UI)
