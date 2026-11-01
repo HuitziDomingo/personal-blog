@@ -1,7 +1,7 @@
 # ADR-004: Tooling del Monorepo, Versiones y CI/CD
 * Estado: Aprobado — parcialmente reemplazado por ADR-008
 * Fecha: 2026-10-31
-* Autor: León Nieves
+* Autor: León Nieves Huitzitzili Domingo
 
 ## Contexto y Problema
 Se requiere definir la estrategia de herramientas para la gestión del monorepo, la fijación de versiones de los entornos de ejecución (Node.js y Go), así como la automatización del flujo de Integración Continua (CI) y Despliegue Continuo (CD) para las aplicaciones (`apps/web`, `apps/admin`) y servicios (`services/api`).

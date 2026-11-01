@@ -56,7 +56,7 @@ Ver [ADR-002](docs/adr/002-arquitectura-backend-y-autenticacion.md) y [ADR-006](
 
 ## Testing
 
-Ver [ADR-003](docs/adr/003-estrategia-global-de-testing.md).
+Ver [ADR-003](docs/adr/003-estrategia-global-de-testing.md) y [ADR-006](docs/adr/006-correcciones-a-adr-002-y-003.md).
 
 - Go: `testify` + `mockery`.
 - Front: Vitest + Testing Library.
