@@ -19,11 +19,14 @@ No inventes comandos. Cuando exista uno real, sustituye su TODO.
 
 - Instalar dependencias: TODO
 - Levantar entorno local: TODO
-- Tests de Go: TODO
+- Levantar la API: `make api-run`
+- Tests de Go: `make api-test`
 - Tests de front: TODO
 - E2E: TODO
-- Lint y análisis: TODO
-- Build: TODO
+- Lint y análisis de Go: `make api-lint`
+- Lint y análisis de front: TODO
+- Build de la API: `make api-build`
+- Build de front: TODO
 
 ## Flujo
 
