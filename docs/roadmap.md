@@ -14,10 +14,10 @@
 
 - [ ] BLOG-008: Definir estructuras de Dominio (`domain/user.go`, `domain/post.go`, `domain/errors.go`).
 - [ ] BLOG-009: Implementar repositorio de MongoDB con el driver oficial `v2` (`go.mongodb.org/mongo-driver/v2`).
-- [ ] BLOG-010: Implementar script de Bootstrap / Seed para crear el primer usuario Administrador.
+- [ ] BLOG-010: Bootstrap automático del admin al arrancar si `users` está vacía (ADR-005).
 - [ ] BLOG-011: Crear endpoints de autenticación (`POST /api/v1/auth/login`, `POST /api/v1/auth/refresh`).
 - [ ] BLOG-012: Implementar middleware de JWT y almacenamiento en Cookie `HttpOnly`.
-- [ ] BLOG-013: Generar el contrato OpenAPI (bloqueada: falta el ADR que resuelva el TODO León de ADR-005).
+- [ ] BLOG-013: Generar el contrato OpenAPI (bloqueada por ADR-007).
 - [ ] BLOG-014: Crear colección de pruebas en Bruno (vía MCP).
 
 ## Fase 3: Dashboard de Administración (Angular + Spartan UI)
