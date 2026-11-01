@@ -17,7 +17,8 @@
 - [ ] BLOG-010: Bootstrap automático del admin al arrancar si `users` está vacía (ADR-005).
 - [ ] BLOG-011: Crear endpoints de autenticación (`POST /api/v1/auth/login`, `POST /api/v1/auth/refresh`).
 - [ ] BLOG-012: Implementar middleware de JWT y almacenamiento en Cookie `HttpOnly`.
-- [ ] BLOG-013: Generar el contrato OpenAPI (bloqueada por ADR-007).
+- [ ] BLOG-027: Escribir ADR-007: contrato de API.
+- [ ] BLOG-013: Generar el contrato OpenAPI (depende de BLOG-027).
 - [ ] BLOG-014: Crear colección de pruebas en Bruno (vía MCP).
 
 ## Fase 3: Dashboard de Administración (Angular + Spartan UI)

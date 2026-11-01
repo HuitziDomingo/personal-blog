@@ -1,7 +1,7 @@
 # ADR-003: Estrategia de Testing (Unitario, Integración y E2E)
 * Estado: Aprobado — parcialmente reemplazado por ADR-006
 * Fecha: 2026-10-30
-* Autor: León Nieves
+* Autor: León Nieves Huitzitzili Domingo
 
 ## Decisión
 Se establece la cobertura de pruebas requerida:

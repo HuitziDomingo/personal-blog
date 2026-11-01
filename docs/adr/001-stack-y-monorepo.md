@@ -1,7 +1,7 @@
 # ADR-001: Estructura de Monorepo y Selección de Stack Tecnológico
 * Estado: Aprobado
 * Fecha: 2026-10-30
-* Autor: León Nieves
+* Autor: León Nieves Huitzitzili Domingo
 
 ## Contexto y Problema
 Se requiere desarrollar una plataforma de gestión de contenidos (CMS) e investigación agéntica para `huitzi.xyz`. Se busca una arquitectura desacoplada, escalable y mantenible dentro de un único repositorio (Monorepo) que facilite el contexto para herramientas de IA (Claude Code) y la alineación de contratos de datos.

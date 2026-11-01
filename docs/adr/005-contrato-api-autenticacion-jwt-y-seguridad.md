@@ -1,7 +1,7 @@
 # ADR-005: Contrato de API, Autenticación JWT y Seguridad
 * Estado: Aprobado
 * Fecha: 2026-10-31
-* Autor: León Nieves
+* Autor: León Nieves Huitzitzili Domingo
 
 ## Contexto y Problema
 Es necesario establecer la fuente de verdad para el contrato de API entre el backend en Go y los frontends en TypeScript, así como definir el mecanismo seguro de autenticación por JWT, gestión de sesiones de administrador y políticas de seguridad (CORS y Rate Limiting).
