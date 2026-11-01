@@ -3,17 +3,18 @@
 ## Fase 1: Setup del Monorepo e Infraestructura Local
 
 - [ ] BLOG-001: Configurar `pnpm workspaces` para `apps/web` y `apps/admin`.
-- [ ] BLOG-002: Crear `go.mod` en `services/api`.
+- [x] BLOG-002: Crear `go.mod` en `services/api`. ([#5](https://github.com/HuitziDomingo/personal-blog/pull/5))
 - [ ] BLOG-003: Crear el `Makefile` raíz con comandos `dev`, `test`, `build` y `lint`.
 - [ ] BLOG-004: Crear `docker-compose.yml` para MongoDB local (`mongo:8.0`) en el puerto 27017.
 - [ ] BLOG-005: Crear `.env.example` con variables de entorno para desarrollo local.
-- [ ] BLOG-006: Crear endpoint `GET /health`.
-- [ ] BLOG-007: Configurar `.github/workflows/api.yml` con build, vet, golangci-lint y test.
+- [x] BLOG-006: Crear endpoint `GET /health`. ([#5](https://github.com/HuitziDomingo/personal-blog/pull/5))
+- [x] BLOG-007: Configurar `.github/workflows/api.yml` con build, vet, golangci-lint y test. ([#5](https://github.com/HuitziDomingo/personal-blog/pull/5))
 
 ## Fase 2: Backend API (Go/Gin) & Autenticación
 
 - [ ] BLOG-008: Definir estructuras de Dominio (`domain/user.go`, `domain/post.go`, `domain/errors.go`).
 - [ ] BLOG-009: Implementar repositorio de MongoDB con el driver oficial `v2` (`go.mongodb.org/mongo-driver/v2`).
+- [ ] BLOG-028: Conectar la API a MongoDB y crear endpoint `GET /ready`.
 - [ ] BLOG-010: Bootstrap automático del admin al arrancar si `users` está vacía (ADR-005).
 - [ ] BLOG-011: Crear endpoints de autenticación (`POST /api/v1/auth/login`, `POST /api/v1/auth/refresh`).
 - [ ] BLOG-012: Implementar middleware de JWT y almacenamiento en Cookie `HttpOnly`.
