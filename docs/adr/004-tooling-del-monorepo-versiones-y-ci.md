@@ -1,5 +1,5 @@
 # ADR-004: Tooling del Monorepo, Versiones y CI/CD
-* Estado: Aprobado
+* Estado: Aprobado — parcialmente reemplazado por ADR-008
 * Fecha: 2026-10-31
 * Autor: León Nieves
 

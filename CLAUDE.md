@@ -34,7 +34,7 @@ No inventes comandos. Cuando exista uno real, sustituye su TODO.
 - PRs chicos.
 - Conventional Commits con scope: `api`, `web`, `admin` o `docs`.
 - Nunca hagas push a `main`.
-- Merge solo con CI verde. El merge lo hace León, no Claude:
+- Merge solo con CI verde; el check obligatorio es `ci`. El merge lo hace León, no Claude:
 
   ```sh
   gh pr checks --watch && gh pr merge --squash --delete-branch
