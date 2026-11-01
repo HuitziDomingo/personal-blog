@@ -27,4 +27,5 @@ dist/
 
 # Entorno y sistema
 .env*
+!.env.example
 .DS_Store

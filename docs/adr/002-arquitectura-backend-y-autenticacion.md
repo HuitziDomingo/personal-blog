@@ -1,7 +1,7 @@
 # ADR-002: Arquitectura Hexagonal y Autenticación JWT en Go (Gin)
-* Estado: Aprobado
+* Estado: Aprobado — parcialmente reemplazado por ADR-006
 * Fecha: 2026-10-30
-* Autor: Tech Lead / [Tu Nombre]
+* Autor: León Nieves
 
 ## Contexto
 El backend debe garantizar una separación limpia de responsabilidades (Clean / Hexagonal Architecture) que permita desacoplar la lógica de negocio y la orquestación de agentes de IA de los frameworks HTTP y drivers de persistencia.

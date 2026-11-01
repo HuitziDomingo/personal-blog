@@ -2,7 +2,7 @@
 
 CMS y blog técnico sobre orquestación de agentes de IA para `huitzi.xyz`. León está aprendiendo Go con este proyecto.
 
-El repo es la fuente de verdad del código y las decisiones. Obsidian lo es de la especificación y del backlog. Las decisiones están en `docs/adr/`: este archivo remite a ellas y no las sustituye.
+El repo es la fuente de verdad del código, las decisiones y el backlog (`docs/roadmap.md`). Obsidian lo es de la especificación. Las decisiones están en `docs/adr/`: este archivo remite a ellas y no las sustituye.
 
 ## Proyecto y estructura
 
@@ -39,11 +39,11 @@ No inventes comandos. Cuando exista uno real, sustituye su TODO.
 
 ## Go / hexagonal
 
-Ver [ADR-002](docs/adr/002-arquitectura-backend-y-autenticacion.md).
+Ver [ADR-002](docs/adr/002-arquitectura-backend-y-autenticacion.md) y [ADR-006](docs/adr/006-correcciones-a-adr-002-y-003.md).
 
 - Las dependencias apuntan hacia adentro: `handler → service → domain ← repository`.
 - `domain` no importa gin ni mongo, ni usa tags de transporte de `encoding/json`.
-- Los DTOs HTTP viven en `handler`. ADR-002 dice lo contrario; pendiente de ADR nuevo.
+- Los DTOs HTTP viven en `handler`.
 - Envuelve los errores con `%w`.
 - Sin `panic` en el servidor.
 - `context.Context` es el primer parámetro en toda función con I/O.
@@ -70,15 +70,19 @@ Ver [ADR-003](docs/adr/003-estrategia-global-de-testing.md).
 - Ruta: `docs/adr/NNN-titulo.md`.
 - Secciones: Contexto, Alternativas consideradas, Decisión y Consecuencias.
 - Decisión nueva = ADR nuevo.
+- Los ADRs aprobados en main son inmutables. Solo se edita la línea Estado. Las correcciones van en un ADR nuevo que indica a cuál reemplaza, y el anterior se marca como reemplazado.
 - Si una tarea contradice un ADR, detente y pregunta a León.
+
+## Backlog
+
+Ubicación: [docs/roadmap.md](docs/roadmap.md).
+
+- Cada PR referencia el ID de la tarea.
+- Marca una tarea con `[x]` SOLO cuando su PR esté mergeado a `main`, y pon el link del PR al lado. Nunca por CI verde ni por PR abierto.
 
 ## Obsidian
 
-Ubicación del backlog: TODO.
-
 - Consulta la especificación antes de implementar.
-- Cada PR referencia el ID de la tarea.
-- Marca una tarea con `[x]` SOLO cuando su PR esté mergeado a `main`, y pon el link del PR al lado. Nunca por CI verde ni por PR abierto.
 - Si Obsidian contradice un ADR mergeado, gana el ADR y avisa a León.
 
 ## Límites
