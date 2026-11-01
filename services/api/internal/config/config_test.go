@@ -8,7 +8,37 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func setRequiredEnv(t *testing.T) {
+	t.Helper()
+	t.Setenv("MONGO_URI", "mongodb://localhost:27017")
+	t.Setenv("MONGO_DB_NAME", "blog_test")
+}
+
+func TestLoadReadsMongoConfig(t *testing.T) {
+	setRequiredEnv(t)
+
+	cfg, err := Load()
+
+	require.NoError(t, err)
+	assert.Equal(t, "mongodb://localhost:27017", cfg.MongoURI)
+	assert.Equal(t, "blog_test", cfg.MongoDBName)
+}
+
+func TestLoadFailsWhenRequiredVariableIsMissing(t *testing.T) {
+	for _, key := range []string{"MONGO_URI", "MONGO_DB_NAME"} {
+		t.Run(key, func(t *testing.T) {
+			setRequiredEnv(t)
+			t.Setenv(key, "")
+
+			_, err := Load()
+
+			require.ErrorContains(t, err, "missing required environment variable "+key)
+		})
+	}
+}
+
 func TestLoadUsesDefaultPortWhenUnset(t *testing.T) {
+	setRequiredEnv(t)
 	t.Setenv("PORT", "")
 	require.NoError(t, os.Unsetenv("PORT"))
 
@@ -31,6 +61,7 @@ func TestLoadPort(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			setRequiredEnv(t)
 			t.Setenv("PORT", tt.port)
 
 			cfg, err := Load()
@@ -44,6 +75,7 @@ func TestLoadPort(t *testing.T) {
 func TestLoadRejectsInvalidPort(t *testing.T) {
 	for _, port := range []string{"abc", "0", "-1", "65536"} {
 		t.Run(port, func(t *testing.T) {
+			setRequiredEnv(t)
 			t.Setenv("PORT", port)
 
 			_, err := Load()

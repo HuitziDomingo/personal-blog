@@ -18,7 +18,10 @@ Ver [ADR-001](docs/adr/001-stack-y-monorepo.md).
 No inventes comandos. Cuando exista uno real, sustituye su TODO.
 
 - Instalar dependencias: TODO
-- Levantar entorno local: TODO
+- Levantar entorno local: `cp .env.example .env` y `make db-up`
+- Parar MongoDB local: `make db-down` (conserva los datos)
+- Ver logs de MongoDB local: `make db-logs`
+- Borrar los datos de MongoDB local: `make db-reset` (pide confirmación)
 - Levantar la API: `make api-run`
 - Tests de Go: `make api-test`
 - Tests de front: TODO
@@ -53,6 +56,7 @@ Ver [ADR-002](docs/adr/002-arquitectura-backend-y-autenticacion.md) y [ADR-006](
 - `gofmt`, `go vet`, `golangci-lint` y `govulncheck` deben quedar en verde.
 - Driver de Mongo: `go.mongodb.org/mongo-driver/v2`.
 - Los índices de Mongo se crean de forma idempotente.
+- MVP sin transacciones multi-documento: Mongo local es standalone y Atlas es replica set. Si se necesitan, se cambia a replica set de un nodo con un ADR.
 
 ## Testing
 

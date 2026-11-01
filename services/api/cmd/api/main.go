@@ -3,6 +3,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net"
@@ -14,6 +15,7 @@ import (
 
 	"github.com/HuitziDomingo/personal-blog/services/api/internal/config"
 	"github.com/HuitziDomingo/personal-blog/services/api/internal/handler"
+	"github.com/HuitziDomingo/personal-blog/services/api/internal/repository/mongodb"
 )
 
 const (
@@ -39,9 +41,14 @@ func run() error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
+	client, err := mongodb.Connect(ctx, cfg.MongoURI, cfg.MongoDBName)
+	if err != nil {
+		return fmt.Errorf("connect to database: %w", err)
+	}
+
 	server := &http.Server{
 		Addr:              net.JoinHostPort("", cfg.Port),
-		Handler:           handler.NewRouter(),
+		Handler:           handler.NewRouter(client),
 		ReadHeaderTimeout: readHeaderTimeout,
 		ReadTimeout:       readTimeout,
 		WriteTimeout:      writeTimeout,
@@ -55,19 +62,26 @@ func run() error {
 
 	select {
 	case err := <-serveErr:
-		return fmt.Errorf("serve: %w", err)
+		return errors.Join(fmt.Errorf("serve: %w", err), shutdown(server, client))
 	case <-ctx.Done():
 	}
 
 	stop()
 	slog.Info("api shutting down")
 
-	shutdownCtx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
+	return shutdown(server, client)
+}
+
+// shutdown cierra el servidor y después la base de datos, para que las
+// peticiones en curso terminen con la conexión abierta.
+func shutdown(server *http.Server, client *mongodb.Client) error {
+	ctx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
 	defer cancel()
 
-	if err := server.Shutdown(shutdownCtx); err != nil {
-		return fmt.Errorf("shutdown: %w", err)
+	var shutdownErr error
+	if err := server.Shutdown(ctx); err != nil {
+		shutdownErr = fmt.Errorf("shutdown: %w", err)
 	}
 
-	return nil
+	return errors.Join(shutdownErr, client.Disconnect(ctx))
 }
