@@ -16,19 +16,23 @@ Verificado el 2026-11-01: `swaggo/swag` estable (v1.16.6) solo genera Swagger 2.
 
 ### Almacenamiento de Token JWT
 * Opción A (Seleccionada): Cookies con atributos `HttpOnly; Secure; SameSite=Strict`.
-* Otras alternativas: TODO León
+* Opción B: Access token en memoria y refresh token en cookie. Descartada: más compleja y sin ganancia con `SameSite=Strict`.
+* Opción C: `localStorage`. Descartada por XSS.
 
 ### Bootstrap de Administrador
-* Creación automática de usuario admin al iniciar la API si la colección `users` está vacía, usando `INITIAL_ADMIN_EMAIL` e `INITIAL_ADMIN_PASSWORD`.
-* Otras alternativas: TODO León
+* Opción A (Seleccionada): Creación automática de usuario admin al iniciar la API si la colección `users` está vacía, usando `INITIAL_ADMIN_EMAIL` e `INITIAL_ADMIN_PASSWORD`.
+* Opción B: Comando aparte `cmd/seed`. Descartado: requiere acceso manual a la base de producción o un Cloud Run Job.
 
 ### Seguridad
 * Middleware CORS restringido a orígenes permitidos con `AllowCredentials: true`.
-* Rate limiting en `/api/v1/auth/login`.
-* Otras alternativas: TODO León
+
+### Rate Limiting
+* Opción A (Seleccionada): Rate limiting en memoria por instancia en `/api/v1/auth/login`, con max-instances bajo en Cloud Run.
+* Opción B: Cloud Armor. Descartado: requiere Load Balancer de pago.
+* Opción C: Contador en MongoDB con TTL. Descartado para el MVP por complejidad.
 
 ## Decisión
-1. **Contrato de API**: TODO León
+1. **Contrato de API**: Fuera del alcance de este ADR; se decide en ADR-007.
 2. **Mecanismo de Autenticación**:
    - Token de acceso (`access_token`, 15 min) en Cookie `HttpOnly`.
    - Token de refresco (`refresh_token`, 7 días) guardado en MongoDB con rotación (Refresh Token Rotation) y enviado en su propia Cookie `HttpOnly` con `Path=/api/v1/auth`.
@@ -36,8 +40,8 @@ Verificado el 2026-11-01: `swaggo/swag` estable (v1.16.6) solo genera Swagger 2.
    - Creación automática de usuario admin al iniciar la API si la colección `users` está vacía, usando `INITIAL_ADMIN_EMAIL` e `INITIAL_ADMIN_PASSWORD`.
 4. **Seguridad**:
    - Middleware CORS restringido a orígenes permitidos con `AllowCredentials: true`.
-   - Rate limiting en `/api/v1/auth/login`.
+   - Rate limiting en memoria por instancia en `/api/v1/auth/login`, con max-instances bajo en Cloud Run.
 
 ## Consecuencias
-* **Positivas**: Aislamiento total de tokens contra vulnerabilidades XSS, sincronización de tipos Go/TS y bootstrapping desatendido.
-* **Negativas**: Configuración rigurosa de políticas de cookies entre subdominios en desarrollo y producción.
+* **Positivas**: Aislamiento total de tokens contra vulnerabilidades XSS y bootstrapping desatendido.
+* **Negativas**: Configuración rigurosa de políticas de cookies entre subdominios en desarrollo y producción. El límite de rate limiting es por instancia, no global.
