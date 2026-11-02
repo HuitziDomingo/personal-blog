@@ -63,15 +63,15 @@ func TestContractRoutesRespondWithProblems(t *testing.T) {
 		detail string
 	}{
 		{name: "query out of range", method: http.MethodGet, path: "/api/v1/posts?limit=500", status: http.StatusBadRequest, detail: "limit: number must be at most 100"},
-		{name: "query with wrong type", method: http.MethodGet, path: "/api/v1/posts?limit=abc", status: http.StatusBadRequest, detail: "limit: " + detailInvalidParameter},
+		{name: "query with wrong type", method: http.MethodGet, path: "/api/v1/posts?limit=abc", status: http.StatusBadRequest, detail: "limit: invalid parameter"},
 		{name: "path against schema", method: http.MethodGet, path: "/api/v1/posts/Not_A_Slug", status: http.StatusBadRequest, detail: `slug: string doesn't match the regular expression "^[a-z0-9]+(-[a-z0-9]+)*$"`},
 		{name: "body against schema", method: http.MethodPost, path: "/api/v1/auth/login", body: `{"email":"a@b.co","password":""}`, status: http.StatusBadRequest, detail: "password: minimum string length is 1"},
 		{name: "body with several violations", method: http.MethodPost, path: "/api/v1/auth/login", body: `{"email":1,"password":""}`, status: http.StatusBadRequest, detail: "email: value must be a string; password: minimum string length is 1"},
 		{name: "body with wrong type", method: http.MethodPost, path: "/api/v1/auth/login", body: `{"email":"a@b.co","password":12345}`, status: http.StatusBadRequest, detail: "password: value must be a string"},
 		{name: "body with missing field", method: http.MethodPost, path: "/api/v1/auth/login", body: `{"email":"a@b.co"}`, status: http.StatusBadRequest, detail: `password: property "password" is missing`},
 		{name: "body rejected when decoded", method: http.MethodPost, path: "/api/v1/auth/login", body: `{"email":"nope","password":"x"}`, status: http.StatusBadRequest, detail: detailInvalidBody},
-		{name: "malformed body", method: http.MethodPost, path: "/api/v1/auth/login", body: `{`, status: http.StatusBadRequest, detail: detailInvalidBody},
-		{name: "protected route until authentication exists", method: http.MethodGet, path: "/api/v1/admin/posts", status: http.StatusBadRequest, detail: detailInvalidRequest},
+		{name: "malformed body", method: http.MethodPost, path: "/api/v1/auth/login", body: `{`, status: http.StatusBadRequest, detail: "invalid request body"},
+		{name: "protected route until authentication exists", method: http.MethodGet, path: "/api/v1/admin/posts", status: http.StatusBadRequest, detail: "invalid request"},
 		{name: "unknown route", method: http.MethodGet, path: "/api/v1/nope", status: http.StatusNotFound},
 		{name: "unsupported method", method: http.MethodDelete, path: "/api/v1/posts", status: http.StatusNotFound},
 		{name: "valid request without implementation", method: http.MethodPost, path: "/api/v1/auth/login", body: `{"email":"a@b.co","password":"x"}`, status: http.StatusNotImplemented},

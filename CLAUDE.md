@@ -67,6 +67,7 @@ Ver [ADR-007](docs/adr/007-contrato-api-spec-first-oapi-codegen.md).
 - Todo cambio de la API empieza en `docs/api/openapi.yaml`.
 - El código en `handler/gen/` nunca se edita a mano.
 - `domain` no importa `gen`.
+- Los mensajes de error de la API van en inglés; la traducción es responsabilidad de los frontends.
 
 ## Testing
 
