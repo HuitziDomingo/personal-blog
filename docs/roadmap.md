@@ -18,7 +18,7 @@
 - [ ] BLOG-010: Bootstrap automático del admin al arrancar si `users` está vacía (ADR-005).
 - [x] BLOG-027: Escribir ADR-007: contrato de API. ([#9](https://github.com/HuitziDomingo/personal-blog/pull/9))
 - [x] BLOG-029: Escribir `docs/api/openapi.yaml` inicial: auth (login, refresh, logout) y posts. ([#11](https://github.com/HuitziDomingo/personal-blog/pull/11))
-- [ ] BLOG-013: Configurar generación con oapi-codegen (Go) y openapi-typescript (TS) con check de drift en CI.
+- [x] BLOG-013: Configurar generación con oapi-codegen (Go) y openapi-typescript (TS) con check de drift en CI. ([#12](https://github.com/HuitziDomingo/personal-blog/pull/12))
 - [ ] BLOG-030: Implementar handler propio de errores `application/problem+json` para el validador y los tres manejadores de strict-server (`RequestErrorHandlerFunc`, `HandlerErrorFunc`, `ResponseErrorHandlerFunc`).
 - [ ] BLOG-011: Crear endpoints de autenticación (`POST /api/v1/auth/login`, `POST /api/v1/auth/refresh`, `POST /api/v1/auth/logout`).
 - [ ] BLOG-012: Implementar middleware de JWT y almacenamiento en Cookie `HttpOnly`.
@@ -37,6 +37,7 @@
 - [ ] BLOG-020: Implementar pruebas unitarias de componentes/servicios en Angular (`Vitest`).
 - [ ] BLOG-021: Agregar jobs admin y web a ci.yml con su filtro en el job changes (ADR-008).
 - [ ] BLOG-022: Configurar pipeline de despliegue de la API a GCP Cloud Run.
+- [ ] BLOG-031: Revisar las 3 vulnerabilidades de `govulncheck` en módulos requeridos.
 
 ## Por definir
 
