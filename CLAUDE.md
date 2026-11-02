@@ -58,6 +58,14 @@ Ver [ADR-002](docs/adr/002-arquitectura-backend-y-autenticacion.md) y [ADR-006](
 - Los índices de Mongo se crean de forma idempotente.
 - MVP sin transacciones multi-documento: Mongo local es standalone y Atlas es replica set. Si se necesitan, se cambia a replica set de un nodo con un ADR.
 
+## Contrato de API
+
+Ver [ADR-007](docs/adr/007-contrato-api-spec-first-oapi-codegen.md).
+
+- Todo cambio de la API empieza en `docs/api/openapi.yaml`.
+- El código en `handler/gen/` nunca se edita a mano.
+- `domain` no importa `gen`.
+
 ## Testing
 
 Ver [ADR-003](docs/adr/003-estrategia-global-de-testing.md) y [ADR-006](docs/adr/006-correcciones-a-adr-002-y-003.md).
