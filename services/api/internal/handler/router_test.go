@@ -36,7 +36,7 @@ func TestHealth(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	pinger := &fakePinger{err: errors.New("database down")}
 
-	response := get(NewRouter(pinger), "/health")
+	response := get(newTestRouter(t, pinger), "/health")
 
 	assert.Equal(t, http.StatusOK, response.Code)
 	assert.JSONEq(t, `{"status":"ok"}`, response.Body.String())
@@ -47,7 +47,7 @@ func TestReady(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	pinger := &fakePinger{}
 
-	response := get(NewRouter(pinger), "/ready")
+	response := get(newTestRouter(t, pinger), "/ready")
 
 	assert.Equal(t, http.StatusOK, response.Code)
 	assert.JSONEq(t, `{"status":"ready"}`, response.Body.String())
@@ -59,7 +59,7 @@ func TestReadyReturnsUnavailableWhenPingFails(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	pinger := &fakePinger{err: errors.New("database down")}
 
-	response := get(NewRouter(pinger), "/ready")
+	response := get(newTestRouter(t, pinger), "/ready")
 
 	assert.Equal(t, http.StatusServiceUnavailable, response.Code)
 	assert.JSONEq(t, `{"status":"unavailable"}`, response.Body.String())

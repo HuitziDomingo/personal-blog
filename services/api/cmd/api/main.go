@@ -41,7 +41,8 @@ func run() error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	if _, err := handler.LoadSpec(ctx); err != nil {
+	spec, err := handler.LoadSpec(ctx)
+	if err != nil {
 		return fmt.Errorf("load api contract: %w", err)
 	}
 
@@ -56,7 +57,7 @@ func run() error {
 
 	server := &http.Server{
 		Addr:              net.JoinHostPort("", cfg.Port),
-		Handler:           handler.NewRouter(client),
+		Handler:           handler.NewRouter(client, spec),
 		ReadHeaderTimeout: readHeaderTimeout,
 		ReadTimeout:       readTimeout,
 		WriteTimeout:      writeTimeout,
