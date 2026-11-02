@@ -29,6 +29,7 @@ No inventes comandos. Cuando exista uno real, sustituye su TODO.
 - Lint y análisis de Go: `make api-lint`
 - Lint y análisis de front: TODO
 - Build de la API: `make api-build`
+- Generar código del contrato: `make generate`
 - Build de front: TODO
 
 ## Flujo

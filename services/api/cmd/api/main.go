@@ -41,6 +41,10 @@ func run() error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
+	if _, err := handler.LoadSpec(ctx); err != nil {
+		return fmt.Errorf("load api contract: %w", err)
+	}
+
 	client, err := mongodb.Connect(ctx, cfg.MongoURI, cfg.MongoDBName)
 	if err != nil {
 		return fmt.Errorf("connect to database: %w", err)
