@@ -1,6 +1,6 @@
 API_DIR := services/api
 
-.PHONY: api-run api-test api-lint api-build db-up db-down db-logs db-reset
+.PHONY: api-run api-test api-lint api-build generate db-up db-down db-logs db-reset
 
 api-run:
 	@test -f .env || { echo "Falta .env: copia .env.example a .env"; exit 1; }
@@ -14,6 +14,10 @@ api-lint:
 
 api-build:
 	cd $(API_DIR) && go build -o bin/api ./cmd/api
+
+generate:
+	cd $(API_DIR) && go tool oapi-codegen -config oapi-codegen.yaml ../../docs/api/openapi.yaml
+	pnpm --filter @personal-blog/api-types generate
 
 db-up:
 	docker compose up -d --wait
