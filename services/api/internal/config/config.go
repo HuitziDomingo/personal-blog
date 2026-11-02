@@ -11,7 +11,9 @@ const defaultPort = "8080"
 
 // Config es la configuración de la API.
 type Config struct {
-	Port string
+	Port        string
+	MongoURI    string
+	MongoDBName string
 }
 
 // Load lee la configuración del entorno y devuelve un error si no es válida.
@@ -21,7 +23,17 @@ func Load() (Config, error) {
 		return Config{}, err
 	}
 
-	return Config{Port: port}, nil
+	mongoURI, err := required("MONGO_URI")
+	if err != nil {
+		return Config{}, err
+	}
+
+	mongoDBName, err := required("MONGO_DB_NAME")
+	if err != nil {
+		return Config{}, err
+	}
+
+	return Config{Port: port, MongoURI: mongoURI, MongoDBName: mongoDBName}, nil
 }
 
 func loadPort() (string, error) {
