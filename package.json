@@ -1,0 +1,8 @@
+{
+  "name": "personal-blog",
+  "private": true,
+  "packageManager": "pnpm@10.20.0",
+  "engines": {
+    "node": ">=24 <25"
+  }
+}

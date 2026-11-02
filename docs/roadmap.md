@@ -16,11 +16,12 @@
 - [ ] BLOG-009: Implementar repositorio de MongoDB con el driver oficial `v2` (`go.mongodb.org/mongo-driver/v2`).
 - [x] BLOG-028: Conectar la API a MongoDB y crear endpoint `GET /ready`. ([#6](https://github.com/HuitziDomingo/personal-blog/pull/6))
 - [ ] BLOG-010: Bootstrap automático del admin al arrancar si `users` está vacía (ADR-005).
-- [ ] BLOG-011: Crear endpoints de autenticación (`POST /api/v1/auth/login`, `POST /api/v1/auth/refresh`).
-- [ ] BLOG-012: Implementar middleware de JWT y almacenamiento en Cookie `HttpOnly`.
-- [ ] BLOG-027: Escribir ADR-007: contrato de API.
+- [x] BLOG-027: Escribir ADR-007: contrato de API. ([#9](https://github.com/HuitziDomingo/personal-blog/pull/9))
 - [ ] BLOG-029: Escribir `docs/api/openapi.yaml` inicial: auth (login, refresh, logout) y posts.
 - [ ] BLOG-013: Configurar generación con oapi-codegen (Go) y openapi-typescript (TS) con check de drift en CI.
+- [ ] BLOG-030: Implementar handler propio de errores `application/problem+json` para el validador.
+- [ ] BLOG-011: Crear endpoints de autenticación (`POST /api/v1/auth/login`, `POST /api/v1/auth/refresh`).
+- [ ] BLOG-012: Implementar middleware de JWT y almacenamiento en Cookie `HttpOnly`.
 - [ ] BLOG-014: Crear colección de pruebas en Bruno (vía MCP).
 
 ## Fase 3: Dashboard de Administración (Angular + Spartan UI)
