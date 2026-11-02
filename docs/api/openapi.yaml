@@ -1,0 +1,543 @@
+openapi: 3.0.3
+
+info:
+  title: huitzi.xyz API
+  version: 0.1.0
+  description: Contrato de la API del blog. Ver ADR-007.
+
+tags:
+  - name: auth
+    description: Sesión del administrador.
+  - name: posts
+    description: Lectura pública de posts publicados.
+  - name: admin-posts
+    description: Gestión de posts desde el dashboard.
+
+paths:
+  /api/v1/auth/login:
+    post:
+      tags: [auth]
+      operationId: login
+      summary: Inicia sesión y emite las cookies de acceso y refresco.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: Sesión iniciada.
+          headers:
+            Set-Cookie:
+              $ref: "#/components/headers/SessionCookies"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        default:
+          $ref: "#/components/responses/UnexpectedError"
+
+  /api/v1/auth/refresh:
+    post:
+      tags: [auth]
+      operationId: refreshSession
+      summary: Rota el token de refresco y emite cookies nuevas.
+      security:
+        - refreshCookie: []
+      responses:
+        "204":
+          description: Sesión renovada.
+          headers:
+            Set-Cookie:
+              $ref: "#/components/headers/SessionCookies"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        default:
+          $ref: "#/components/responses/UnexpectedError"
+
+  /api/v1/auth/logout:
+    post:
+      tags: [auth]
+      operationId: logout
+      summary: Revoca el token de refresco y borra las cookies.
+      security:
+        - refreshCookie: []
+      responses:
+        "204":
+          description: Sesión cerrada.
+          headers:
+            Set-Cookie:
+              $ref: "#/components/headers/SessionCookies"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        default:
+          $ref: "#/components/responses/UnexpectedError"
+
+  /api/v1/posts:
+    get:
+      tags: [posts]
+      operationId: listPublishedPosts
+      summary: Lista los posts publicados.
+      security: []
+      parameters:
+        - $ref: "#/components/parameters/Tag"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+      responses:
+        "200":
+          description: Página de posts publicados.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PostPage"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        default:
+          $ref: "#/components/responses/UnexpectedError"
+
+  /api/v1/posts/{slug}:
+    get:
+      tags: [posts]
+      operationId: getPublishedPost
+      summary: Devuelve un post publicado por su slug.
+      security: []
+      parameters:
+        - $ref: "#/components/parameters/Slug"
+      responses:
+        "200":
+          description: Post publicado.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Post"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        default:
+          $ref: "#/components/responses/UnexpectedError"
+
+  /api/v1/admin/posts:
+    get:
+      tags: [admin-posts]
+      operationId: listPosts
+      summary: Lista los posts en cualquier estado.
+      security:
+        - accessCookie: []
+      parameters:
+        - name: status
+          in: query
+          required: false
+          description: Filtra por estado.
+          schema:
+            $ref: "#/components/schemas/PostStatus"
+        - $ref: "#/components/parameters/Tag"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+      responses:
+        "200":
+          description: Página de posts.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PostPage"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        default:
+          $ref: "#/components/responses/UnexpectedError"
+    post:
+      tags: [admin-posts]
+      operationId: createPost
+      summary: Crea un post.
+      security:
+        - accessCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PostWrite"
+      responses:
+        "201":
+          description: Post creado.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Post"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        default:
+          $ref: "#/components/responses/UnexpectedError"
+
+  /api/v1/admin/posts/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: Identificador del post.
+        schema:
+          type: string
+          minLength: 1
+    get:
+      tags: [admin-posts]
+      operationId: getPost
+      summary: Devuelve un post en cualquier estado.
+      security:
+        - accessCookie: []
+      responses:
+        "200":
+          description: Post.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Post"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        default:
+          $ref: "#/components/responses/UnexpectedError"
+    put:
+      tags: [admin-posts]
+      operationId: updatePost
+      summary: Reemplaza los datos editables de un post.
+      security:
+        - accessCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PostWrite"
+      responses:
+        "200":
+          description: Post actualizado.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Post"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        default:
+          $ref: "#/components/responses/UnexpectedError"
+    delete:
+      tags: [admin-posts]
+      operationId: deletePost
+      summary: Elimina un post.
+      security:
+        - accessCookie: []
+      responses:
+        "204":
+          description: Post eliminado.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        default:
+          $ref: "#/components/responses/UnexpectedError"
+
+components:
+  securitySchemes:
+    accessCookie:
+      type: apiKey
+      in: cookie
+      name: access_token
+      description: Token de acceso JWT, en cookie HttpOnly (ADR-005).
+    refreshCookie:
+      type: apiKey
+      in: cookie
+      name: refresh_token
+      description: Token de refresco, en cookie HttpOnly con Path=/api/v1/auth (ADR-005).
+
+  headers:
+    SessionCookies:
+      description: >-
+        Fija o borra las cookies access_token y refresh_token. La respuesta lleva
+        una cabecera Set-Cookie por cada cookie.
+      schema:
+        type: string
+
+  parameters:
+    Slug:
+      name: slug
+      in: path
+      required: true
+      description: Identificador del post en la URL.
+      schema:
+        $ref: "#/components/schemas/Slug"
+    Tag:
+      name: tag
+      in: query
+      required: false
+      description: Filtra por etiqueta.
+      schema:
+        type: string
+        minLength: 1
+    Limit:
+      name: limit
+      in: query
+      required: false
+      description: Tamaño de la página.
+      schema:
+        type: integer
+        format: int32
+        minimum: 1
+        maximum: 100
+        default: 20
+    Offset:
+      name: offset
+      in: query
+      required: false
+      description: Posts que se saltan antes de la página.
+      schema:
+        type: integer
+        format: int32
+        minimum: 0
+        default: 0
+
+  responses:
+    BadRequest:
+      description: La petición no cumple el contrato.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+    Unauthorized:
+      description: Faltan credenciales o no son válidas.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+    Forbidden:
+      description: Las credenciales son válidas, pero no dan permiso.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+    NotFound:
+      description: El recurso no existe.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+    Conflict:
+      description: El slug ya está en uso.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+    TooManyRequests:
+      description: Se superó el límite de intentos.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+    UnexpectedError:
+      description: Error inesperado.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+
+  schemas:
+    Problem:
+      type: object
+      description: Detalle de un error según RFC 9457.
+      properties:
+        type:
+          type: string
+          format: uri-reference
+          default: about:blank
+          description: Identifica el tipo de problema.
+        title:
+          type: string
+          description: Resumen legible del tipo de problema.
+        status:
+          type: integer
+          format: int32
+          minimum: 100
+          maximum: 599
+          description: Código de estado HTTP.
+        detail:
+          type: string
+          description: Explicación de este caso concreto.
+        instance:
+          type: string
+          format: uri-reference
+          description: Identifica este caso concreto.
+
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          format: password
+          minLength: 1
+
+    UserRole:
+      type: string
+      enum: [admin]
+
+    User:
+      type: object
+      description: Cuenta de administración, sin datos de credenciales.
+      required: [id, email, role]
+      properties:
+        id:
+          type: string
+        email:
+          type: string
+          format: email
+        role:
+          $ref: "#/components/schemas/UserRole"
+
+    PostStatus:
+      type: string
+      enum: [draft, published, archived]
+
+    Slug:
+      type: string
+      pattern: "^[a-z0-9]+(-[a-z0-9]+)*$"
+
+    Seo:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        keywords:
+          type: array
+          items:
+            type: string
+        canonicalUrl:
+          type: string
+          format: uri
+        ogImageUrl:
+          type: string
+          format: uri
+
+    PostWrite:
+      type: object
+      description: Datos editables de un post.
+      required: [title, slug, content, status]
+      properties:
+        title:
+          type: string
+          minLength: 1
+        slug:
+          $ref: "#/components/schemas/Slug"
+        excerpt:
+          type: string
+        content:
+          type: string
+          description: Contenido en Markdown.
+          minLength: 1
+        tags:
+          type: array
+          items:
+            type: string
+            minLength: 1
+        status:
+          $ref: "#/components/schemas/PostStatus"
+        seo:
+          $ref: "#/components/schemas/Seo"
+
+    PostSummary:
+      type: object
+      description: Datos de un post para listados, sin su contenido.
+      required: [id, authorId, title, slug, tags, status, createdAt, updatedAt]
+      properties:
+        id:
+          type: string
+        authorId:
+          type: string
+        title:
+          type: string
+        slug:
+          $ref: "#/components/schemas/Slug"
+        excerpt:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        status:
+          $ref: "#/components/schemas/PostStatus"
+        publishedAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: Nulo mientras no se haya publicado.
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    Post:
+      description: Post completo.
+      allOf:
+        - $ref: "#/components/schemas/PostSummary"
+        - type: object
+          required: [content]
+          properties:
+            content:
+              type: string
+              description: Contenido en Markdown.
+            seo:
+              $ref: "#/components/schemas/Seo"
+
+    PostPage:
+      type: object
+      required: [items, total, limit, offset]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/PostSummary"
+        total:
+          type: integer
+          format: int64
+          description: Total de posts que cumplen el filtro.
+        limit:
+          type: integer
+          format: int32
+        offset:
+          type: integer
+          format: int32
