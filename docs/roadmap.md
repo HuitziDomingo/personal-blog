@@ -2,7 +2,7 @@
 
 ## Fase 1: Setup del Monorepo e Infraestructura Local
 
-- [ ] BLOG-001: Configurar `pnpm workspaces` para `apps/web` y `apps/admin`.
+- [x] BLOG-001: Configurar `pnpm workspaces` para `apps/web` y `apps/admin`. ([#10](https://github.com/HuitziDomingo/personal-blog/pull/10))
 - [x] BLOG-002: Crear `go.mod` en `services/api`. ([#5](https://github.com/HuitziDomingo/personal-blog/pull/5))
 - [ ] BLOG-003: Crear el `Makefile` raíz con comandos `dev`, `test`, `build` y `lint`.
 - [x] BLOG-004: Crear `docker-compose.yml` para MongoDB local (`mongo:8.0`) en el puerto 27017. ([#6](https://github.com/HuitziDomingo/personal-blog/pull/6))
@@ -37,6 +37,10 @@
 - [ ] BLOG-020: Implementar pruebas unitarias de componentes/servicios en Angular (`Vitest`).
 - [ ] BLOG-021: Agregar jobs admin y web a ci.yml con su filtro en el job changes (ADR-008).
 - [ ] BLOG-022: Configurar pipeline de despliegue de la API a GCP Cloud Run.
+
+## Por definir
+
+- Falta una tarea que cree `apps/web`; todavía no tiene ID.
 
 ## Fase futura (fuera del MVP)
 
