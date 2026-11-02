@@ -13,15 +13,16 @@
 ## Fase 2: Backend API (Go/Gin) & Autenticación
 
 - [x] BLOG-008: Definir estructuras de Dominio (`domain/user.go`, `domain/post.go`, `domain/errors.go`). ([#8](https://github.com/HuitziDomingo/personal-blog/pull/8))
-- [ ] BLOG-009: Implementar repositorio de MongoDB con el driver oficial `v2` (`go.mongodb.org/mongo-driver/v2`).
+- [ ] BLOG-009: Implementar repositorio de usuarios en MongoDB con el driver oficial `v2` (`go.mongodb.org/mongo-driver/v2`).
 - [x] BLOG-028: Conectar la API a MongoDB y crear endpoint `GET /ready`. ([#6](https://github.com/HuitziDomingo/personal-blog/pull/6))
 - [ ] BLOG-010: Bootstrap automático del admin al arrancar si `users` está vacía (ADR-005).
 - [x] BLOG-027: Escribir ADR-007: contrato de API. ([#9](https://github.com/HuitziDomingo/personal-blog/pull/9))
 - [x] BLOG-029: Escribir `docs/api/openapi.yaml` inicial: auth (login, refresh, logout) y posts. ([#11](https://github.com/HuitziDomingo/personal-blog/pull/11))
-- [ ] BLOG-013: Configurar generación con oapi-codegen (Go) y openapi-typescript (TS) con check de drift en CI.
+- [x] BLOG-013: Configurar generación con oapi-codegen (Go) y openapi-typescript (TS) con check de drift en CI. ([#12](https://github.com/HuitziDomingo/personal-blog/pull/12))
 - [ ] BLOG-030: Implementar handler propio de errores `application/problem+json` para el validador y los tres manejadores de strict-server (`RequestErrorHandlerFunc`, `HandlerErrorFunc`, `ResponseErrorHandlerFunc`).
 - [ ] BLOG-011: Crear endpoints de autenticación (`POST /api/v1/auth/login`, `POST /api/v1/auth/refresh`, `POST /api/v1/auth/logout`).
 - [ ] BLOG-012: Implementar middleware de JWT y almacenamiento en Cookie `HttpOnly`.
+- [ ] BLOG-032: Implementar `PostRepository` en MongoDB, junto con el CRUD de posts.
 - [ ] BLOG-014: Crear colección de pruebas en Bruno (vía MCP).
 
 ## Fase 3: Dashboard de Administración (Angular + Spartan UI)
@@ -41,6 +42,7 @@
 ## Por definir
 
 - Falta una tarea que cree `apps/web`; todavía no tiene ID.
+- Falta una tarea para los endpoints del CRUD de posts; todavía no tiene ID.
 
 ## Fase futura (fuera del MVP)
 
