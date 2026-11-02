@@ -7,12 +7,16 @@ import (
 	"fmt"
 	"time"
 
+	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
 	"go.mongodb.org/mongo-driver/v2/mongo/readpref"
 )
 
-const connectTimeout = 5 * time.Second
+const (
+	connectTimeout = 5 * time.Second
+	indexTimeout   = 10 * time.Second
+)
 
 // Client es la conexión a una base de datos de MongoDB.
 type Client struct {
@@ -42,6 +46,24 @@ func Connect(ctx context.Context, uri, dbName string) (*Client, error) {
 func (c *Client) Ping(ctx context.Context) error {
 	if err := c.database.Client().Ping(ctx, readpref.Primary()); err != nil {
 		return fmt.Errorf("ping mongo: %w", err)
+	}
+
+	return nil
+}
+
+// EnsureIndexes crea los índices que necesita la API. MongoDB no hace nada si
+// un índice con la misma definición ya existe.
+func (c *Client) EnsureIndexes(ctx context.Context) error {
+	ctx, cancel := context.WithTimeout(ctx, indexTimeout)
+	defer cancel()
+
+	emailIndex := mongo.IndexModel{
+		Keys:    bson.D{{Key: "email", Value: 1}},
+		Options: options.Index().SetUnique(true),
+	}
+
+	if _, err := c.database.Collection(usersCollection).Indexes().CreateOne(ctx, emailIndex); err != nil {
+		return fmt.Errorf("create users email index: %w", err)
 	}
 
 	return nil

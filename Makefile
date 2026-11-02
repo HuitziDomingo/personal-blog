@@ -1,6 +1,6 @@
 API_DIR := services/api
 
-.PHONY: api-run api-test api-lint api-build generate db-up db-down db-logs db-reset
+.PHONY: api-run api-test api-test-integration api-lint api-build generate db-up db-down db-logs db-reset
 
 api-run:
 	@test -f .env || { echo "Falta .env: copia .env.example a .env"; exit 1; }
@@ -8,6 +8,10 @@ api-run:
 
 api-test:
 	cd $(API_DIR) && go test -race ./...
+
+api-test-integration: db-up
+	@test -f .env || { echo "Falta .env: copia .env.example a .env"; exit 1; }
+	@set -a && . ./.env && set +a && cd $(API_DIR) && MONGO_TEST_URI="$$MONGO_URI" go test -race -count=1 ./internal/repository/...
 
 api-lint:
 	cd $(API_DIR) && golangci-lint run ./...

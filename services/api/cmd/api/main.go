@@ -50,6 +50,10 @@ func run() error {
 		return fmt.Errorf("connect to database: %w", err)
 	}
 
+	if err := client.EnsureIndexes(ctx); err != nil {
+		return errors.Join(fmt.Errorf("ensure indexes: %w", err), client.Disconnect(ctx))
+	}
+
 	server := &http.Server{
 		Addr:              net.JoinHostPort("", cfg.Port),
 		Handler:           handler.NewRouter(client),

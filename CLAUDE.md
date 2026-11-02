@@ -24,6 +24,7 @@ No inventes comandos. Cuando exista uno real, sustituye su TODO.
 - Borrar los datos de MongoDB local: `make db-reset` (pide confirmación)
 - Levantar la API: `make api-run`
 - Tests de Go: `make api-test`
+- Tests de integración de Go: `make api-test-integration` (levanta MongoDB con docker compose)
 - Tests de front: TODO
 - E2E: TODO
 - Lint y análisis de Go: `make api-lint`
