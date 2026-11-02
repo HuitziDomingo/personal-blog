@@ -38,6 +38,7 @@
 - [ ] BLOG-020: Implementar pruebas unitarias de componentes/servicios en Angular (`Vitest`).
 - [ ] BLOG-021: Agregar jobs admin y web a ci.yml con su filtro en el job changes (ADR-008).
 - [ ] BLOG-022: Configurar pipeline de despliegue de la API a GCP Cloud Run.
+- [ ] BLOG-031: Revisar las 3 vulnerabilidades de `govulncheck` en módulos requeridos.
 
 ## Por definir
 
