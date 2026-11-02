@@ -17,7 +17,7 @@ Ver [ADR-001](docs/adr/001-stack-y-monorepo.md).
 
 No inventes comandos. Cuando exista uno real, sustituye su TODO.
 
-- Instalar dependencias: TODO
+- Instalar dependencias: `pnpm install`
 - Levantar entorno local: `cp .env.example .env` y `make db-up`
 - Parar MongoDB local: `make db-down` (conserva los datos)
 - Ver logs de MongoDB local: `make db-logs`
