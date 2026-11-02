@@ -86,6 +86,7 @@ Ubicación: [docs/roadmap.md](docs/roadmap.md).
 
 - Cada PR referencia el ID de la tarea.
 - Marca una tarea con `[x]` SOLO cuando su PR esté mergeado a `main`, y pon el link del PR al lado. Nunca por CI verde ni por PR abierto.
+- Al empezar cada tarea, marca en su rama las tareas cuyo PR ya está mergeado en main, con el link del PR.
 
 ## Obsidian
 
