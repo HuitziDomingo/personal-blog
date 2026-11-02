@@ -1,5 +1,5 @@
 # ADR-005: Contrato de API, Autenticación JWT y Seguridad
-* Estado: Aprobado
+* Estado: Aprobado — contrato de API decidido en ADR-007
 * Fecha: 2026-10-31
 * Autor: León Nieves Huitzitzili Domingo
 
