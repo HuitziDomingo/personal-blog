@@ -3,6 +3,7 @@ package handler
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 
@@ -44,19 +45,21 @@ func routeNotFound(c *gin.Context) {
 	writeProblem(c, http.StatusNotFound, "")
 }
 
-// validationError responde a los rechazos del validador del contrato.
-func validationError(c *gin.Context, message string, status int) {
-	writeProblem(c, status, message)
+// recovered responde a los panic que llegan a la recuperación de Gin.
+func recovered(c *gin.Context, value any) {
+	internalError(c, fmt.Errorf("panic: %v", value))
 }
 
 // bindError responde a los parámetros que no se pueden convertir a su tipo.
 func bindError(c *gin.Context, err error, status int) {
-	writeProblem(c, status, err.Error())
+	slog.WarnContext(c.Request.Context(), "invalid parameter", "error", err)
+	writeProblem(c, status, detailInvalidParameter)
 }
 
 // requestError responde a los cuerpos que strict-server no puede decodificar.
 func requestError(c *gin.Context, err error) {
-	writeProblem(c, http.StatusBadRequest, err.Error())
+	slog.WarnContext(c.Request.Context(), "invalid request body", "error", err)
+	writeProblem(c, http.StatusBadRequest, detailInvalidBody)
 }
 
 // handlerError responde a los errores que devuelven las operaciones.

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/getkin/kin-openapi/openapi3"
+	"github.com/getkin/kin-openapi/openapi3filter"
 	"github.com/gin-gonic/gin"
 	ginmiddleware "github.com/oapi-codegen/gin-middleware"
 
@@ -24,13 +25,16 @@ type Pinger interface {
 // NewRouter crea el router HTTP con las rutas de la API. spec debe venir de
 // LoadSpec: el validador hace panic si no puede construir su router.
 func NewRouter(pinger Pinger, spec *openapi3.T) *gin.Engine {
-	router := gin.Default()
+	router := gin.New()
+	router.Use(gin.Logger(), gin.CustomRecovery(recovered))
 	router.NoRoute(routeNotFound)
 	router.GET("/health", health)
 	router.GET("/ready", ready(pinger))
 
 	validator := ginmiddleware.OapiRequestValidatorWithOptions(spec, &ginmiddleware.Options{
-		ErrorHandler: validationError,
+		ErrorHandler:      validationError,
+		MultiErrorHandler: describeViolations,
+		Options:           openapi3filter.Options{MultiError: true},
 	})
 	server := gen.NewStrictHandlerWithOptions(unimplementedServer{}, nil, gen.StrictGinServerOptions{
 		RequestErrorHandlerFunc:  requestError,

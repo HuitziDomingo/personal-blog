@@ -44,6 +44,12 @@ func requireProblem(t *testing.T, response *httptest.ResponseRecorder, status in
 	assert.EqualValues(t, status, *problem.Status)
 	assert.Equal(t, http.StatusText(status), *problem.Title)
 
+	if problem.Detail != nil {
+		for _, internal := range []string{"openapi3filter", "Go struct", "json:"} {
+			assert.NotContains(t, *problem.Detail, internal)
+		}
+	}
+
 	return problem
 }
 
@@ -54,14 +60,18 @@ func TestContractRoutesRespondWithProblems(t *testing.T) {
 		path   string
 		body   string
 		status int
+		detail string
 	}{
-		{name: "query out of range", method: http.MethodGet, path: "/api/v1/posts?limit=500", status: http.StatusBadRequest},
-		{name: "query with wrong type", method: http.MethodGet, path: "/api/v1/posts?limit=abc", status: http.StatusBadRequest},
-		{name: "path against schema", method: http.MethodGet, path: "/api/v1/posts/Not_A_Slug", status: http.StatusBadRequest},
-		{name: "body against schema", method: http.MethodPost, path: "/api/v1/auth/login", body: `{"email":"a@b.co","password":""}`, status: http.StatusBadRequest},
-		{name: "body rejected when decoded", method: http.MethodPost, path: "/api/v1/auth/login", body: `{"email":"nope","password":"x"}`, status: http.StatusBadRequest},
-		{name: "malformed body", method: http.MethodPost, path: "/api/v1/auth/login", body: `{`, status: http.StatusBadRequest},
-		{name: "protected route until authentication exists", method: http.MethodGet, path: "/api/v1/admin/posts", status: http.StatusBadRequest},
+		{name: "query out of range", method: http.MethodGet, path: "/api/v1/posts?limit=500", status: http.StatusBadRequest, detail: "limit: number must be at most 100"},
+		{name: "query with wrong type", method: http.MethodGet, path: "/api/v1/posts?limit=abc", status: http.StatusBadRequest, detail: "limit: " + detailInvalidParameter},
+		{name: "path against schema", method: http.MethodGet, path: "/api/v1/posts/Not_A_Slug", status: http.StatusBadRequest, detail: `slug: string doesn't match the regular expression "^[a-z0-9]+(-[a-z0-9]+)*$"`},
+		{name: "body against schema", method: http.MethodPost, path: "/api/v1/auth/login", body: `{"email":"a@b.co","password":""}`, status: http.StatusBadRequest, detail: "password: minimum string length is 1"},
+		{name: "body with several violations", method: http.MethodPost, path: "/api/v1/auth/login", body: `{"email":1,"password":""}`, status: http.StatusBadRequest, detail: "email: value must be a string; password: minimum string length is 1"},
+		{name: "body with wrong type", method: http.MethodPost, path: "/api/v1/auth/login", body: `{"email":"a@b.co","password":12345}`, status: http.StatusBadRequest, detail: "password: value must be a string"},
+		{name: "body with missing field", method: http.MethodPost, path: "/api/v1/auth/login", body: `{"email":"a@b.co"}`, status: http.StatusBadRequest, detail: `password: property "password" is missing`},
+		{name: "body rejected when decoded", method: http.MethodPost, path: "/api/v1/auth/login", body: `{"email":"nope","password":"x"}`, status: http.StatusBadRequest, detail: detailInvalidBody},
+		{name: "malformed body", method: http.MethodPost, path: "/api/v1/auth/login", body: `{`, status: http.StatusBadRequest, detail: detailInvalidBody},
+		{name: "protected route until authentication exists", method: http.MethodGet, path: "/api/v1/admin/posts", status: http.StatusBadRequest, detail: detailInvalidRequest},
 		{name: "unknown route", method: http.MethodGet, path: "/api/v1/nope", status: http.StatusNotFound},
 		{name: "unsupported method", method: http.MethodDelete, path: "/api/v1/posts", status: http.StatusNotFound},
 		{name: "valid request without implementation", method: http.MethodPost, path: "/api/v1/auth/login", body: `{"email":"a@b.co","password":"x"}`, status: http.StatusNotImplemented},
@@ -78,7 +88,15 @@ func TestContractRoutesRespondWithProblems(t *testing.T) {
 
 			router.ServeHTTP(response, request)
 
-			requireProblem(t, response, tt.status)
+			problem := requireProblem(t, response, tt.status)
+			if tt.detail == "" {
+				assert.Nil(t, problem.Detail)
+
+				return
+			}
+
+			require.NotNil(t, problem.Detail)
+			assert.Equal(t, tt.detail, *problem.Detail)
 		})
 	}
 }
@@ -106,6 +124,7 @@ func TestOperationalRoutesSkipContractValidation(t *testing.T) {
 
 func TestErrorHandlers(t *testing.T) {
 	sensitive := errors.New("mongodb://root:secret@host")
+	decoding := errors.New("json: cannot unmarshal number into Go struct field LoginRequest.password of type string")
 
 	tests := []struct {
 		name   string
@@ -114,22 +133,30 @@ func TestErrorHandlers(t *testing.T) {
 		detail string
 	}{
 		{
-			name:   "parameter binding keeps the reason",
-			handle: func(c *gin.Context) { bindError(c, errors.New("bad parameter"), http.StatusBadRequest) },
+			name:   "parameter binding hides the cause",
+			handle: func(c *gin.Context) { bindError(c, decoding, http.StatusBadRequest) },
 			status: http.StatusBadRequest,
-			detail: "bad parameter",
+			detail: detailInvalidParameter,
 		},
 		{
-			name:   "request decoding keeps the reason",
-			handle: func(c *gin.Context) { requestError(c, errors.New("bad body")) },
+			name:   "request decoding hides the cause",
+			handle: func(c *gin.Context) { requestError(c, decoding) },
 			status: http.StatusBadRequest,
-			detail: "bad body",
+			detail: detailInvalidBody,
 		},
 		{
-			name:   "validator keeps its status",
-			handle: func(c *gin.Context) { validationError(c, "no matching operation", http.StatusNotFound) },
-			status: http.StatusNotFound,
-			detail: "no matching operation",
+			name:   "validator keeps a described violation",
+			handle: func(c *gin.Context) { validationError(c, violationPrefix+"limit: too large", http.StatusBadRequest) },
+			status: http.StatusBadRequest,
+			detail: "limit: too large",
+		},
+		{
+			name: "validator hides any other message",
+			handle: func(c *gin.Context) {
+				validationError(c, "error in openapi3filter.RequestError: secret", http.StatusBadRequest)
+			},
+			status: http.StatusBadRequest,
+			detail: detailInvalidRequest,
 		},
 		{
 			name:   "operation without implementation",
@@ -170,6 +197,17 @@ func TestErrorHandlers(t *testing.T) {
 			assert.Equal(t, tt.detail, *problem.Detail)
 		})
 	}
+}
+
+func TestPanicRespondsWithProblem(t *testing.T) {
+	router := newContractRouter(t)
+	router.GET("/panic", func(*gin.Context) { panic("secret") })
+
+	response := get(router, "/panic")
+
+	problem := requireProblem(t, response, http.StatusInternalServerError)
+	assert.Nil(t, problem.Detail)
+	assert.NotContains(t, response.Body.String(), "secret")
 }
 
 func TestResponseErrorKeepsResponseAlreadyStarted(t *testing.T) {
