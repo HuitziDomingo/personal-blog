@@ -4,7 +4,7 @@ CMS y blog técnico sobre orquestación de agentes de IA para `huitzi.xyz`.
 
 ## Estructura
 
-Estructura planeada según el [ADR-001](docs/adr/001-stack-y-monorepo.md). Por ahora solo existe `docs/`.
+Estructura planeada según el [ADR-001](docs/adr/001-stack-y-monorepo.md). `apps/` todavía no existe.
 
 ```text
 personal-blog/
@@ -15,6 +15,10 @@ personal-blog/
 │   └── api/        # API: Go + Gin
 └── docs/           # Documentación técnica, ADRs y contratos de API
 ```
+
+## Desarrollo
+
+Cómo levantar y probar el proyecto: [docs/development.md](docs/development.md).
 
 ## Decisiones
 
