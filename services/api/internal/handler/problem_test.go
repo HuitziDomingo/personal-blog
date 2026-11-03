@@ -91,6 +91,7 @@ func TestContractRoutesRespondWithProblems(t *testing.T) {
 		{name: "body rejected when decoded", method: http.MethodPost, path: "/api/v1/auth/login", body: `{"email":"nope","password":"x"}`, status: http.StatusBadRequest, detail: detailInvalidBody},
 		{name: "malformed body", method: http.MethodPost, path: "/api/v1/auth/login", body: `{`, status: http.StatusBadRequest, detail: "invalid request body"},
 		{name: "protected route until authentication exists", method: http.MethodGet, path: "/api/v1/admin/posts", status: http.StatusBadRequest, detail: "invalid request"},
+		{name: "current user until authentication exists", method: http.MethodGet, path: "/api/v1/auth/me", status: http.StatusBadRequest, detail: "invalid request"},
 		{name: "unknown route", method: http.MethodGet, path: "/api/v1/nope", status: http.StatusNotFound},
 		{name: "unsupported method", method: http.MethodDelete, path: "/api/v1/posts", status: http.StatusNotFound},
 		{name: "valid request without implementation", method: http.MethodPost, path: "/api/v1/auth/login", body: `{"email":"a@b.co","password":"x"}`, status: http.StatusNotImplemented},

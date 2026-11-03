@@ -66,6 +66,10 @@ func (c *Client) EnsureIndexes(ctx context.Context) error {
 		return fmt.Errorf("create users email index: %w", err)
 	}
 
+	if _, err := c.database.Collection(refreshTokensCollection).Indexes().CreateMany(ctx, refreshTokenIndexes()); err != nil {
+		return fmt.Errorf("create refresh token indexes: %w", err)
+	}
+
 	return nil
 }
 
