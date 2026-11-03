@@ -25,19 +25,22 @@
 - [ ] BLOG-035: Declarar el `maximum` de paginación en `openapi.yaml` (ADR-010): `limit` ya lo tiene, falta `offset`.
 - [x] BLOG-039: Implementar CORS con allowlist de orígenes (ADR-005 y ADR-010). ([#24](https://github.com/HuitziDomingo/personal-blog/pull/24))
 - [x] BLOG-040: Cachear durante 5 segundos el ping a MongoDB de `GET /ready` (ADR-011). ([#24](https://github.com/HuitziDomingo/personal-blog/pull/24))
-- [ ] BLOG-011: Crear endpoints de autenticación (`POST /api/v1/auth/login`, `POST /api/v1/auth/refresh`, `POST /api/v1/auth/logout`), con límite de intentos fallidos por email en el login (ADR-010).
-- [ ] BLOG-044: Agregar GET /api/v1/auth/me al contrato y a la API (ADR-012).
-- [ ] BLOG-012: Implementar middleware de JWT y almacenamiento en Cookie `HttpOnly`.
+- [x] BLOG-011: Crear endpoints de autenticación (`POST /api/v1/auth/login`, `POST /api/v1/auth/refresh`, `POST /api/v1/auth/logout`), con límite de intentos fallidos por email en el login (ADR-010). ([#29](https://github.com/HuitziDomingo/personal-blog/pull/29))
+- [x] BLOG-044: Agregar GET /api/v1/auth/me al contrato y a la API (ADR-012). ([#29](https://github.com/HuitziDomingo/personal-blog/pull/29))
+- [x] BLOG-012: Implementar middleware de JWT y almacenamiento en Cookie `HttpOnly`. ([#29](https://github.com/HuitziDomingo/personal-blog/pull/29))
 - [ ] BLOG-032: Implementar `PostRepository` en MongoDB, junto con el CRUD de posts.
 - [ ] BLOG-014: Crear colección de pruebas en Bruno (vía MCP).
 
 ## Fase 3: Dashboard de Administración (Angular + Spartan UI)
 
-- [ ] BLOG-015: Configurar proyecto Angular en `apps/admin` con Tailwind CSS y Spartan UI.
+- [ ] BLOG-015: Configurar proyecto Angular en `apps/admin` con Tailwind CSS y Spartan UI, según ADR-012.
 - [ ] BLOG-016: Crear servicio de Autenticación y `AuthGuard` para rutas protegidas.
+- [ ] BLOG-045: Interceptor de credenciales y refresh single-flight con tests (ADR-012).
 - [ ] BLOG-017: Diseñar layout principal con estilo Liquid Glass / Glassmorphism.
 - [ ] BLOG-018: Crear vista de gestión y creación de posts (Editor Markdown).
 - [ ] BLOG-036: Sanitizar el Markdown de los posts al renderizar en `apps/web` y `apps/admin`, con allowlist (ADR-010).
+- [ ] BLOG-046: CSP y cabeceras del admin en Vercel (ADR-012).
+- [ ] BLOG-047: Configurar admin.huitzi.xyz en Vercel y DNS en DreamHost.
 
 ## Fase 4: Testing & CI/CD Pipeline
 
