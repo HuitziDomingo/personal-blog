@@ -56,15 +56,23 @@ func run() error {
 		return errors.Join(fmt.Errorf("ensure indexes: %w", err), client.Disconnect(ctx))
 	}
 
-	bootstrap := service.NewAdminBootstrap(mongodb.NewUserRepository(client), slog.Default())
+	users := mongodb.NewUserRepository(client)
+
+	bootstrap := service.NewAdminBootstrap(users, slog.Default())
 	if err := bootstrap.Run(ctx, cfg.InitialAdminEmail, cfg.InitialAdminPassword); err != nil {
 		return errors.Join(fmt.Errorf("bootstrap admin: %w", err), client.Disconnect(ctx))
+	}
+
+	sessions, err := newSessions(cfg, client, users)
+	if err != nil {
+		return errors.Join(err, client.Disconnect(ctx))
 	}
 
 	routerConfig := handler.RouterConfig{
 		AllowedOrigins: cfg.AllowedOrigins,
 		MaxBodyBytes:   cfg.MaxBodyBytes,
 		TrustedProxies: cfg.TrustedProxies,
+		Sessions:       sessions,
 		RateLimits: handler.RateLimits{
 			Global:  handler.RateLimit(cfg.GlobalRateLimit),
 			Login:   handler.RateLimit(cfg.LoginRateLimit),
@@ -101,6 +109,21 @@ func run() error {
 	slog.Info("api shutting down")
 
 	return shutdown(server, client)
+}
+
+// newSessions arma el login y la sesión sobre MongoDB.
+func newSessions(cfg config.Config, client *mongodb.Client, users *mongodb.UserRepository) (*service.AuthService, error) {
+	tokens, err := service.NewTokenService(cfg.JWTSecret, mongodb.NewRefreshTokenRepository(client), users, time.Now)
+	if err != nil {
+		return nil, fmt.Errorf("create token service: %w", err)
+	}
+
+	sessions, err := service.NewAuthService(users, tokens, time.Now)
+	if err != nil {
+		return nil, fmt.Errorf("create auth service: %w", err)
+	}
+
+	return sessions, nil
 }
 
 // shutdown cierra el servidor y después la base de datos, para que las

@@ -3,6 +3,7 @@ package handler
 import (
 	"errors"
 	"log/slog"
+	"net/http"
 	"strings"
 
 	"github.com/getkin/kin-openapi/openapi3"
@@ -19,11 +20,24 @@ const (
 	// solo entrega un string a su ErrorHandler; lo que no lleve la marca no llega
 	// al cliente.
 	violationPrefix = "contract violation: "
+
+	// unauthenticatedMarker es lo que describeViolations devuelve si falló la
+	// seguridad de la operación; validationError lo convierte en 401.
+	unauthenticatedMarker = "contract violation: unauthenticated"
 )
 
 // describeViolations convierte los errores tipados del validador en un motivo
 // legible, con el campo y la regla que fallaron.
 func describeViolations(violations openapi3.MultiError) error {
+	// Sin credenciales válidas no se informa de otros errores: el 401 va antes
+	// que el 400.
+	for _, violation := range violations {
+		var security *openapi3filter.SecurityRequirementsError
+		if errors.As(violation, &security) {
+			return errors.New(unauthenticatedMarker)
+		}
+	}
+
 	reasons := violationReasons(violations, "", detailInvalidRequest)
 
 	return errors.New(violationPrefix + strings.Join(reasons, "; "))
@@ -67,6 +81,12 @@ func withField(field, reason string) string {
 
 // validationError responde a los rechazos del validador del contrato.
 func validationError(c *gin.Context, message string, status int) {
+	if message == unauthenticatedMarker {
+		writeProblem(c, http.StatusUnauthorized, errUnauthenticated.Error())
+
+		return
+	}
+
 	detail, ok := strings.CutPrefix(message, violationPrefix)
 	if !ok {
 		slog.WarnContext(c.Request.Context(), "request rejected", "error", message)

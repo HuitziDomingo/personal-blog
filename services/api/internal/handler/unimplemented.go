@@ -7,10 +7,8 @@ import (
 )
 
 // unimplementedServer responde 501 en las operaciones del contrato que aún no
-// tienen implementación.
+// tienen implementación. server lo embebe.
 type unimplementedServer struct{}
-
-var _ gen.StrictServerInterface = unimplementedServer{}
 
 func (unimplementedServer) ListPosts(context.Context, gen.ListPostsRequestObject) (gen.ListPostsResponseObject, error) {
 	return nil, errNotImplemented
@@ -32,26 +30,10 @@ func (unimplementedServer) UpdatePost(context.Context, gen.UpdatePostRequestObje
 	return nil, errNotImplemented
 }
 
-func (unimplementedServer) Login(context.Context, gen.LoginRequestObject) (gen.LoginResponseObject, error) {
-	return nil, errNotImplemented
-}
-
-func (unimplementedServer) Logout(context.Context, gen.LogoutRequestObject) (gen.LogoutResponseObject, error) {
-	return nil, errNotImplemented
-}
-
-func (unimplementedServer) RefreshSession(context.Context, gen.RefreshSessionRequestObject) (gen.RefreshSessionResponseObject, error) {
-	return nil, errNotImplemented
-}
-
 func (unimplementedServer) ListPublishedPosts(context.Context, gen.ListPublishedPostsRequestObject) (gen.ListPublishedPostsResponseObject, error) {
 	return nil, errNotImplemented
 }
 
 func (unimplementedServer) GetPublishedPost(context.Context, gen.GetPublishedPostRequestObject) (gen.GetPublishedPostResponseObject, error) {
-	return nil, errNotImplemented
-}
-
-func (unimplementedServer) GetCurrentUser(context.Context, gen.GetCurrentUserRequestObject) (gen.GetCurrentUserResponseObject, error) {
 	return nil, errNotImplemented
 }

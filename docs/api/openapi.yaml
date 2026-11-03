@@ -75,17 +75,17 @@ paths:
     post:
       tags: [auth]
       operationId: logout
-      summary: Revoca el token de refresco y borra las cookies.
-      security:
-        - refreshCookie: []
+      summary: Revoca el token de refresco, si llega, y borra las cookies.
+      description: >-
+        No exige cookie: sin ella, o con un token desconocido, también responde
+        204 y borra las cookies.
+      security: []
       responses:
         "204":
           description: Sesión cerrada.
           headers:
             Set-Cookie:
               $ref: "#/components/headers/SessionCookies"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
         "403":
           $ref: "#/components/responses/Forbidden"
         "429":
@@ -414,7 +414,7 @@ components:
           schema:
             $ref: "#/components/schemas/Problem"
     TooManyRequests:
-      description: Se superó el límite de peticiones de la IP.
+      description: Se superó el límite de peticiones de la IP, o el de logins fallidos del email.
       headers:
         Retry-After:
           description: Segundos que faltan para el siguiente intento.

@@ -18,4 +18,7 @@ var (
 	// ErrTokenReused indica que llegó un refresh token ya rotado o revocado:
 	// alguien más tiene una copia, así que se revoca toda su familia.
 	ErrTokenReused = errors.New("refresh token reused")
+
+	// ErrTooManyAttempts indica que un email agotó sus logins fallidos.
+	ErrTooManyAttempts = errors.New("too many login attempts")
 )
