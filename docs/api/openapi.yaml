@@ -40,6 +40,10 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "413":
+          $ref: "#/components/responses/PayloadTooLarge"
         "429":
           $ref: "#/components/responses/TooManyRequests"
         default:
@@ -60,6 +64,8 @@ paths:
               $ref: "#/components/headers/SessionCookies"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
         default:
           $ref: "#/components/responses/UnexpectedError"
 
@@ -78,6 +84,8 @@ paths:
               $ref: "#/components/headers/SessionCookies"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
         default:
           $ref: "#/components/responses/UnexpectedError"
 
@@ -184,6 +192,8 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "409":
           $ref: "#/components/responses/Conflict"
+        "413":
+          $ref: "#/components/responses/PayloadTooLarge"
         default:
           $ref: "#/components/responses/UnexpectedError"
 
@@ -246,6 +256,8 @@ paths:
           $ref: "#/components/responses/NotFound"
         "409":
           $ref: "#/components/responses/Conflict"
+        "413":
+          $ref: "#/components/responses/PayloadTooLarge"
         default:
           $ref: "#/components/responses/UnexpectedError"
     delete:
@@ -339,7 +351,7 @@ components:
           schema:
             $ref: "#/components/schemas/Problem"
     Forbidden:
-      description: Las credenciales son válidas, pero no dan permiso.
+      description: Las credenciales no dan permiso, o el Origin está fuera de la allowlist.
       content:
         application/problem+json:
           schema:
@@ -352,6 +364,12 @@ components:
             $ref: "#/components/schemas/Problem"
     Conflict:
       description: El slug ya está en uso.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+    PayloadTooLarge:
+      description: El cuerpo supera el tamaño máximo.
       content:
         application/problem+json:
           schema:

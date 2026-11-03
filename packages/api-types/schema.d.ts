@@ -251,7 +251,7 @@ export interface components {
                 "application/problem+json": components["schemas"]["Problem"];
             };
         };
-        /** @description Las credenciales son válidas, pero no dan permiso. */
+        /** @description Las credenciales no dan permiso, o el Origin está fuera de la allowlist. */
         Forbidden: {
             headers: {
                 [name: string]: unknown;
@@ -271,6 +271,15 @@ export interface components {
         };
         /** @description El slug ya está en uso. */
         Conflict: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["Problem"];
+            };
+        };
+        /** @description El cuerpo supera el tamaño máximo. */
+        PayloadTooLarge: {
             headers: {
                 [name: string]: unknown;
             };
@@ -341,6 +350,8 @@ export interface operations {
             };
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            413: components["responses"]["PayloadTooLarge"];
             429: components["responses"]["TooManyRequests"];
             default: components["responses"]["UnexpectedError"];
         };
@@ -363,6 +374,7 @@ export interface operations {
                 content?: never;
             };
             401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
             default: components["responses"]["UnexpectedError"];
         };
     };
@@ -384,6 +396,7 @@ export interface operations {
                 content?: never;
             };
             401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
             default: components["responses"]["UnexpectedError"];
         };
     };
@@ -501,6 +514,7 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             409: components["responses"]["Conflict"];
+            413: components["responses"]["PayloadTooLarge"];
             default: components["responses"]["UnexpectedError"];
         };
     };
@@ -561,6 +575,7 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+            413: components["responses"]["PayloadTooLarge"];
             default: components["responses"]["UnexpectedError"];
         };
     };

@@ -48,6 +48,56 @@ func TestLoadAllowsMissingInitialAdmin(t *testing.T) {
 	assert.Empty(t, cfg.InitialAdminPassword)
 }
 
+func TestLoadParsesAllowedOrigins(t *testing.T) {
+	setRequiredEnv(t)
+	t.Setenv("ALLOWED_ORIGINS", " https://huitzi.xyz, ,http://localhost:4200 ")
+
+	cfg, err := Load()
+
+	require.NoError(t, err)
+	assert.Equal(t, []string{"https://huitzi.xyz", "http://localhost:4200"}, cfg.AllowedOrigins)
+}
+
+func TestLoadRejectsInvalidAllowedOrigins(t *testing.T) {
+	for _, origin := range []string{"*", "https://*.huitzi.xyz", "https://huitzi.xyz/", "https://huitzi.xyz/admin", "huitzi.xyz", "ftp://huitzi.xyz"} {
+		t.Run(origin, func(t *testing.T) {
+			setRequiredEnv(t)
+			t.Setenv("ALLOWED_ORIGINS", origin)
+
+			_, err := Load()
+
+			require.ErrorContains(t, err, "invalid ALLOWED_ORIGINS")
+		})
+	}
+}
+
+func TestLoadMaxBodyBytes(t *testing.T) {
+	setRequiredEnv(t)
+
+	t.Setenv("MAX_BODY_BYTES", "")
+	cfg, err := Load()
+	require.NoError(t, err)
+	assert.EqualValues(t, 1048576, cfg.MaxBodyBytes)
+
+	t.Setenv("MAX_BODY_BYTES", "2048")
+	cfg, err = Load()
+	require.NoError(t, err)
+	assert.EqualValues(t, 2048, cfg.MaxBodyBytes)
+}
+
+func TestLoadRejectsInvalidMaxBodyBytes(t *testing.T) {
+	for _, value := range []string{"0", "-1", "abc"} {
+		t.Run(value, func(t *testing.T) {
+			setRequiredEnv(t)
+			t.Setenv("MAX_BODY_BYTES", value)
+
+			_, err := Load()
+
+			require.ErrorContains(t, err, "invalid MAX_BODY_BYTES")
+		})
+	}
+}
+
 func TestLoadFailsWhenRequiredVariableIsMissing(t *testing.T) {
 	for _, key := range []string{"MONGO_URI", "MONGO_DB_NAME"} {
 		t.Run(key, func(t *testing.T) {
