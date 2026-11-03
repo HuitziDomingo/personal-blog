@@ -6,13 +6,22 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 
+	"github.com/HuitziDomingo/personal-blog/services/api/internal/domain"
 	"github.com/HuitziDomingo/personal-blog/services/api/internal/handler/gen"
+	"github.com/HuitziDomingo/personal-blog/services/api/internal/service"
 )
 
-const problemContentType = "application/problem+json"
+const (
+	problemContentType = "application/problem+json"
+
+	detailLoginFailed     = "invalid credentials"
+	detailInvalidSession  = "invalid or expired session"
+	detailTooManyAttempts = "too many login attempts"
+)
 
 // errNotImplemented marca las operaciones del contrato que aún no existen.
 var errNotImplemented = errors.New("operation not implemented")
@@ -63,14 +72,34 @@ func requestError(c *gin.Context, err error) {
 }
 
 // handlerError responde a los errores que devuelven las operaciones.
+// Los errores del login y la sesión se traducen a 401 o 429 sin decir el
+// motivo concreto.
 func handlerError(c *gin.Context, err error) {
-	if errors.Is(err, errNotImplemented) {
+	var tooMany *service.TooManyAttemptsError
+
+	switch {
+	case errors.Is(err, errNotImplemented):
 		writeProblem(c, http.StatusNotImplemented, "")
-
-		return
+	case errors.As(err, &tooMany):
+		c.Header("Retry-After", strconv.Itoa(retryAfterSeconds(tooMany.RetryAfter)))
+		writeProblem(c, http.StatusTooManyRequests, detailTooManyAttempts)
+	case errors.Is(err, domain.ErrInvalidCredentials):
+		writeProblem(c, http.StatusUnauthorized, detailLoginFailed)
+	case errors.Is(err, domain.ErrTokenReused):
+		// Sin datos del usuario ni del token: solo deja constancia del evento.
+		slog.WarnContext(c.Request.Context(), "refresh token reuse detected, session family revoked")
+		invalidSession(c)
+	case errors.Is(err, domain.ErrInvalidToken):
+		invalidSession(c)
+	default:
+		internalError(c, err)
 	}
+}
 
-	internalError(c, err)
+// invalidSession borra las cookies de una sesión que ya no vale y responde 401.
+func invalidSession(c *gin.Context) {
+	addCookies(c.Writer, clearedCookies())
+	writeProblem(c, http.StatusUnauthorized, detailInvalidSession)
 }
 
 // responseError responde a los fallos al serializar una respuesta.

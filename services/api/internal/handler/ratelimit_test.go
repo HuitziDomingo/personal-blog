@@ -170,7 +170,7 @@ func TestLoginRateLimit(t *testing.T) {
 	first := send(router, http.MethodPost, loginPath, loginBody, nil)
 	second := send(router, http.MethodPost, loginPath, loginBody, nil)
 
-	assert.Equal(t, http.StatusNotImplemented, first.Code)
+	assert.Equal(t, http.StatusUnauthorized, first.Code)
 	requireProblem(t, second, http.StatusTooManyRequests)
 	assert.Equal(t, "12", second.Header().Get("Retry-After"))
 	assert.Equal(t, "no-store", second.Header().Get("Cache-Control"))

@@ -3,6 +3,7 @@ package handler
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"time"
@@ -27,15 +28,25 @@ type RouterConfig struct {
 	RateLimits     RateLimits
 	// TrustedProxies es el rango del par directo; vacío, la IP es la del socket.
 	TrustedProxies []string
+	// Sessions implementa el login y la sesión; es obligatorio.
+	Sessions Sessions
 }
 
 // NewRouter crea el router HTTP con las rutas de la API. spec debe venir de
 // LoadSpec: el validador hace panic si no puede construir su router.
 //
 // Orden de la cadena: logger → recovery → cabeceras → CORS/Origin → rate limit
-// → límite de cuerpo → validador del contrato → handlers.
+// → límite de cuerpo → lectura de la sesión → validador del contrato → handlers.
 func NewRouter(pinger Pinger, spec *openapi3.T, cfg RouterConfig) (*gin.Engine, error) {
+	if cfg.Sessions == nil {
+		return nil, errors.New("router needs sessions")
+	}
+
 	router := gin.New()
+	// strict-server pasa el *gin.Context como context.Context a los handlers.
+	// Con esto, Value, Done y Deadline consultan también el de la petición, que
+	// es donde readSession deja los claims.
+	router.ContextWithFallback = true
 	if err := configureClientIP(router, cfg.TrustedProxies); err != nil {
 		return nil, err
 	}
@@ -55,14 +66,17 @@ func NewRouter(pinger Pinger, spec *openapi3.T, cfg RouterConfig) (*gin.Engine, 
 	validator := ginmiddleware.OapiRequestValidatorWithOptions(spec, &ginmiddleware.Options{
 		ErrorHandler:      validationError,
 		MultiErrorHandler: describeViolations,
-		Options:           openapi3filter.Options{MultiError: true},
+		Options: openapi3filter.Options{
+			MultiError:         true,
+			AuthenticationFunc: authenticateRequest,
+		},
 	})
-	server := gen.NewStrictHandlerWithOptions(unimplementedServer{}, nil, gen.StrictGinServerOptions{
+	handlers := gen.NewStrictHandlerWithOptions(server{sessions: cfg.Sessions}, nil, gen.StrictGinServerOptions{
 		RequestErrorHandlerFunc:  requestError,
 		HandlerErrorFunc:         handlerError,
 		ResponseErrorHandlerFunc: responseError,
 	})
-	gen.RegisterHandlersWithOptions(router.Group("/", validator), server, gen.GinServerOptions{
+	gen.RegisterHandlersWithOptions(router.Group("/", readSession(cfg.Sessions), validator), handlers, gen.GinServerOptions{
 		ErrorHandler: bindError,
 	})
 

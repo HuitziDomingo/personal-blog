@@ -105,7 +105,8 @@ func TestBodyLimit(t *testing.T) {
 	t.Run("body stays readable below the limit", func(t *testing.T) {
 		response := send(router, http.MethodPost, loginPath, loginBody, nil)
 
-		requireProblem(t, response, http.StatusNotImplemented)
+		problem := requireProblem(t, response, http.StatusUnauthorized)
+		assert.Equal(t, detailLoginFailed, *problem.Detail, "the handler decoded the body")
 	})
 }
 

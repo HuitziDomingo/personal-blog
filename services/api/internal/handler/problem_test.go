@@ -29,6 +29,7 @@ func testRouterConfig() RouterConfig {
 		AllowedOrigins: []string{testOrigin},
 		MaxBodyBytes:   testMaxBodyBytes,
 		RateLimits:     RateLimits{Global: generous, Login: generous, Refresh: generous},
+		Sessions:       newFakeSessions(),
 	}
 }
 
@@ -90,11 +91,13 @@ func TestContractRoutesRespondWithProblems(t *testing.T) {
 		{name: "body with missing field", method: http.MethodPost, path: "/api/v1/auth/login", body: `{"email":"a@b.co"}`, status: http.StatusBadRequest, detail: `password: property "password" is missing`},
 		{name: "body rejected when decoded", method: http.MethodPost, path: "/api/v1/auth/login", body: `{"email":"nope","password":"x"}`, status: http.StatusBadRequest, detail: detailInvalidBody},
 		{name: "malformed body", method: http.MethodPost, path: "/api/v1/auth/login", body: `{`, status: http.StatusBadRequest, detail: "invalid request body"},
-		{name: "protected route until authentication exists", method: http.MethodGet, path: "/api/v1/admin/posts", status: http.StatusBadRequest, detail: "invalid request"},
-		{name: "current user until authentication exists", method: http.MethodGet, path: "/api/v1/auth/me", status: http.StatusBadRequest, detail: "invalid request"},
+		{name: "protected route without session", method: http.MethodGet, path: "/api/v1/admin/posts", status: http.StatusUnauthorized, detail: "authentication required"},
+		{name: "current user without session", method: http.MethodGet, path: "/api/v1/auth/me", status: http.StatusUnauthorized, detail: "authentication required"},
+		{name: "refresh without cookie", method: http.MethodPost, path: "/api/v1/auth/refresh", status: http.StatusUnauthorized, detail: "authentication required"},
+		{name: "authentication before body", method: http.MethodPost, path: "/api/v1/admin/posts", body: `{"title":1}`, status: http.StatusUnauthorized, detail: "authentication required"},
 		{name: "unknown route", method: http.MethodGet, path: "/api/v1/nope", status: http.StatusNotFound},
 		{name: "unsupported method", method: http.MethodDelete, path: "/api/v1/posts", status: http.StatusNotFound},
-		{name: "valid request without implementation", method: http.MethodPost, path: "/api/v1/auth/login", body: `{"email":"a@b.co","password":"x"}`, status: http.StatusNotImplemented},
+		{name: "valid request reaches the handler", method: http.MethodPost, path: "/api/v1/auth/login", body: `{"email":"a@b.co","password":"x"}`, status: http.StatusUnauthorized, detail: "invalid credentials"},
 		{name: "public route without implementation", method: http.MethodGet, path: "/api/v1/posts/hello-world", status: http.StatusNotImplemented},
 	}
 

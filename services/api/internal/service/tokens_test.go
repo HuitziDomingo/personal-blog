@@ -113,11 +113,13 @@ func (f *fakeRefreshTokens) activeInFamily(familyID string) int {
 	return active
 }
 
-// fakeUsersByID solo implementa GetByID.
+// fakeUsersByID solo implementa las lecturas. err, si no es nil, lo devuelve
+// GetByEmail.
 type fakeUsersByID struct {
 	domain.UserRepository
 
 	users map[string]*domain.User
+	err   error
 }
 
 func (f fakeUsersByID) GetByID(_ context.Context, id string) (*domain.User, error) {

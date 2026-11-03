@@ -154,6 +154,27 @@ El código generado nunca se edita a mano.
 
 Pendiente. `apps/web` y `apps/admin` todavía no existen.
 
+## Probar el login con curl
+
+Necesitas un administrador: define `INITIAL_ADMIN_EMAIL` e `INITIAL_ADMIN_PASSWORD` en `.env` antes del primer arranque. Las cookies llevan `Secure`, pero curl las guarda y las envía igual en `http://localhost`. `-c` guarda las cookies en un archivo y `-b` las envía.
+
+Para no dejar la contraseña en el historial del shell, ponla en un archivo JSON fuera del repo, por ejemplo `~/login.json`, con `{"email":"...","password":"..."}`:
+
+```sh
+curl -c cookies.txt -H 'Content-Type: application/json' -d @$HOME/login.json localhost:8080/api/v1/auth/login
+curl -b cookies.txt localhost:8080/api/v1/auth/me
+curl -b cookies.txt -c cookies.txt -X POST localhost:8080/api/v1/auth/refresh
+curl -b cookies.txt -c cookies.txt -X POST localhost:8080/api/v1/auth/logout
+rm cookies.txt
+```
+
+- Login devuelve el usuario y dos cookies: `access_token`, de 15 minutos, y `refresh_token`, de 7 días, que solo se envía a `/api/v1/auth`.
+- Refresh responde 204 y rota las dos cookies. Si se usa un refresh token ya rotado, responde 401 y revoca la sesión.
+- Logout responde 204 y borra las cookies, haya sesión o no.
+- Tras 5 logins fallidos con un email en 15 minutos, el siguiente responde 429 con `Retry-After`. Un login correcto reinicia la cuenta. Para desbloquear en local, reinicia la API: el contador está en memoria.
+
+`cookies.txt` contiene tokens válidos: no lo subas a git y bórralo al terminar.
+
 ## Troubleshooting
 
 ### MongoDB no arranca: `Linux kernel versions 6.19 and newer`

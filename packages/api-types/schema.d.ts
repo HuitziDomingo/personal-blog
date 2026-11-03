@@ -47,7 +47,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Revoca el token de refresco y borra las cookies. */
+        /**
+         * Revoca el token de refresco, si llega, y borra las cookies.
+         * @description No exige cookie: sin ella, o con un token desconocido, también responde 204 y borra las cookies.
+         */
         post: operations["logout"];
         delete?: never;
         options?: never;
@@ -304,7 +307,7 @@ export interface components {
                 "application/problem+json": components["schemas"]["Problem"];
             };
         };
-        /** @description Se superó el límite de peticiones de la IP. */
+        /** @description Se superó el límite de peticiones de la IP, o el de logins fallidos del email. */
         TooManyRequests: {
             headers: {
                 /** @description Segundos que faltan para el siguiente intento. */
@@ -415,7 +418,6 @@ export interface operations {
                 };
                 content?: never;
             };
-            401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             429: components["responses"]["TooManyRequests"];
             default: components["responses"]["UnexpectedError"];
