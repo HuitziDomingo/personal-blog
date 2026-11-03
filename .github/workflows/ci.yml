@@ -93,6 +93,9 @@ jobs:
       - name: govulncheck
         run: go run golang.org/x/vuln/cmd/govulncheck@v1.9.0 ./...
 
+      - name: docker build
+        run: docker build -t personal-blog-api .
+
   ci:
     name: ci
     needs: [changes, api]

@@ -41,6 +41,7 @@
 - [ ] BLOG-019: Implementar pruebas unitarias en Go para servicios y handlers (`testify` + mocks).
 - [ ] BLOG-020: Implementar pruebas unitarias de componentes/servicios en Angular (`Vitest`).
 - [ ] BLOG-021: Agregar jobs admin y web a ci.yml con su filtro en el job changes (ADR-008).
+- [ ] BLOG-037: Crear el `Dockerfile` multi-stage de la API y compilarlo en CI, sin publicar la imagen (ADR-004).
 - [ ] BLOG-022: Configurar pipeline de despliegue de la API a GCP Cloud Run.
 - [ ] BLOG-031: Revisar las 3 vulnerabilidades de `govulncheck` en módulos requeridos.
 - [ ] BLOG-033: Volver el job api a ubuntu-latest cuando su kernel sea compatible con MongoDB 8 (SERVER-121912).
