@@ -51,3 +51,7 @@ func (unimplementedServer) ListPublishedPosts(context.Context, gen.ListPublished
 func (unimplementedServer) GetPublishedPost(context.Context, gen.GetPublishedPostRequestObject) (gen.GetPublishedPostResponseObject, error) {
 	return nil, errNotImplemented
 }
+
+func (unimplementedServer) GetCurrentUser(context.Context, gen.GetCurrentUserRequestObject) (gen.GetCurrentUserResponseObject, error) {
+	return nil, errNotImplemented
+}
