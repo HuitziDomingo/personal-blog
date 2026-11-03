@@ -16,6 +16,7 @@ import (
 	"github.com/HuitziDomingo/personal-blog/services/api/internal/config"
 	"github.com/HuitziDomingo/personal-blog/services/api/internal/handler"
 	"github.com/HuitziDomingo/personal-blog/services/api/internal/repository/mongodb"
+	"github.com/HuitziDomingo/personal-blog/services/api/internal/service"
 )
 
 const (
@@ -53,6 +54,11 @@ func run() error {
 
 	if err := client.EnsureIndexes(ctx); err != nil {
 		return errors.Join(fmt.Errorf("ensure indexes: %w", err), client.Disconnect(ctx))
+	}
+
+	bootstrap := service.NewAdminBootstrap(mongodb.NewUserRepository(client), slog.Default())
+	if err := bootstrap.Run(ctx, cfg.InitialAdminEmail, cfg.InitialAdminPassword); err != nil {
+		return errors.Join(fmt.Errorf("bootstrap admin: %w", err), client.Disconnect(ctx))
 	}
 
 	server := &http.Server{
