@@ -11,9 +11,9 @@ import (
 )
 
 const (
-	detailInvalidParameter = "parámetro inválido"
-	detailInvalidBody      = "cuerpo de la petición inválido"
-	detailInvalidRequest   = "petición inválida"
+	detailInvalidParameter = "invalid parameter"
+	detailInvalidBody      = "invalid request body"
+	detailInvalidRequest   = "invalid request"
 
 	// violationPrefix marca el texto creado por describeViolations. El validador
 	// solo entrega un string a su ErrorHandler; lo que no lleve la marca no llega
