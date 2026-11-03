@@ -24,6 +24,30 @@ func TestLoadReadsMongoConfig(t *testing.T) {
 	assert.Equal(t, "blog_test", cfg.MongoDBName)
 }
 
+func TestLoadReadsOptionalInitialAdmin(t *testing.T) {
+	setRequiredEnv(t)
+	t.Setenv("INITIAL_ADMIN_EMAIL", "admin@huitzi.xyz")
+	t.Setenv("INITIAL_ADMIN_PASSWORD", "correct-horse-battery")
+
+	cfg, err := Load()
+
+	require.NoError(t, err)
+	assert.Equal(t, "admin@huitzi.xyz", cfg.InitialAdminEmail)
+	assert.Equal(t, "correct-horse-battery", cfg.InitialAdminPassword)
+}
+
+func TestLoadAllowsMissingInitialAdmin(t *testing.T) {
+	setRequiredEnv(t)
+	t.Setenv("INITIAL_ADMIN_EMAIL", "")
+	t.Setenv("INITIAL_ADMIN_PASSWORD", "")
+
+	cfg, err := Load()
+
+	require.NoError(t, err)
+	assert.Empty(t, cfg.InitialAdminEmail)
+	assert.Empty(t, cfg.InitialAdminPassword)
+}
+
 func TestLoadFailsWhenRequiredVariableIsMissing(t *testing.T) {
 	for _, key := range []string{"MONGO_URI", "MONGO_DB_NAME"} {
 		t.Run(key, func(t *testing.T) {

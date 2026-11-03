@@ -14,6 +14,10 @@ type Config struct {
 	Port        string
 	MongoURI    string
 	MongoDBName string
+
+	// Opcionales: solo se usan para crear el administrador inicial.
+	InitialAdminEmail    string
+	InitialAdminPassword string
 }
 
 // Load lee la configuración del entorno y devuelve un error si no es válida.
@@ -33,7 +37,13 @@ func Load() (Config, error) {
 		return Config{}, err
 	}
 
-	return Config{Port: port, MongoURI: mongoURI, MongoDBName: mongoDBName}, nil
+	return Config{
+		Port:                 port,
+		MongoURI:             mongoURI,
+		MongoDBName:          mongoDBName,
+		InitialAdminEmail:    os.Getenv("INITIAL_ADMIN_EMAIL"),
+		InitialAdminPassword: os.Getenv("INITIAL_ADMIN_PASSWORD"),
+	}, nil
 }
 
 func loadPort() (string, error) {
