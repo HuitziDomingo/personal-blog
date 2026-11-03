@@ -1,0 +1,7 @@
+variables:
+  - name: baseUrl
+    value: http://localhost:8080
+  - secret: true
+    name: adminEmail
+  - secret: true
+    name: adminPassword

@@ -29,7 +29,7 @@
 - [x] BLOG-044: Agregar GET /api/v1/auth/me al contrato y a la API (ADR-012). ([#29](https://github.com/HuitziDomingo/personal-blog/pull/29))
 - [x] BLOG-012: Implementar middleware de JWT y almacenamiento en Cookie `HttpOnly`. ([#29](https://github.com/HuitziDomingo/personal-blog/pull/29))
 - [ ] BLOG-032: Implementar `PostRepository` en MongoDB, junto con el CRUD de posts.
-- [ ] BLOG-014: Crear colección de pruebas en Bruno (vía MCP).
+- [ ] BLOG-014: Crear colección de pruebas en Bruno, generada desde el contrato con el CLI de Bruno, con flujos manuales.
 
 ## Fase 3: Dashboard de Administración (Angular + Spartan UI)
 
@@ -54,6 +54,7 @@
 - [x] BLOG-042: Configurar Dependabot con version updates semanales (ADR-010). ([#22](https://github.com/HuitziDomingo/personal-blog/pull/22))
 - [ ] BLOG-043: Activar JavaScript/TypeScript en CodeQL (Settings → Advanced Security) cuando se mergee el primer código de apps/admin o apps/web.
 - [ ] BLOG-033: Volver el job api a ubuntu-latest cuando su kernel sea compatible con MongoDB 8 (SERVER-121912).
+- [ ] BLOG-048: ADR de política de dependencias: edad mínima de versiones con pnpm minimumReleaseAge y cooldown en Dependabot.
 
 ## Por definir
 

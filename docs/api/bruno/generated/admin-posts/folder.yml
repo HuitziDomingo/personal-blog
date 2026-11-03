@@ -1,0 +1,10 @@
+info:
+  name: admin-posts
+  type: folder
+
+request:
+  auth: inherit
+
+docs:
+  content: Gestión de posts desde el dashboard.
+  type: text/markdown

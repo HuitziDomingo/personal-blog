@@ -31,7 +31,9 @@ No inventes comandos. Cuando exista uno real, sustituye su TODO.
 - Lint y análisis de front: TODO
 - Build de la API: `make api-build`
 - Build de la imagen Docker de la API: `make api-docker-build`
-- Generar código del contrato: `make generate`
+- Generar código del contrato y la colección de Bruno: `make generate`
+- Ver el contrato en el navegador: `make api-docs`
+- Correr los flujos de Bruno contra la API local: `make api-flows`
 - Build de front: TODO
 
 ## Flujo
@@ -66,6 +68,7 @@ Ver [ADR-002](docs/adr/002-arquitectura-backend-y-autenticacion.md) y [ADR-006](
 
 Ver [ADR-007](docs/adr/007-contrato-api-spec-first-oapi-codegen.md).
 
+- Usa la skill `contrato-api`.
 - Todo cambio de la API empieza en `docs/api/openapi.yaml`.
 - El código en `handler/gen/` nunca se edita a mano.
 - `domain` no importa `gen`.

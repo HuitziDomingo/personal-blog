@@ -4,5 +4,8 @@
   "packageManager": "pnpm@10.20.0",
   "engines": {
     "node": ">=24 <25"
+  },
+  "devDependencies": {
+    "@usebruno/cli": "4.2.1"
   }
 }

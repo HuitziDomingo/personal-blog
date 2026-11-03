@@ -1,0 +1,19 @@
+opencollection: 1.0.0
+
+info:
+  name: huitzi.xyz API
+  version: "1"
+
+docs:
+  content: |-
+    Colección de Bruno de la API. Ver docs/development.md.
+
+    - generated/: se regenera desde docs/api/openapi.yaml con make generate. No se edita a mano.
+    - flows/: flujos escritos a mano, con aserciones. La regeneración no los toca.
+  type: text/markdown
+bundled: false
+extensions:
+  bruno:
+    ignore:
+      - node_modules
+      - .git

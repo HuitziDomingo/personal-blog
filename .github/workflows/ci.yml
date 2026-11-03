@@ -71,7 +71,14 @@ jobs:
           corepack enable
           pnpm install --frozen-lockfile
           make generate
-          git diff --exit-code
+          # porcelain también ve archivos nuevos sin rastrear, como una
+          # petición nueva de Bruno en docs/api/bruno/generated/.
+          if [ -n "$(git status --porcelain)" ]; then
+            git status --porcelain
+            git diff
+            echo "El código generado no coincide con docs/api/openapi.yaml: corre make generate."
+            exit 1
+          fi
 
       - name: go vet
         run: go vet ./...
