@@ -12,6 +12,29 @@ func setRequiredEnv(t *testing.T) {
 	t.Helper()
 	t.Setenv("MONGO_URI", "mongodb://localhost:27017")
 	t.Setenv("MONGO_DB_NAME", "blog_test")
+	t.Setenv("JWT_SECRET", testJWTSecret)
+}
+
+const testJWTSecret = "0123456789abcdef0123456789abcdef"
+
+func TestLoadReadsJWTSecret(t *testing.T) {
+	setRequiredEnv(t)
+
+	cfg, err := Load()
+
+	require.NoError(t, err)
+	assert.Equal(t, []byte(testJWTSecret), cfg.JWTSecret)
+}
+
+func TestLoadRejectsShortJWTSecret(t *testing.T) {
+	setRequiredEnv(t)
+	short := testJWTSecret[:MinJWTSecretBytes-1]
+	t.Setenv("JWT_SECRET", short)
+
+	_, err := Load()
+
+	require.EqualError(t, err, "invalid JWT_SECRET: must be at least 32 bytes")
+	assert.NotContains(t, err.Error(), short)
 }
 
 func TestLoadReadsMongoConfig(t *testing.T) {
@@ -166,7 +189,7 @@ func TestLoadRejectsInvalidTrustedProxies(t *testing.T) {
 }
 
 func TestLoadFailsWhenRequiredVariableIsMissing(t *testing.T) {
-	for _, key := range []string{"MONGO_URI", "MONGO_DB_NAME"} {
+	for _, key := range []string{"MONGO_URI", "MONGO_DB_NAME", "JWT_SECRET"} {
 		t.Run(key, func(t *testing.T) {
 			setRequiredEnv(t)
 			t.Setenv(key, "")

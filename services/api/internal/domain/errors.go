@@ -14,4 +14,8 @@ var (
 	ErrInvalidInput       = errors.New("invalid input")
 	ErrDuplicateEmail     = errors.New("email already exists")
 	ErrDuplicateSlug      = errors.New("slug already exists")
+
+	// ErrTokenReused indica que llegó un refresh token ya rotado o revocado:
+	// alguien más tiene una copia, así que se revoca toda su familia.
+	ErrTokenReused = errors.New("refresh token reused")
 )
