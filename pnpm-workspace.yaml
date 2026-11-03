@@ -6,3 +6,16 @@ packages:
 # (10080 minutos). Un parche de seguridad urgente va en
 # minimumReleaseAgeExclude, en su propio PR y con el motivo.
 minimumReleaseAge: 10080
+
+# Parches de seguridad de dependencias transitivas de tooling. Cada clave es el
+# rango vulnerable del advisory, así que el override deja de aplicar cuando el
+# padre trae una versión corregida. Se quitan cuando el padre los incluye.
+overrides:
+  # @angular/build 22.2.4 fija vite 8.3.0 (servidor de desarrollo). 8.3.5 es la
+  # que trae @angular/build 22.2.5, que aún no cumple los 7 días de ADR-013.
+  "vite@>=8.3.0 <8.3.3": 8.3.5
+  # @usebruno/cli 4.2.1 (y 4.3.0) fija axios 1.18.0, form-data 4.0.4 y
+  # js-yaml 4.3.1. 1.21.0 de axios aún no cumple los 7 días.
+  "axios@>=1.0.0 <1.20.0": 1.20.0
+  "form-data@>=4.0.0 <4.0.6": 4.0.6
+  "js-yaml@>=4.0.0 <4.3.2": 4.3.2
