@@ -25,7 +25,7 @@ No inventes comandos. Cuando exista uno real, sustituye su TODO.
 - Levantar la API: `make api-run`
 - Tests de Go: `make api-test`
 - Tests de integración de Go: `make api-test-integration` (levanta MongoDB con docker compose)
-- Tests de front: TODO
+- Tests del admin: `make admin-test`
 - E2E: TODO
 - Lint y análisis de Go: `make api-lint`
 - Lint y análisis de front: TODO
@@ -34,7 +34,8 @@ No inventes comandos. Cuando exista uno real, sustituye su TODO.
 - Generar código del contrato y la colección de Bruno: `make generate`
 - Ver el contrato en el navegador: `make api-docs`
 - Correr los flujos de Bruno contra la API local: `make api-flows`
-- Build de front: TODO
+- Levantar el admin: `make admin-dev`
+- Build del admin: `make admin-build`
 
 ## Flujo
 

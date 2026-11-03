@@ -105,6 +105,9 @@ Sin `INITIAL_ADMIN_EMAIL` e `INITIAL_ADMIN_PASSWORD`, la API registra un warning
 | `make api-test` | Corre los tests de Go con `-race`; los de integración se saltan |
 | `make api-test-integration` | Levanta MongoDB y corre los tests de `internal/repository` contra él |
 | `make api-lint` | Corre `golangci-lint` |
+| `make admin-dev` | Levanta el admin en `http://localhost:4200` |
+| `make admin-test` | Corre los tests del admin |
+| `make admin-build` | Build de producción del admin |
 | `make api-docs` | Muestra el contrato con Swagger UI en `http://localhost:8081` |
 | `make api-flows` | Corre los flujos de Bruno contra la API local |
 | `make api-build` | Compila el binario en `services/api/bin/api` |
@@ -154,7 +157,59 @@ El código generado nunca se edita a mano.
 
 ## Frontends
 
-Pendiente. `apps/web` y `apps/admin` todavía no existen.
+`apps/web` todavía no existe.
+
+### Admin (`apps/admin`)
+
+Angular 22 con Spartan UI y Tailwind 4, según [ADR-012](adr/012-arquitectura-del-admin-angular.md). Usa Node 24 (`nvm use`).
+
+```sh
+make admin-dev    # http://localhost:4200
+make admin-test   # Vitest con Testing Library
+make admin-build  # build de producción en apps/admin/dist/
+```
+
+El admin llama a la API en `http://localhost:8080`, otro origen, como en producción. `ALLOWED_ORIGINS` de `.env` debe incluir `http://localhost:4200`; ya viene así en `.env.example`.
+
+Estructura de `src/app/`:
+
+- `core/`: configuración, y más adelante sesión, interceptores y guards.
+- `features/`: una carpeta por pantalla, con carga diferida por ruta.
+- `shared/ui/`: componentes helm de Spartan, copiados al repo, y componentes propios.
+
+#### Agregar un componente de Spartan
+
+El CLI de Spartan no entra al repo porque depende de Nx (ADR-012). Los componentes helm se generan en un proyecto temporal y se copian:
+
+1. Fuera del repo, crea un proyecto Angular de la misma versión. `npm_config_before` aplica la edad mínima de ADR-013 también ahí; usa la fecha de hace 7 días:
+
+   ```sh
+   export npm_config_before=AAAA-MM-DD
+   npx @angular/cli@<versión de @angular/cli del admin> new spartan-tmp --style=css --ssr=false --skip-git --defaults --package-manager=npm
+   cd spartan-tmp
+   npm i -D --save-exact @spartan-ng/cli@<versión de @spartan-ng/brain del admin>
+   npm i --save-exact @spartan-ng/brain@<la misma versión>
+   ```
+
+2. Crea `components.json` para que el CLI no pregunte nada:
+
+   ```json
+   { "componentsPath": "libs/ui", "importAlias": "@spartan-ng/helm", "style": "vega" }
+   ```
+
+3. Genera el componente. Usa `--interactive=false` y `< /dev/null`, porque si el CLI quiere preguntar algo se queda esperando:
+
+   ```sh
+   npx ng g @spartan-ng/cli:ui <componente> --directory=libs/ui --interactive=false < /dev/null
+   ```
+
+4. Copia `libs/ui/<componente>` a `apps/admin/src/app/shared/ui/`, incluidos los componentes de los que depende (el CLI los genera también).
+5. Agrega el alias `@spartan-ng/helm/<componente>` en `apps/admin/tsconfig.json`.
+6. Si el componente importa un paquete nuevo, agrégalo a `apps/admin/package.json` con versión exacta, y justifícalo en el PR.
+7. Revisa el diff y borra el proyecto temporal.
+
+El tema se generó igual, con `ng g @spartan-ng/cli:ui-theme --theme=neutral`, y está en `apps/admin/src/styles.css`.
+
 
 ## Colección de Bruno
 
