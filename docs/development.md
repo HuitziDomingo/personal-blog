@@ -105,9 +105,11 @@ Sin `INITIAL_ADMIN_EMAIL` e `INITIAL_ADMIN_PASSWORD`, la API registra un warning
 | `make api-test` | Corre los tests de Go con `-race`; los de integración se saltan |
 | `make api-test-integration` | Levanta MongoDB y corre los tests de `internal/repository` contra él |
 | `make api-lint` | Corre `golangci-lint` |
+| `make api-docs` | Muestra el contrato con Swagger UI en `http://localhost:8081` |
+| `make api-flows` | Corre los flujos de Bruno contra la API local |
 | `make api-build` | Compila el binario en `services/api/bin/api` |
 | `make api-docker-build` | Construye la imagen `personal-blog-api` |
-| `make generate` | Regenera el código y los tipos del contrato |
+| `make generate` | Regenera el código, los tipos y la colección de Bruno del contrato |
 | `make db-up` | Levanta MongoDB y espera a que esté sano |
 | `make db-down` | Para MongoDB y conserva los datos |
 | `make db-logs` | Sigue los logs de MongoDB |
@@ -142,17 +144,45 @@ go run golang.org/x/vuln/cmd/govulncheck@v1.9.0 ./...
 
 ## Regenerar el contrato
 
-Todo cambio de la API empieza en `docs/api/openapi.yaml` ([ADR-007](adr/007-contrato-api-spec-first-oapi-codegen.md)).
+Todo cambio de la API empieza en `docs/api/openapi.yaml` ([ADR-007](adr/007-contrato-api-spec-first-oapi-codegen.md)). Claude Code sigue el procedimiento completo con la skill `contrato-api` (`.claude/skills/contrato-api/SKILL.md`).
 
 1. Edita `docs/api/openapi.yaml`.
-2. Ejecuta `make generate`, que actualiza `services/api/internal/handler/gen/` y `packages/api-types/`.
-3. Sube los archivos generados junto con el spec. CI falla si difieren.
+2. Ejecuta `make generate`, que actualiza `services/api/internal/handler/gen/`, `packages/api-types/` y `docs/api/bruno/generated/`.
+3. Sube los archivos generados junto con el spec, incluidos los nuevos. CI falla si difieren o si `make generate` crea o borra archivos.
 
 El código generado nunca se edita a mano.
 
 ## Frontends
 
 Pendiente. `apps/web` y `apps/admin` todavía no existen.
+
+## Colección de Bruno
+
+La colección está en `docs/api/bruno/`, en formato OpenCollection (YAML):
+
+- `generated/`: una petición por operación del contrato. `make generate` la regenera desde `docs/api/openapi.yaml` con el CLI de Bruno; no se edita a mano.
+- `flows/`: flujos escritos a mano, con aserciones. `flows/sesion/` recorre login, `/me`, refresh, logout y `/me` sin sesión.
+- `environments/local.yml`: `baseUrl` apunta a `http://localhost:8080`. `adminEmail` y `adminPassword` son variables secretas sin valor.
+
+Para usarla desde la app de Bruno, que se instala aparte, abre la carpeta `docs/api/bruno`, elige el environment `local` y escribe el email y la contraseña en sus variables secretas. Bruno los guarda en tu equipo, fuera de los archivos del repo.
+
+Desde la terminal, con la API levantada en otra:
+
+```sh
+make api-flows
+```
+
+Toma el email y la contraseña de `INITIAL_ADMIN_EMAIL` e `INITIAL_ADMIN_PASSWORD` de `.env` y se los pasa al CLI como variables, sin escribirlos en ningún archivo. Deben ser los del administrador que existe en tu base.
+
+El generador de Bruno convierte los esquemas de seguridad en cookie (`accessCookie`, `refreshCookie`) en una cabecera `access_token: {{apiKey}}`, no en una cookie. Las peticiones protegidas funcionan igual después del login, porque Bruno guarda las cookies de la respuesta y las reenvía; la API ignora esa cabecera de más. `generated/` se deja tal como sale del CLI.
+
+## Ver el contrato
+
+```sh
+make api-docs
+```
+
+Abre Swagger UI en `http://localhost:8081` con `docs/api/openapi.yaml`, servido desde Docker en solo lectura. Solo es para desarrollo: la API no sirve el contrato.
 
 ## Probar el login con curl
 

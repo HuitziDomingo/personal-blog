@@ -1,0 +1,32 @@
+info:
+  name: 3 Refresh
+  type: http
+  seq: 3
+
+http:
+  method: POST
+  url: "{{baseUrl}}/api/v1/auth/refresh"
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "204"
+  scripts:
+    - type: tests
+      code: |-
+        const cookies = [].concat(res.getHeader("set-cookie") || []);
+
+        test("rotates both cookies", function () {
+          const access = cookies.find((c) => c.startsWith("access_token="));
+          const refresh = cookies.find((c) => c.startsWith("refresh_token="));
+          expect(access).to.include("Max-Age=900");
+          expect(refresh).to.include("Max-Age=604800");
+        });
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: true

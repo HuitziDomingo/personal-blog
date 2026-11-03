@@ -1,0 +1,146 @@
+info:
+  name: Devuelve un post publicado por su slug
+  type: http
+  seq: 2
+  tags:
+    - posts
+
+http:
+  method: GET
+  url: "{{baseUrl}}/api/v1/posts/:slug"
+  params:
+    - name: slug
+      value: ""
+      type: path
+      description: Identificador del post en la URL.
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: true
+
+examples:
+  - name: 200 Response
+    description: Post publicado.
+    request:
+      url: "{{baseUrl}}/api/v1/posts/:slug"
+      method: GET
+      params:
+        - name: slug
+          value: ""
+          type: path
+          description: Identificador del post en la URL.
+    response:
+      status: 200
+      statusText: OK
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: ""
+  - name: 400 Response
+    description: La petición no cumple el contrato.
+    request:
+      url: "{{baseUrl}}/api/v1/posts/:slug"
+      method: GET
+      params:
+        - name: slug
+          value: ""
+          type: path
+          description: Identificador del post en la URL.
+    response:
+      status: 400
+      statusText: Bad Request
+      headers:
+        - name: Content-Type
+          value: application/problem+json
+      body:
+        type: json
+        data: |-
+          {
+            "type": "",
+            "title": "",
+            "status": 0,
+            "detail": "",
+            "instance": ""
+          }
+  - name: 404 Response
+    description: El recurso no existe.
+    request:
+      url: "{{baseUrl}}/api/v1/posts/:slug"
+      method: GET
+      params:
+        - name: slug
+          value: ""
+          type: path
+          description: Identificador del post en la URL.
+    response:
+      status: 404
+      statusText: Not Found
+      headers:
+        - name: Content-Type
+          value: application/problem+json
+      body:
+        type: json
+        data: |-
+          {
+            "type": "",
+            "title": "",
+            "status": 0,
+            "detail": "",
+            "instance": ""
+          }
+  - name: 429 Response
+    description: Se superó el límite de peticiones de la IP, o el de logins fallidos del email.
+    request:
+      url: "{{baseUrl}}/api/v1/posts/:slug"
+      method: GET
+      params:
+        - name: slug
+          value: ""
+          type: path
+          description: Identificador del post en la URL.
+    response:
+      status: 429
+      statusText: Too Many Requests
+      headers:
+        - name: Content-Type
+          value: application/problem+json
+      body:
+        type: json
+        data: |-
+          {
+            "type": "",
+            "title": "",
+            "status": 0,
+            "detail": "",
+            "instance": ""
+          }
+  - name: default Response
+    description: Error inesperado.
+    request:
+      url: "{{baseUrl}}/api/v1/posts/:slug"
+      method: GET
+      params:
+        - name: slug
+          value: ""
+          type: path
+          description: Identificador del post en la URL.
+    response:
+      headers:
+        - name: Content-Type
+          value: application/problem+json
+      body:
+        type: json
+        data: |-
+          {
+            "type": "",
+            "title": "",
+            "status": 0,
+            "detail": "",
+            "instance": ""
+          }

@@ -1,0 +1,10 @@
+info:
+  name: auth
+  type: folder
+
+request:
+  auth: inherit
+
+docs:
+  content: Sesión del administrador.
+  type: text/markdown

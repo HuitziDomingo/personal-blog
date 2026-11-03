@@ -1,0 +1,12 @@
+info:
+  name: sesion
+  type: folder
+
+request:
+  auth: inherit
+
+docs:
+  content: |-
+    Flujo completo de sesión: login, me, refresh, logout y me sin sesión.
+    Pide adminEmail y adminPassword, variables secretas del environment local.
+  type: text/markdown

@@ -1,0 +1,10 @@
+info:
+  name: posts
+  type: folder
+
+request:
+  auth: inherit
+
+docs:
+  content: Lectura pública de posts publicados.
+  type: text/markdown

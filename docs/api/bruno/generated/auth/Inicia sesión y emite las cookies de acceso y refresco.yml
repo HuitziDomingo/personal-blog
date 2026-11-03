@@ -1,0 +1,219 @@
+info:
+  name: Inicia sesión y emite las cookies de acceso y refresco
+  type: http
+  seq: 1
+  tags:
+    - auth
+
+http:
+  method: POST
+  url: "{{baseUrl}}/api/v1/auth/login"
+  body:
+    type: json
+    data: |-
+      {
+        "email": "",
+        "password": ""
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: true
+
+examples:
+  - name: 200 Response
+    description: Sesión iniciada.
+    request:
+      url: "{{baseUrl}}/api/v1/auth/login"
+      method: POST
+      body:
+        type: json
+        data: |-
+          {
+            "email": "",
+            "password": ""
+          }
+    response:
+      status: 200
+      statusText: OK
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "id": "",
+            "email": "",
+            "role": "admin"
+          }
+  - name: 400 Response
+    description: La petición no cumple el contrato.
+    request:
+      url: "{{baseUrl}}/api/v1/auth/login"
+      method: POST
+      body:
+        type: json
+        data: |-
+          {
+            "email": "",
+            "password": ""
+          }
+    response:
+      status: 400
+      statusText: Bad Request
+      headers:
+        - name: Content-Type
+          value: application/problem+json
+      body:
+        type: json
+        data: |-
+          {
+            "type": "",
+            "title": "",
+            "status": 0,
+            "detail": "",
+            "instance": ""
+          }
+  - name: 401 Response
+    description: Faltan credenciales o no son válidas.
+    request:
+      url: "{{baseUrl}}/api/v1/auth/login"
+      method: POST
+      body:
+        type: json
+        data: |-
+          {
+            "email": "",
+            "password": ""
+          }
+    response:
+      status: 401
+      statusText: Unauthorized
+      headers:
+        - name: Content-Type
+          value: application/problem+json
+      body:
+        type: json
+        data: |-
+          {
+            "type": "",
+            "title": "",
+            "status": 0,
+            "detail": "",
+            "instance": ""
+          }
+  - name: 403 Response
+    description: Las credenciales no dan permiso, o el Origin está fuera de la allowlist.
+    request:
+      url: "{{baseUrl}}/api/v1/auth/login"
+      method: POST
+      body:
+        type: json
+        data: |-
+          {
+            "email": "",
+            "password": ""
+          }
+    response:
+      status: 403
+      statusText: Forbidden
+      headers:
+        - name: Content-Type
+          value: application/problem+json
+      body:
+        type: json
+        data: |-
+          {
+            "type": "",
+            "title": "",
+            "status": 0,
+            "detail": "",
+            "instance": ""
+          }
+  - name: 413 Response
+    description: El cuerpo supera el tamaño máximo.
+    request:
+      url: "{{baseUrl}}/api/v1/auth/login"
+      method: POST
+      body:
+        type: json
+        data: |-
+          {
+            "email": "",
+            "password": ""
+          }
+    response:
+      status: 413
+      statusText: Payload Too Large
+      headers:
+        - name: Content-Type
+          value: application/problem+json
+      body:
+        type: json
+        data: |-
+          {
+            "type": "",
+            "title": "",
+            "status": 0,
+            "detail": "",
+            "instance": ""
+          }
+  - name: 429 Response
+    description: Se superó el límite de peticiones de la IP, o el de logins fallidos del email.
+    request:
+      url: "{{baseUrl}}/api/v1/auth/login"
+      method: POST
+      body:
+        type: json
+        data: |-
+          {
+            "email": "",
+            "password": ""
+          }
+    response:
+      status: 429
+      statusText: Too Many Requests
+      headers:
+        - name: Content-Type
+          value: application/problem+json
+      body:
+        type: json
+        data: |-
+          {
+            "type": "",
+            "title": "",
+            "status": 0,
+            "detail": "",
+            "instance": ""
+          }
+  - name: default Response
+    description: Error inesperado.
+    request:
+      url: "{{baseUrl}}/api/v1/auth/login"
+      method: POST
+      body:
+        type: json
+        data: |-
+          {
+            "email": "",
+            "password": ""
+          }
+    response:
+      headers:
+        - name: Content-Type
+          value: application/problem+json
+      body:
+        type: json
+        data: |-
+          {
+            "type": "",
+            "title": "",
+            "status": 0,
+            "detail": "",
+            "instance": ""
+          }
