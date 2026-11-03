@@ -18,6 +18,7 @@ jobs:
       pull-requests: read
     outputs:
       api: ${{ steps.filter.outputs.api }}
+      admin: ${{ steps.filter.outputs.admin }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -30,6 +31,16 @@ jobs:
               - "docs/api/**"
               - "packages/api-types/**"
               - "pnpm-lock.yaml"
+              - "Makefile"
+              - "scripts/**"
+              - ".github/workflows/ci.yml"
+            admin:
+              - "apps/admin/**"
+              - "packages/api-types/**"
+              - "package.json"
+              - "pnpm-lock.yaml"
+              - "pnpm-workspace.yaml"
+              - ".nvmrc"
               - ".github/workflows/ci.yml"
 
   api:
@@ -103,9 +114,38 @@ jobs:
       - name: docker build
         run: docker build -t personal-blog-api .
 
+  admin:
+    name: admin
+    needs: changes
+    if: needs.changes.outputs.admin == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+
+      - name: install
+        run: |
+          corepack enable
+          pnpm install --frozen-lockfile
+
+      # pnpm directo y no make: el filtro del job admin no incluye el Makefile
+      # (ADR-014).
+      - name: lint
+        run: pnpm --filter @personal-blog/admin lint
+
+      - name: test
+        run: pnpm --filter @personal-blog/admin test
+
+      # La configuración production falla si se superan los budgets de angular.json.
+      - name: build
+        run: pnpm --filter @personal-blog/admin build
+
   ci:
     name: ci
-    needs: [changes, api]
+    needs: [changes, api, admin]
     if: always()
     runs-on: ubuntu-latest
     steps:

@@ -1,5 +1,5 @@
 # ADR-008: CI con Detección de Cambios y Job Puerta
-* Estado: Aprobado — parcialmente reemplazado por ADR-009
+* Estado: Aprobado — parcialmente reemplazado por ADR-009, complementado por ADR-014
 * Fecha: 2026-11-01
 * Autor: León Nieves Huitzitzili Domingo
 * Reemplaza: ADR-004 (punto de CI/CD)
