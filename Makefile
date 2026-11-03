@@ -2,7 +2,7 @@ API_DIR := services/api
 # Swagger UI para ver el contrato en local; fijada por tag y digest.
 SWAGGER_UI_IMAGE := swaggerapi/swagger-ui:v5.33.3@sha256:b26661cd754a7efbb2e1aab419ffb5603320d8f35f0bd086d1d7506e23934d23
 
-.PHONY: api-run api-test api-test-integration api-lint api-build api-docker-build api-docs api-flows generate db-up db-down db-logs db-reset
+.PHONY: admin-dev admin-test admin-build api-run api-test api-test-integration api-lint api-build api-docker-build api-docs api-flows generate db-up db-down db-logs db-reset
 
 api-run:
 	@test -f .env || { echo "Falta .env: copia .env.example a .env"; exit 1; }
@@ -35,6 +35,15 @@ api-flows:
 		test -n "$$INITIAL_ADMIN_EMAIL" && test -n "$$INITIAL_ADMIN_PASSWORD" || { echo "Faltan INITIAL_ADMIN_EMAIL e INITIAL_ADMIN_PASSWORD en .env"; exit 1; }; \
 		cd docs/api/bruno && "$(CURDIR)/node_modules/.bin/bru" run flows -r --env local \
 		--env-var "adminEmail=$$INITIAL_ADMIN_EMAIL" --env-var "adminPassword=$$INITIAL_ADMIN_PASSWORD"
+
+admin-dev:
+	pnpm --filter @personal-blog/admin start
+
+admin-test:
+	pnpm --filter @personal-blog/admin test
+
+admin-build:
+	pnpm --filter @personal-blog/admin build
 
 generate:
 	cd $(API_DIR) && go tool oapi-codegen -config oapi-codegen.yaml ../../docs/api/openapi.yaml
