@@ -21,16 +21,27 @@ const (
 	testMaxBodyBytes = 1024
 )
 
+// testRouterConfig usa límites altos: solo los tests de rate limit los alcanzan.
+func testRouterConfig() RouterConfig {
+	generous := RateLimit{PerMinute: 10000, Burst: 10000}
+
+	return RouterConfig{
+		AllowedOrigins: []string{testOrigin},
+		MaxBodyBytes:   testMaxBodyBytes,
+		RateLimits:     RateLimits{Global: generous, Login: generous, Refresh: generous},
+	}
+}
+
 func newTestRouter(t *testing.T, pinger Pinger) *gin.Engine {
 	t.Helper()
 
 	spec, err := LoadSpec(context.Background())
 	require.NoError(t, err)
 
-	return NewRouter(pinger, spec, RouterConfig{
-		AllowedOrigins: []string{testOrigin},
-		MaxBodyBytes:   testMaxBodyBytes,
-	})
+	router, err := NewRouter(pinger, spec, testRouterConfig())
+	require.NoError(t, err)
+
+	return router
 }
 
 func newContractRouter(t *testing.T) *gin.Engine {

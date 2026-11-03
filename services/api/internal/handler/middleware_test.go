@@ -13,7 +13,6 @@ import (
 )
 
 const (
-	loginPath = "/api/v1/auth/login"
 	loginBody = `{"email":"a@b.co","password":"x"}`
 	badOrigin = "https://evil.example"
 )

@@ -23,8 +23,8 @@
 - [x] BLOG-030: Implementar handler propio de errores `application/problem+json` para el validador y los tres manejadores de strict-server (`RequestErrorHandlerFunc`, `HandlerErrorFunc`, `ResponseErrorHandlerFunc`). ([#14](https://github.com/HuitziDomingo/personal-blog/pull/14))
 - [ ] BLOG-034: Implementar el middleware de seguridad de ADR-010: rate limit global y de auth, cabeceras, `MaxBytesReader`, proxies confiables y verificación de `Origin`.
 - [ ] BLOG-035: Declarar el `maximum` de paginación en `openapi.yaml` (ADR-010): `limit` ya lo tiene, falta `offset`.
-- [ ] BLOG-039: Implementar CORS con allowlist de orígenes (ADR-005 y ADR-010).
-- [ ] BLOG-040: Cachear durante 5 segundos el ping a MongoDB de `GET /ready` (ADR-011).
+- [x] BLOG-039: Implementar CORS con allowlist de orígenes (ADR-005 y ADR-010). ([#24](https://github.com/HuitziDomingo/personal-blog/pull/24))
+- [x] BLOG-040: Cachear durante 5 segundos el ping a MongoDB de `GET /ready` (ADR-011). ([#24](https://github.com/HuitziDomingo/personal-blog/pull/24))
 - [ ] BLOG-011: Crear endpoints de autenticación (`POST /api/v1/auth/login`, `POST /api/v1/auth/refresh`, `POST /api/v1/auth/logout`), con límite de intentos fallidos por email en el login (ADR-010).
 - [ ] BLOG-012: Implementar middleware de JWT y almacenamiento en Cookie `HttpOnly`.
 - [ ] BLOG-032: Implementar `PostRepository` en MongoDB, junto con el CRUD de posts.

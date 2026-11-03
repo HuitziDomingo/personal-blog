@@ -98,6 +98,73 @@ func TestLoadRejectsInvalidMaxBodyBytes(t *testing.T) {
 	}
 }
 
+func TestLoadRateLimitDefaults(t *testing.T) {
+	setRequiredEnv(t)
+
+	cfg, err := Load()
+
+	require.NoError(t, err)
+	assert.Equal(t, RateLimit{PerMinute: 60, Burst: 20}, cfg.GlobalRateLimit)
+	assert.Equal(t, RateLimit{PerMinute: 5, Burst: 5}, cfg.LoginRateLimit)
+	assert.Equal(t, RateLimit{PerMinute: 10, Burst: 10}, cfg.RefreshRateLimit)
+	assert.Empty(t, cfg.TrustedProxies)
+}
+
+func TestLoadRateLimitOverrides(t *testing.T) {
+	setRequiredEnv(t)
+	t.Setenv("RATE_LIMIT_GLOBAL_PER_MINUTE", "120")
+	t.Setenv("RATE_LIMIT_GLOBAL_BURST", "40")
+	t.Setenv("RATE_LIMIT_LOGIN_PER_MINUTE", "3")
+	t.Setenv("RATE_LIMIT_LOGIN_BURST", "2")
+	t.Setenv("RATE_LIMIT_REFRESH_PER_MINUTE", "20")
+	t.Setenv("RATE_LIMIT_REFRESH_BURST", "4")
+
+	cfg, err := Load()
+
+	require.NoError(t, err)
+	assert.Equal(t, RateLimit{PerMinute: 120, Burst: 40}, cfg.GlobalRateLimit)
+	assert.Equal(t, RateLimit{PerMinute: 3, Burst: 2}, cfg.LoginRateLimit)
+	assert.Equal(t, RateLimit{PerMinute: 20, Burst: 4}, cfg.RefreshRateLimit)
+}
+
+func TestLoadRejectsInvalidRateLimits(t *testing.T) {
+	for _, key := range []string{"RATE_LIMIT_GLOBAL_PER_MINUTE", "RATE_LIMIT_LOGIN_BURST", "RATE_LIMIT_REFRESH_PER_MINUTE"} {
+		for _, value := range []string{"0", "-5", "many"} {
+			t.Run(key+"="+value, func(t *testing.T) {
+				setRequiredEnv(t)
+				t.Setenv(key, value)
+
+				_, err := Load()
+
+				require.ErrorContains(t, err, "invalid "+key)
+			})
+		}
+	}
+}
+
+func TestLoadTrustedProxies(t *testing.T) {
+	setRequiredEnv(t)
+	t.Setenv("TRUSTED_PROXIES", " 169.254.0.0/16, ,10.0.0.1 ")
+
+	cfg, err := Load()
+
+	require.NoError(t, err)
+	assert.Equal(t, []string{"169.254.0.0/16", "10.0.0.1"}, cfg.TrustedProxies)
+}
+
+func TestLoadRejectsInvalidTrustedProxies(t *testing.T) {
+	for _, proxy := range []string{"0.0.0.0/0", "::/0", "not-an-ip", "10.0.0.0/33"} {
+		t.Run(proxy, func(t *testing.T) {
+			setRequiredEnv(t)
+			t.Setenv("TRUSTED_PROXIES", proxy)
+
+			_, err := Load()
+
+			require.ErrorContains(t, err, "invalid TRUSTED_PROXIES")
+		})
+	}
+}
+
 func TestLoadFailsWhenRequiredVariableIsMissing(t *testing.T) {
 	for _, key := range []string{"MONGO_URI", "MONGO_DB_NAME"} {
 		t.Run(key, func(t *testing.T) {

@@ -287,9 +287,11 @@ export interface components {
                 "application/problem+json": components["schemas"]["Problem"];
             };
         };
-        /** @description Se superó el límite de intentos. */
+        /** @description Se superó el límite de peticiones de la IP. */
         TooManyRequests: {
             headers: {
+                /** @description Segundos que faltan para el siguiente intento. */
+                "Retry-After"?: number;
                 [name: string]: unknown;
             };
             content: {
@@ -375,6 +377,7 @@ export interface operations {
             };
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
+            429: components["responses"]["TooManyRequests"];
             default: components["responses"]["UnexpectedError"];
         };
     };
@@ -397,6 +400,7 @@ export interface operations {
             };
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
+            429: components["responses"]["TooManyRequests"];
             default: components["responses"]["UnexpectedError"];
         };
     };
@@ -426,6 +430,7 @@ export interface operations {
                 };
             };
             400: components["responses"]["BadRequest"];
+            429: components["responses"]["TooManyRequests"];
             default: components["responses"]["UnexpectedError"];
         };
     };
@@ -452,6 +457,7 @@ export interface operations {
             };
             400: components["responses"]["BadRequest"];
             404: components["responses"]["NotFound"];
+            429: components["responses"]["TooManyRequests"];
             default: components["responses"]["UnexpectedError"];
         };
     };
@@ -485,6 +491,7 @@ export interface operations {
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
+            429: components["responses"]["TooManyRequests"];
             default: components["responses"]["UnexpectedError"];
         };
     };
@@ -515,6 +522,7 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             409: components["responses"]["Conflict"];
             413: components["responses"]["PayloadTooLarge"];
+            429: components["responses"]["TooManyRequests"];
             default: components["responses"]["UnexpectedError"];
         };
     };
@@ -542,6 +550,7 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+            429: components["responses"]["TooManyRequests"];
             default: components["responses"]["UnexpectedError"];
         };
     };
@@ -576,6 +585,7 @@ export interface operations {
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
             413: components["responses"]["PayloadTooLarge"];
+            429: components["responses"]["TooManyRequests"];
             default: components["responses"]["UnexpectedError"];
         };
     };
@@ -601,6 +611,7 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+            429: components["responses"]["TooManyRequests"];
             default: components["responses"]["UnexpectedError"];
         };
     };

@@ -3,6 +3,7 @@ package config
 
 import (
 	"fmt"
+	"net"
 	"net/url"
 	"os"
 	"strconv"
@@ -22,6 +23,12 @@ type Config struct {
 
 	AllowedOrigins []string
 	MaxBodyBytes   int64
+
+	// TrustedProxies es el rango del par directo de Cloud Run; vacío en local.
+	TrustedProxies   []string
+	GlobalRateLimit  RateLimit
+	LoginRateLimit   RateLimit
+	RefreshRateLimit RateLimit
 
 	// Opcionales: solo se usan para crear el administrador inicial.
 	InitialAdminEmail    string
@@ -55,7 +62,23 @@ func Load() (Config, error) {
 		return Config{}, err
 	}
 
+	trustedProxies, err := loadTrustedProxies()
+	if err != nil {
+		return Config{}, err
+	}
+
+	var limits [3]RateLimit
+	for i, spec := range rateLimitSpecs {
+		if limits[i], err = loadRateLimit(spec); err != nil {
+			return Config{}, err
+		}
+	}
+
 	return Config{
+		TrustedProxies:       trustedProxies,
+		GlobalRateLimit:      limits[0],
+		LoginRateLimit:       limits[1],
+		RefreshRateLimit:     limits[2],
 		Port:                 port,
 		MongoURI:             mongoURI,
 		MongoDBName:          mongoDBName,
@@ -126,6 +149,89 @@ func loadMaxBodyBytes() (int64, error) {
 	}
 
 	return maxBytes, nil
+}
+
+// RateLimit es un límite por IP: PerMinute peticiones por minuto, con ráfagas de
+// hasta Burst.
+type RateLimit struct {
+	PerMinute int
+	Burst     int
+}
+
+type rateLimitSpec struct {
+	name     string
+	defaults RateLimit
+}
+
+// rateLimitSpecs son los valores por defecto de ADR-010: global, login y refresh.
+var rateLimitSpecs = [3]rateLimitSpec{
+	{name: "GLOBAL", defaults: RateLimit{PerMinute: 60, Burst: 20}},
+	{name: "LOGIN", defaults: RateLimit{PerMinute: 5, Burst: 5}},
+	{name: "REFRESH", defaults: RateLimit{PerMinute: 10, Burst: 10}},
+}
+
+func loadRateLimit(spec rateLimitSpec) (RateLimit, error) {
+	perMinute, err := positiveInt("RATE_LIMIT_"+spec.name+"_PER_MINUTE", spec.defaults.PerMinute)
+	if err != nil {
+		return RateLimit{}, err
+	}
+
+	burst, err := positiveInt("RATE_LIMIT_"+spec.name+"_BURST", spec.defaults.Burst)
+	if err != nil {
+		return RateLimit{}, err
+	}
+
+	return RateLimit{PerMinute: perMinute, Burst: burst}, nil
+}
+
+func positiveInt(key string, fallback int) (int, error) {
+	value := os.Getenv(key)
+	if value == "" {
+		return fallback, nil
+	}
+
+	number, err := strconv.Atoi(value)
+	if err != nil || number <= 0 {
+		return 0, fmt.Errorf("invalid %s %q: must be a positive number", key, value)
+	}
+
+	return number, nil
+}
+
+// loadTrustedProxies acepta IPs y rangos CIDR. Un rango que lo cubra todo
+// permitiría falsificar la IP con X-Forwarded-For.
+func loadTrustedProxies() ([]string, error) {
+	var proxies []string
+
+	for proxy := range strings.SplitSeq(os.Getenv("TRUSTED_PROXIES"), ",") {
+		proxy = strings.TrimSpace(proxy)
+		if proxy == "" {
+			continue
+		}
+
+		if !isValidProxy(proxy) {
+			return nil, fmt.Errorf("invalid TRUSTED_PROXIES entry %q: must be an IP or a CIDR range that is not 0.0.0.0/0 or ::/0", proxy)
+		}
+
+		proxies = append(proxies, proxy)
+	}
+
+	return proxies, nil
+}
+
+func isValidProxy(proxy string) bool {
+	if net.ParseIP(proxy) != nil {
+		return true
+	}
+
+	_, network, err := net.ParseCIDR(proxy)
+	if err != nil {
+		return false
+	}
+
+	ones, _ := network.Mask.Size()
+
+	return ones > 0
 }
 
 // required devuelve el valor de una variable obligatoria o un error si falta.
