@@ -28,16 +28,16 @@ type RouterConfig struct {
 // NewRouter crea el router HTTP con las rutas de la API. spec debe venir de
 // LoadSpec: el validador hace panic si no puede construir su router.
 //
-// Orden de la cadena: recovery → logger → cabeceras → límite de cuerpo →
-// CORS/Origin → validador del contrato → handlers.
+// Orden de la cadena: logger → recovery → cabeceras → CORS/Origin → límite de
+// cuerpo → validador del contrato → handlers.
 func NewRouter(pinger Pinger, spec *openapi3.T, cfg RouterConfig) *gin.Engine {
 	router := gin.New()
 	router.Use(
-		gin.CustomRecovery(recovered),
 		gin.Logger(),
+		gin.CustomRecovery(recovered),
 		securityHeaders,
-		limitBody(cfg.MaxBodyBytes),
 		crossOrigin(cfg.AllowedOrigins),
+		limitBody(cfg.MaxBodyBytes),
 	)
 	router.NoRoute(routeNotFound)
 	router.GET("/health", health)
