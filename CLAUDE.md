@@ -73,7 +73,7 @@ Ver [ADR-007](docs/adr/007-contrato-api-spec-first-oapi-codegen.md).
 
 ## Seguridad
 
-Ver [ADR-010](docs/adr/010-linea-base-de-seguridad-de-la-api.md).
+Ver [ADR-010](docs/adr/010-linea-base-de-seguridad-de-la-api.md) y [ADR-011](docs/adr/011-ajustes-a-la-linea-base-de-seguridad.md).
 
 - Todo endpoint nuevo cumple ADR-010; la descripción del PR incluye cómo.
 
