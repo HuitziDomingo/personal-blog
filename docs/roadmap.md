@@ -47,7 +47,7 @@
 - [ ] BLOG-022: Configurar pipeline de despliegue de la API a GCP Cloud Run.
 - [ ] BLOG-041: Verificar en el primer despliegue: rango de proxies, Cache-Control y cookies bajo api.huitzi.xyz.
 - [ ] BLOG-031: Revisar las 3 vulnerabilidades de `govulncheck` en módulos requeridos.
-- [ ] BLOG-042: Configurar Dependabot con version updates semanales (ADR-010).
+- [x] BLOG-042: Configurar Dependabot con version updates semanales (ADR-010). ([#22](https://github.com/HuitziDomingo/personal-blog/pull/22))
 - [ ] BLOG-043: Activar JavaScript/TypeScript en CodeQL (Settings → Advanced Security) cuando se mergee el primer código de apps/admin o apps/web.
 - [ ] BLOG-033: Volver el job api a ubuntu-latest cuando su kernel sea compatible con MongoDB 8 (SERVER-121912).
 

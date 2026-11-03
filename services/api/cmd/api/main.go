@@ -61,9 +61,14 @@ func run() error {
 		return errors.Join(fmt.Errorf("bootstrap admin: %w", err), client.Disconnect(ctx))
 	}
 
+	routerConfig := handler.RouterConfig{
+		AllowedOrigins: cfg.AllowedOrigins,
+		MaxBodyBytes:   cfg.MaxBodyBytes,
+	}
+
 	server := &http.Server{
 		Addr:              net.JoinHostPort("", cfg.Port),
-		Handler:           handler.NewRouter(client, spec),
+		Handler:           handler.NewRouter(client, spec, routerConfig),
 		ReadHeaderTimeout: readHeaderTimeout,
 		ReadTimeout:       readTimeout,
 		WriteTimeout:      writeTimeout,

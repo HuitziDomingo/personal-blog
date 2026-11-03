@@ -74,6 +74,18 @@ personal-blog/
 
 Sin `INITIAL_ADMIN_EMAIL` e `INITIAL_ADMIN_PASSWORD`, la API registra un warning y funciona sin administrador. Para crearlo, define ambas en `.env` antes de arrancar con la colección `users` vacía. La contraseña va de 12 caracteres a 72 bytes.
 
+## Variables de la API
+
+| Variable | Obligatoria | Por defecto | Qué hace |
+| --- | --- | --- | --- |
+| `MONGO_URI` | Sí | | Conexión a MongoDB |
+| `MONGO_DB_NAME` | Sí | | Nombre de la base |
+| `PORT` | No | `8080` | Puerto HTTP |
+| `ALLOWED_ORIGINS` | No | Vacía | Orígenes permitidos, separados por comas. Son exactos y sin comodines. Vacía, ningún navegador puede cambiar estado |
+| `MAX_BODY_BYTES` | No | `1048576` (1 MB) | Tamaño máximo del cuerpo; lo que lo supera responde 413 |
+| `INITIAL_ADMIN_EMAIL` | No | | Email del administrador inicial |
+| `INITIAL_ADMIN_PASSWORD` | No | | Contraseña del administrador inicial |
+
 ## Comandos del Makefile
 
 | Comando | Qué hace |

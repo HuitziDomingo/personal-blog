@@ -16,13 +16,21 @@ import (
 	"github.com/HuitziDomingo/personal-blog/services/api/internal/handler/gen"
 )
 
+const (
+	testOrigin       = "https://admin.huitzi.xyz"
+	testMaxBodyBytes = 1024
+)
+
 func newTestRouter(t *testing.T, pinger Pinger) *gin.Engine {
 	t.Helper()
 
 	spec, err := LoadSpec(context.Background())
 	require.NoError(t, err)
 
-	return NewRouter(pinger, spec)
+	return NewRouter(pinger, spec, RouterConfig{
+		AllowedOrigins: []string{testOrigin},
+		MaxBodyBytes:   testMaxBodyBytes,
+	})
 }
 
 func newContractRouter(t *testing.T) *gin.Engine {
