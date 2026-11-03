@@ -6,7 +6,7 @@ Cómo levantar y probar el proyecto en local. Las decisiones están en [docs/adr
 
 | Herramienta | Versión | Dónde está fijada |
 | --- | --- | --- |
-| Node.js | 24 | `.nvmrc` y `package.json` |
+| Node.js | 24 | `.nvmrc` y `package.json`; con otra versión, `pnpm install` falla (`engine-strict` en `.npmrc`) |
 | pnpm | 10.20.0 | `packageManager` en `package.json`; se activa con `corepack enable` |
 | Go | 1.27 (toolchain 1.27.3) | `services/api/go.mod` |
 | Docker | Con Docker Compose v2 | No está fijada |
@@ -106,6 +106,7 @@ Sin `INITIAL_ADMIN_EMAIL` e `INITIAL_ADMIN_PASSWORD`, la API registra un warning
 | `make api-test-integration` | Levanta MongoDB y corre los tests de `internal/repository` contra él |
 | `make api-lint` | Corre `golangci-lint` |
 | `make admin-dev` | Levanta el admin en `http://localhost:4200` |
+| `make admin-lint` | Corre ESLint con angular-eslint en el admin |
 | `make admin-test` | Corre los tests del admin |
 | `make admin-build` | Build de producción del admin |
 | `make api-docs` | Muestra el contrato con Swagger UI en `http://localhost:8081` |
@@ -165,9 +166,14 @@ Angular 22 con Spartan UI y Tailwind 4, según [ADR-012](adr/012-arquitectura-de
 
 ```sh
 make admin-dev    # http://localhost:4200
+make admin-lint   # ESLint con angular-eslint
 make admin-test   # Vitest con Testing Library
 make admin-build  # build de producción en apps/admin/dist/
 ```
+
+El lint usa las reglas recomendadas de ESLint, typescript-eslint y angular-eslint, también en los templates inline, incluidas las de accesibilidad (`apps/admin/eslint.config.mjs`). Los componentes helm de `shared/ui/` usan el prefijo `hlm` de Spartan; el resto, `app`.
+
+El CI corre lint, tests y build del admin en el job `admin` ([ADR-014](adr/014-filtros-del-ci-para-admin-y-api.md)).
 
 El admin llama a la API en `http://localhost:8080`, otro origen, como en producción. `ALLOWED_ORIGINS` de `.env` debe incluir `http://localhost:4200`; ya viene así en `.env.example`.
 

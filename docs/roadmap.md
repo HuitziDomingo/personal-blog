@@ -33,7 +33,7 @@
 
 ## Fase 3: Dashboard de Administración (Angular + Spartan UI)
 
-- [ ] BLOG-015: Configurar proyecto Angular en `apps/admin` con Tailwind CSS y Spartan UI, según ADR-012.
+- [x] BLOG-015: Configurar proyecto Angular en `apps/admin` con Tailwind CSS y Spartan UI, según ADR-012. ([#33](https://github.com/HuitziDomingo/personal-blog/pull/33))
 - [ ] BLOG-016: Crear servicio de Autenticación y `AuthGuard` para rutas protegidas.
 - [ ] BLOG-045: Interceptor de credenciales y refresh single-flight con tests (ADR-012).
 - [ ] BLOG-017: Diseñar layout principal con estilo Liquid Glass / Glassmorphism.
@@ -41,6 +41,8 @@
 - [ ] BLOG-036: Sanitizar el Markdown de los posts al renderizar en `apps/web` y `apps/admin`, con allowlist (ADR-010).
 - [ ] BLOG-046: CSP y cabeceras del admin en Vercel (ADR-012).
 - [ ] BLOG-047: Configurar admin.huitzi.xyz en Vercel y DNS en DreamHost.
+- [ ] BLOG-050: Activar security.autoCsp en angular.json (va con BLOG-046).
+- [ ] BLOG-051: API_BASE_URL del admin desde la configuración de build, no fijo en localhost (antes de BLOG-047).
 
 ## Fase 4: Testing & CI/CD Pipeline
 
