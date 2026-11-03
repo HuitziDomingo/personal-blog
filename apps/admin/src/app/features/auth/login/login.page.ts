@@ -1,13 +1,27 @@
-import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  inject,
+  input,
+  signal,
+} from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { Router } from '@angular/router';
 import { HlmButtonImports } from '@spartan-ng/helm/button';
 import { HlmCardImports } from '@spartan-ng/helm/card';
 import { HlmFieldImports } from '@spartan-ng/helm/field';
 import { HlmInputImports } from '@spartan-ng/helm/input';
+import { finalize } from 'rxjs';
+
+import { problemMessage } from '../../../core/http/problem-messages';
+import { safeReturnUrl } from '../../../core/session/return-url';
+import { SessionService } from '../../../core/session/session.service';
 
 /**
- * Pantalla de inicio de sesión. Por ahora solo valida el formulario; el envío a
- * la API, la sesión y la redirección llegan con BLOG-016.
+ * Pantalla de inicio de sesión. Tras el login vuelve a `returnUrl`, que llega
+ * como query param, o al panel.
  */
 @Component({
   selector: 'app-login-page',
@@ -48,7 +62,11 @@ import { HlmInputImports } from '@spartan-ng/helm/input';
             <hlm-field-error validator="required">Escribe tu contraseña.</hlm-field-error>
           </div>
 
-          <button hlmBtn type="submit" class="w-full">Entrar</button>
+          @if (errorMessage(); as message) {
+            <p role="alert" class="text-destructive text-sm">{{ message }}</p>
+          }
+
+          <button hlmBtn type="submit" class="w-full" [disabled]="pending()">Entrar</button>
         </div>
       </form>
     </section>
@@ -56,17 +74,39 @@ import { HlmInputImports } from '@spartan-ng/helm/input';
 })
 export class LoginPage {
   private readonly fb = inject(NonNullableFormBuilder);
+  private readonly session = inject(SessionService);
+  private readonly router = inject(Router);
+  private readonly destroyRef = inject(DestroyRef);
+
+  /** Query param `returnUrl`, enlazado por `withComponentInputBinding`. */
+  readonly returnUrl = input<string>();
 
   protected readonly form = this.fb.group({
     email: ['', [Validators.required, Validators.email]],
     password: ['', Validators.required],
   });
 
-  /** Último envío válido; BLOG-016 lo reemplaza por la llamada a la API. */
-  protected readonly submitted = signal(false);
+  protected readonly pending = signal(false);
+  protected readonly errorMessage = signal<string | null>(null);
 
   protected submit(): void {
     this.form.markAllAsTouched();
-    this.submitted.set(this.form.valid);
+    if (this.form.invalid || this.pending()) {
+      return;
+    }
+
+    this.pending.set(true);
+    this.errorMessage.set(null);
+
+    this.session
+      .login(this.form.getRawValue())
+      .pipe(
+        finalize(() => this.pending.set(false)),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe({
+        next: () => void this.router.navigateByUrl(safeReturnUrl(this.returnUrl())),
+        error: (error: unknown) => this.errorMessage.set(problemMessage(error, 'login')),
+      });
   }
 }

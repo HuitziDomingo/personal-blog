@@ -35,8 +35,8 @@
 ## Fase 3: Dashboard de Administración (Angular + Spartan UI)
 
 - [x] BLOG-015: Configurar proyecto Angular en `apps/admin` con Tailwind CSS y Spartan UI, según ADR-012. ([#33](https://github.com/HuitziDomingo/personal-blog/pull/33))
-- [ ] BLOG-016: Crear servicio de Autenticación y `AuthGuard` para rutas protegidas.
-- [ ] BLOG-045: Interceptor de credenciales y refresh single-flight con tests (ADR-012).
+- [x] BLOG-016: Crear servicio de Autenticación y `AuthGuard` para rutas protegidas. (PR_LINK)
+- [x] BLOG-045: Interceptor de credenciales y refresh single-flight con tests (ADR-012). (PR_LINK)
 - [ ] BLOG-017: Diseñar layout principal con estilo Liquid Glass / Glassmorphism.
 - [ ] BLOG-018: Crear vista de gestión y creación de posts (Editor Markdown).
 - [ ] BLOG-036: Sanitizar el Markdown de los posts al renderizar en `apps/web` y `apps/admin`, con allowlist (ADR-010).

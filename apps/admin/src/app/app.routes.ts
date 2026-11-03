@@ -1,13 +1,23 @@
 import { Routes } from '@angular/router';
 
-// Las pantallas se cargan por ruta (ADR-012). Las rutas protegidas y sus
-// guards llegan con BLOG-016.
+import { authGuard, guestGuard } from './core/session/session.guards';
+
+// Las pantallas se cargan por ruta (ADR-012). Toda ruta tiene un guard, así
+// que la primera navegación resuelve la sesión con /auth/me.
 export const routes: Routes = [
   {
     path: 'login',
     title: 'Iniciar sesión · Admin',
+    canMatch: [guestGuard],
     loadComponent: () => import('./features/auth/login/login.page').then((m) => m.LoginPage),
   },
-  { path: '', pathMatch: 'full', redirectTo: 'login' },
-  { path: '**', redirectTo: 'login' },
+  {
+    path: '',
+    pathMatch: 'full',
+    title: 'Panel · Admin',
+    canMatch: [authGuard],
+    loadComponent: () =>
+      import('./features/dashboard/dashboard.page').then((m) => m.DashboardPage),
+  },
+  { path: '**', redirectTo: '' },
 ];
