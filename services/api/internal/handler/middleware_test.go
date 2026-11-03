@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"bytes"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -175,6 +176,28 @@ func TestForeignOriginIsNotBlockedOnGet(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, response.Code)
 	assert.Empty(t, response.Header().Get("Access-Control-Allow-Origin"))
+}
+
+func TestOriginCheckRunsBeforeTheBodyLimit(t *testing.T) {
+	body := strings.Repeat("a", testMaxBodyBytes+1)
+	response := send(newContractRouter(t), http.MethodPost, loginPath, body, map[string]string{"Origin": badOrigin})
+
+	requireProblem(t, response, http.StatusForbidden)
+}
+
+func TestPanicLeavesAccessLogLine(t *testing.T) {
+	var logs bytes.Buffer
+	previous := gin.DefaultWriter
+	gin.DefaultWriter = &logs
+	t.Cleanup(func() { gin.DefaultWriter = previous })
+
+	router := newContractRouter(t)
+	router.GET("/panic", func(*gin.Context) { panic("secret") })
+
+	response := get(router, "/panic")
+
+	requireProblem(t, response, http.StatusInternalServerError)
+	assert.Regexp(t, `\| 500 \|.*GET\s+"/panic"`, logs.String())
 }
 
 func TestOriginCheckRunsBeforeTheContractValidator(t *testing.T) {
