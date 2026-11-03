@@ -64,11 +64,22 @@ func run() error {
 	routerConfig := handler.RouterConfig{
 		AllowedOrigins: cfg.AllowedOrigins,
 		MaxBodyBytes:   cfg.MaxBodyBytes,
+		TrustedProxies: cfg.TrustedProxies,
+		RateLimits: handler.RateLimits{
+			Global:  handler.RateLimit(cfg.GlobalRateLimit),
+			Login:   handler.RateLimit(cfg.LoginRateLimit),
+			Refresh: handler.RateLimit(cfg.RefreshRateLimit),
+		},
+	}
+
+	router, err := handler.NewRouter(client, spec, routerConfig)
+	if err != nil {
+		return errors.Join(fmt.Errorf("create router: %w", err), client.Disconnect(ctx))
 	}
 
 	server := &http.Server{
 		Addr:              net.JoinHostPort("", cfg.Port),
-		Handler:           handler.NewRouter(client, spec, routerConfig),
+		Handler:           router,
 		ReadHeaderTimeout: readHeaderTimeout,
 		ReadTimeout:       readTimeout,
 		WriteTimeout:      writeTimeout,

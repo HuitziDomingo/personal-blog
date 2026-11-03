@@ -3,6 +3,7 @@ package handler
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -23,20 +24,28 @@ type Pinger interface {
 type RouterConfig struct {
 	AllowedOrigins []string
 	MaxBodyBytes   int64
+	RateLimits     RateLimits
+	// TrustedProxies es el rango del par directo; vacío, la IP es la del socket.
+	TrustedProxies []string
 }
 
 // NewRouter crea el router HTTP con las rutas de la API. spec debe venir de
 // LoadSpec: el validador hace panic si no puede construir su router.
 //
-// Orden de la cadena: logger → recovery → cabeceras → CORS/Origin → límite de
-// cuerpo → validador del contrato → handlers.
-func NewRouter(pinger Pinger, spec *openapi3.T, cfg RouterConfig) *gin.Engine {
+// Orden de la cadena: logger → recovery → cabeceras → CORS/Origin → rate limit
+// → límite de cuerpo → validador del contrato → handlers.
+func NewRouter(pinger Pinger, spec *openapi3.T, cfg RouterConfig) (*gin.Engine, error) {
 	router := gin.New()
+	if err := configureClientIP(router, cfg.TrustedProxies); err != nil {
+		return nil, err
+	}
+
 	router.Use(
 		gin.Logger(),
 		gin.CustomRecovery(recovered),
 		securityHeaders,
 		crossOrigin(cfg.AllowedOrigins),
+		newRateLimiter(cfg.RateLimits, time.Now).handle,
 		limitBody(cfg.MaxBodyBytes),
 	)
 	router.NoRoute(routeNotFound)
@@ -57,7 +66,23 @@ func NewRouter(pinger Pinger, spec *openapi3.T, cfg RouterConfig) *gin.Engine {
 		ErrorHandler: bindError,
 	})
 
-	return router
+	return router, nil
+}
+
+// configureClientIP hace que ClientIP solo lea X-Forwarded-For si la conexión
+// viene de un proxy de confianza (ADR-011).
+func configureClientIP(router *gin.Engine, trustedProxies []string) error {
+	router.RemoteIPHeaders = []string{"X-Forwarded-For"}
+
+	if len(trustedProxies) == 0 {
+		trustedProxies = nil
+	}
+
+	if err := router.SetTrustedProxies(trustedProxies); err != nil {
+		return fmt.Errorf("set trusted proxies: %w", err)
+	}
+
+	return nil
 }
 
 // health es la comprobación de liveness; no consulta dependencias externas.
