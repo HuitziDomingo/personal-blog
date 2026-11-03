@@ -108,7 +108,7 @@ Ver [ADR-003](docs/adr/003-estrategia-global-de-testing.md) y [ADR-006](docs/adr
 Ubicación: [docs/roadmap.md](docs/roadmap.md).
 
 - Cada PR referencia el ID de la tarea.
-- Marca una tarea con `[x]` SOLO cuando su PR esté mergeado a `main`, y pon el link del PR al lado. Nunca por CI verde ni por PR abierto.
+- Cada PR marca las tareas que completa, con el link a sí mismo. La marca llega a main solo con el merge.
 - Al empezar cada tarea, marca en su rama las tareas cuyo PR ya está mergeado en main, con el link del PR.
 
 ## Obsidian
