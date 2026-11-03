@@ -417,7 +417,9 @@ components:
       description: Se superó el límite de peticiones de la IP, o el de logins fallidos del email.
       headers:
         Retry-After:
-          description: Segundos que faltan para el siguiente intento.
+          description: >-
+            Segundos que faltan para el siguiente intento. Se expone a los
+            orígenes permitidos con Access-Control-Expose-Headers.
           schema:
             type: integer
             minimum: 1

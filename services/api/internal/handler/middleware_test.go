@@ -171,6 +171,18 @@ func TestOriginCheckOnStateChangingMethods(t *testing.T) {
 	}
 }
 
+func TestRetryAfterIsExposedOnlyToAllowedOrigins(t *testing.T) {
+	router := newContractRouter(t)
+
+	allowed := send(router, http.MethodGet, "/health", "", map[string]string{"Origin": testOrigin})
+	foreign := send(router, http.MethodGet, "/health", "", map[string]string{"Origin": badOrigin})
+	missing := send(router, http.MethodGet, "/health", "", nil)
+
+	assert.Equal(t, "Retry-After", allowed.Header().Get("Access-Control-Expose-Headers"))
+	assert.Empty(t, foreign.Header().Get("Access-Control-Expose-Headers"))
+	assert.Empty(t, missing.Header().Get("Access-Control-Expose-Headers"))
+}
+
 func TestForeignOriginIsNotBlockedOnGet(t *testing.T) {
 	response := send(newContractRouter(t), http.MethodGet, "/health", "", map[string]string{"Origin": badOrigin})
 

@@ -22,6 +22,9 @@ const (
 
 	corsAllowedMethods = "GET, POST, PUT, PATCH, DELETE"
 	corsAllowedHeaders = "Content-Type"
+	// Retry-After no es una cabecera CORS-safelisted: sin exponerla, el navegador
+	// se la oculta a un frontend de otro origen (el admin la muestra en los 429).
+	corsExposedHeaders = "Retry-After"
 	corsPreflightCache = 10 * time.Minute
 
 	detailBodyTooLarge    = "request body too large"
@@ -98,6 +101,7 @@ func crossOrigin(allowedOrigins []string) gin.HandlerFunc {
 
 		header.Set("Access-Control-Allow-Origin", origin)
 		header.Set("Access-Control-Allow-Credentials", "true")
+		header.Set("Access-Control-Expose-Headers", corsExposedHeaders)
 
 		if preflight {
 			header.Set("Access-Control-Allow-Methods", corsAllowedMethods)

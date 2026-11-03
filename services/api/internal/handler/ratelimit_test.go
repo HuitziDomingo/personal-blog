@@ -157,6 +157,7 @@ func TestGlobalRateLimit(t *testing.T) {
 	assert.Equal(t, detailRateLimited, *problem.Detail)
 	assert.Equal(t, "60", response.Header().Get("Retry-After"))
 	assert.Equal(t, testOrigin, response.Header().Get("Access-Control-Allow-Origin"), "the frontend can read the 429")
+	assert.Equal(t, "Retry-After", response.Header().Get("Access-Control-Expose-Headers"), "and its Retry-After")
 	assert.Equal(t, "nosniff", response.Header().Get("X-Content-Type-Options"))
 
 	assert.Equal(t, http.StatusOK, get(router, "/health").Code, "outside /api/v1")

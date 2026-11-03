@@ -28,6 +28,7 @@
 - [x] BLOG-011: Crear endpoints de autenticación (`POST /api/v1/auth/login`, `POST /api/v1/auth/refresh`, `POST /api/v1/auth/logout`), con límite de intentos fallidos por email en el login (ADR-010). ([#29](https://github.com/HuitziDomingo/personal-blog/pull/29))
 - [x] BLOG-044: Agregar GET /api/v1/auth/me al contrato y a la API (ADR-012). ([#29](https://github.com/HuitziDomingo/personal-blog/pull/29))
 - [x] BLOG-012: Implementar middleware de JWT y almacenamiento en Cookie `HttpOnly`. ([#29](https://github.com/HuitziDomingo/personal-blog/pull/29))
+- [x] BLOG-053: Exponer `Retry-After` a los orígenes permitidos con `Access-Control-Expose-Headers`, para que el admin muestre el tiempo de espera de un 429. (PR_LINK)
 - [ ] BLOG-032: Implementar `PostRepository` en MongoDB, junto con el CRUD de posts.
 - [ ] BLOG-014: Crear colección de pruebas en Bruno, generada desde el contrato con el CLI de Bruno, con flujos manuales.
 
