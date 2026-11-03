@@ -6,7 +6,7 @@ describe('LoginPage', () => {
   it('muestra el formulario con email y contraseña', async () => {
     await render(LoginPage);
 
-    expect(screen.getByRole('heading', { name: 'Iniciar sesión' })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Roto a propósito' })).toBeTruthy();
     expect(screen.getByLabelText('Email')).toBeTruthy();
     expect(screen.getByLabelText('Contraseña')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Entrar' })).toBeTruthy();
