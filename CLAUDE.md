@@ -70,6 +70,12 @@ Ver [ADR-007](docs/adr/007-contrato-api-spec-first-oapi-codegen.md).
 - `domain` no importa `gen`.
 - Los mensajes de error de la API van en inglés; la traducción es responsabilidad de los frontends.
 
+## Seguridad
+
+Ver [ADR-010](docs/adr/010-linea-base-de-seguridad-de-la-api.md).
+
+- Todo endpoint nuevo cumple ADR-010; la descripción del PR incluye cómo.
+
 ## Testing
 
 Ver [ADR-003](docs/adr/003-estrategia-global-de-testing.md) y [ADR-006](docs/adr/006-correcciones-a-adr-002-y-003.md).

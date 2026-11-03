@@ -21,6 +21,8 @@
 - [x] BLOG-029: Escribir `docs/api/openapi.yaml` inicial: auth (login, refresh, logout) y posts. ([#11](https://github.com/HuitziDomingo/personal-blog/pull/11))
 - [x] BLOG-013: Configurar generación con oapi-codegen (Go) y openapi-typescript (TS) con check de drift en CI. ([#12](https://github.com/HuitziDomingo/personal-blog/pull/12))
 - [x] BLOG-030: Implementar handler propio de errores `application/problem+json` para el validador y los tres manejadores de strict-server (`RequestErrorHandlerFunc`, `HandlerErrorFunc`, `ResponseErrorHandlerFunc`). ([#14](https://github.com/HuitziDomingo/personal-blog/pull/14))
+- [ ] BLOG-034: Implementar el middleware de seguridad de ADR-010: rate limit global y de auth, cabeceras, `MaxBytesReader`, proxies confiables y verificación de `Origin`.
+- [ ] BLOG-035: Declarar el `maximum` de paginación en `openapi.yaml` (ADR-010): `limit` ya lo tiene, falta `offset`.
 - [ ] BLOG-011: Crear endpoints de autenticación (`POST /api/v1/auth/login`, `POST /api/v1/auth/refresh`, `POST /api/v1/auth/logout`).
 - [ ] BLOG-012: Implementar middleware de JWT y almacenamiento en Cookie `HttpOnly`.
 - [ ] BLOG-032: Implementar `PostRepository` en MongoDB, junto con el CRUD de posts.
@@ -32,6 +34,7 @@
 - [ ] BLOG-016: Crear servicio de Autenticación y `AuthGuard` para rutas protegidas.
 - [ ] BLOG-017: Diseñar layout principal con estilo Liquid Glass / Glassmorphism.
 - [ ] BLOG-018: Crear vista de gestión y creación de posts (Editor Markdown).
+- [ ] BLOG-036: Sanitizar el Markdown de los posts al renderizar en `apps/web` y `apps/admin`, con allowlist (ADR-010).
 
 ## Fase 4: Testing & CI/CD Pipeline
 
