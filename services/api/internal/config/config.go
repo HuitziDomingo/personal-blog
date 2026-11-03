@@ -11,6 +11,9 @@ import (
 )
 
 const (
+	// MinJWTSecretBytes es el tamaño mínimo del secreto de los JWT (ADR-010).
+	MinJWTSecretBytes = 32
+
 	defaultPort         = "8080"
 	defaultMaxBodyBytes = 1 << 20 // 1 MB
 )
@@ -20,6 +23,9 @@ type Config struct {
 	Port        string
 	MongoURI    string
 	MongoDBName string
+
+	// JWTSecret firma los JWT de acceso; al menos MinJWTSecretBytes bytes.
+	JWTSecret []byte
 
 	AllowedOrigins []string
 	MaxBodyBytes   int64
@@ -48,6 +54,11 @@ func Load() (Config, error) {
 	}
 
 	mongoDBName, err := required("MONGO_DB_NAME")
+	if err != nil {
+		return Config{}, err
+	}
+
+	jwtSecret, err := loadJWTSecret()
 	if err != nil {
 		return Config{}, err
 	}
@@ -82,11 +93,27 @@ func Load() (Config, error) {
 		Port:                 port,
 		MongoURI:             mongoURI,
 		MongoDBName:          mongoDBName,
+		JWTSecret:            jwtSecret,
 		AllowedOrigins:       allowedOrigins,
 		MaxBodyBytes:         maxBodyBytes,
 		InitialAdminEmail:    os.Getenv("INITIAL_ADMIN_EMAIL"),
 		InitialAdminPassword: os.Getenv("INITIAL_ADMIN_PASSWORD"),
 	}, nil
+}
+
+// loadJWTSecret lee el secreto de firma. Es obligatorio porque la API siempre
+// registra las rutas de autenticación.
+func loadJWTSecret() ([]byte, error) {
+	secret, err := required("JWT_SECRET")
+	if err != nil {
+		return nil, err
+	}
+
+	if len(secret) < MinJWTSecretBytes {
+		return nil, fmt.Errorf("invalid JWT_SECRET: must be at least %d bytes", MinJWTSecretBytes)
+	}
+
+	return []byte(secret), nil
 }
 
 func loadPort() (string, error) {

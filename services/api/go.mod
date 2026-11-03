@@ -7,6 +7,7 @@ toolchain go1.27.3
 require (
 	github.com/getkin/kin-openapi v0.152.0
 	github.com/gin-gonic/gin v1.12.0
+	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/oapi-codegen/gin-middleware v1.2.1
 	github.com/oapi-codegen/runtime v1.8.0
 	github.com/stretchr/testify v1.12.1

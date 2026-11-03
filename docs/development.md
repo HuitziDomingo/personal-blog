@@ -52,6 +52,12 @@ personal-blog/
    cp .env.example .env
    ```
 
+   Genera el secreto de los JWT y ponlo en `JWT_SECRET`, entre comillas simples. Sin él, la API no arranca:
+
+   ```sh
+   openssl rand -base64 32
+   ```
+
 3. Levanta MongoDB:
 
    ```sh
@@ -80,6 +86,7 @@ Sin `INITIAL_ADMIN_EMAIL` e `INITIAL_ADMIN_PASSWORD`, la API registra un warning
 | --- | --- | --- | --- |
 | `MONGO_URI` | Sí | | Conexión a MongoDB |
 | `MONGO_DB_NAME` | Sí | | Nombre de la base |
+| `JWT_SECRET` | Sí | | Secreto para firmar los JWT, de al menos 32 bytes. Genéralo con `openssl rand -base64 32` |
 | `PORT` | No | `8080` | Puerto HTTP |
 | `ALLOWED_ORIGINS` | No | Vacía | Orígenes permitidos, separados por comas. Son exactos y sin comodines. Vacía, ningún navegador puede cambiar estado |
 | `MAX_BODY_BYTES` | No | `1048576` (1 MB) | Tamaño máximo del cuerpo; lo que lo supera responde 413 |
@@ -171,6 +178,10 @@ Tienes dos opciones:
 - Ejecutar `make db-reset`, que **borra todos los datos locales**, y después `make db-up`.
 
 `MONGO_URI` debe llevar la misma contraseña, URL-encoded.
+
+### La API no arranca: `missing required environment variable JWT_SECRET`
+
+Tu `.env` es anterior a `JWT_SECRET`. Genera un secreto con `openssl rand -base64 32` y agrégalo a `.env` como `JWT_SECRET='...'`. Si el error dice `must be at least 32 bytes`, el valor es demasiado corto.
 
 ### Un valor de `.env` con `$` queda cortado
 
