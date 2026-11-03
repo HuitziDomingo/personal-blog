@@ -1,5 +1,5 @@
 # ADR-009: Filtro del Job `api` para el Contrato de API
-* Estado: Aprobado
+* Estado: Aprobado — complementado por ADR-014
 * Fecha: 2026-11-02
 * Autor: León Nieves Huitzitzili Domingo
 * Reemplaza: ADR-008 (cláusula del filtro del job `api`)
