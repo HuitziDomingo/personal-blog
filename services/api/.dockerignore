@@ -1,0 +1,10 @@
+# Solo el código de producción entra al contexto de build.
+.dockerignore
+.env*
+.git
+.golangci.yml
+Dockerfile
+bin/
+coverage.*
+oapi-codegen.yaml
+**/*_test.go
