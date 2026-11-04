@@ -116,6 +116,20 @@ describe('refreshInterceptor', () => {
     httpMock.expectNone(REFRESH);
   });
 
+  it('un 401 de una ruta relativa, que va al origen del admin, no dispara refresh', () => {
+    let status: number | undefined;
+    http.get('/assets/x.json').subscribe({
+      error: (error: HttpErrorResponse) => (status = error.status),
+    });
+
+    const request = httpMock.expectOne('/assets/x.json');
+    expect(request.request.withCredentials).toBe(false);
+    request.flush(null, unauthorized);
+
+    expect(status).toBe(401);
+    httpMock.expectNone(REFRESH);
+  });
+
   it('si el refresh falla, limpia la sesión y redirige a /login con la URL de regreso', () => {
     const session = TestBed.inject(SessionService);
     const navigate = vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);

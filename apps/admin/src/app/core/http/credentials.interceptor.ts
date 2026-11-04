@@ -1,5 +1,5 @@
 import { HttpInterceptorFn } from '@angular/common/http';
-import { inject } from '@angular/core';
+import { DOCUMENT, inject } from '@angular/core';
 
 import { API_BASE_URL } from '../config/api-config';
 import { isApiRequest } from './api-url';
@@ -9,7 +9,7 @@ import { isApiRequest } from './api-url';
  * origen sale sin credenciales.
  */
 export const credentialsInterceptor: HttpInterceptorFn = (req, next) => {
-  if (!isApiRequest(req.url, inject(API_BASE_URL))) {
+  if (!isApiRequest(req.url, inject(API_BASE_URL), inject(DOCUMENT).baseURI)) {
     return next(req);
   }
 

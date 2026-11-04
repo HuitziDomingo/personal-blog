@@ -1,5 +1,5 @@
 import { HttpErrorResponse, HttpInterceptorFn } from '@angular/common/http';
-import { inject } from '@angular/core';
+import { DOCUMENT, inject } from '@angular/core';
 import { Router } from '@angular/router';
 import { catchError, switchMap, throwError } from 'rxjs';
 
@@ -15,11 +15,12 @@ import { API_PATHS, isApiPath, isApiRequest } from './api-url';
  */
 export const refreshInterceptor: HttpInterceptorFn = (req, next) => {
   const apiBaseUrl = inject(API_BASE_URL);
+  const baseUri = inject(DOCUMENT).baseURI;
 
   if (
-    !isApiRequest(req.url, apiBaseUrl) ||
-    isApiPath(req.url, apiBaseUrl, API_PATHS.login) ||
-    isApiPath(req.url, apiBaseUrl, API_PATHS.refresh)
+    !isApiRequest(req.url, apiBaseUrl, baseUri) ||
+    isApiPath(req.url, apiBaseUrl, baseUri, API_PATHS.login) ||
+    isApiPath(req.url, apiBaseUrl, baseUri, API_PATHS.refresh)
   ) {
     return next(req);
   }

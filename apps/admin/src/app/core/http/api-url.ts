@@ -7,23 +7,40 @@ export const API_PATHS = {
 } as const;
 
 /**
- * Indica si `url` va al mismo origen que la API. Compara el origen ya
- * resuelto, no el prefijo del texto: `http://localhost:8080.evil.test` o
- * `http://localhost:8080@evil.test` empiezan igual pero son otro host.
+ * Resuelve `url` como lo hace el navegador: una URL relativa se resuelve
+ * contra el `baseURI` del documento (el origen del admin), no contra la API.
  */
-export function isApiRequest(url: string, apiBaseUrl: string): boolean {
+function resolve(url: string, documentBaseUri: string): URL | null {
   try {
-    return new URL(url, apiBaseUrl).origin === new URL(apiBaseUrl).origin;
+    return new URL(url, documentBaseUri);
   } catch {
-    return false;
+    return null;
   }
 }
 
+/**
+ * Indica si `url` va al mismo origen que la API. Compara el origen ya
+ * resuelto, no el prefijo del texto: `http://localhost:8080.evil.test` o
+ * `http://localhost:8080@evil.test` empiezan igual pero son otro host. Una
+ * ruta relativa como `/assets/x.json` va al origen del admin.
+ */
+export function isApiRequest(url: string, apiBaseUrl: string, documentBaseUri: string): boolean {
+  const target = resolve(url, documentBaseUri);
+  const api = resolve(apiBaseUrl, documentBaseUri);
+
+  return target !== null && api !== null && target.origin === api.origin;
+}
+
 /** Indica si `url` apunta exactamente a `path` de la API. */
-export function isApiPath(url: string, apiBaseUrl: string, path: string): boolean {
-  if (!isApiRequest(url, apiBaseUrl)) {
+export function isApiPath(
+  url: string,
+  apiBaseUrl: string,
+  documentBaseUri: string,
+  path: string,
+): boolean {
+  if (!isApiRequest(url, apiBaseUrl, documentBaseUri)) {
     return false;
   }
 
-  return new URL(url, apiBaseUrl).pathname === path;
+  return resolve(url, documentBaseUri)?.pathname === path;
 }

@@ -54,4 +54,8 @@ describe('credentialsInterceptor', () => {
     expect(sentWithCredentials('http://api.test:8080.evil.test/api/v1/auth/me')).toBe(false);
     expect(sentWithCredentials('http://api.test:8080@evil.test/api/v1/auth/me')).toBe(false);
   });
+
+  it('no envía credenciales a una ruta relativa, que va al origen del admin', () => {
+    expect(sentWithCredentials('/assets/x.json')).toBe(false);
+  });
 });

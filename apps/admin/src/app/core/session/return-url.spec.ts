@@ -12,6 +12,12 @@ describe('safeReturnUrl', () => {
     }
   });
 
+  it('rechaza valores con caracteres de control, que el navegador elimina al parsear', () => {
+    for (const value of ['/\t/evil.test', '/\n/evil.test', '/\r/evil.test', '/\u0000/evil.test', '/posts\u001F']) {
+      expect(safeReturnUrl(value)).toBe('/');
+    }
+  });
+
   it('sin valor vuelve al dashboard', () => {
     expect(safeReturnUrl(undefined)).toBe('/');
     expect(safeReturnUrl(null)).toBe('/');
