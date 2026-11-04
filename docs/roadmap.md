@@ -43,7 +43,7 @@
 - [ ] BLOG-046: CSP y cabeceras del admin en Vercel (ADR-012).
 - [ ] BLOG-047: Configurar admin.huitzi.xyz en Vercel y DNS en DreamHost. El build command de Vercel debe ser el script `build` del paquete (`pnpm --filter @personal-blog/admin build`), que corre el chequeo de la URL de la API, no `ng build` directo.
 - [ ] BLOG-050: Activar security.autoCsp en angular.json (va con BLOG-046).
-- [x] BLOG-051: API_BASE_URL del admin desde la configuración de build, no fijo en localhost (antes de BLOG-047). (PR_LINK)
+- [x] BLOG-051: API_BASE_URL del admin desde la configuración de build, no fijo en localhost (antes de BLOG-047). ([#41](https://github.com/HuitziDomingo/personal-blog/pull/41))
 
 ## Fase 4: Testing & CI/CD Pipeline
 
