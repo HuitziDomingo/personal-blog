@@ -23,7 +23,15 @@ describe('credentialsInterceptor', () => {
     httpMock = TestBed.inject(HttpTestingController);
   });
 
-  afterEach(() => httpMock.verify());
+  // verify lanza si quedan peticiones abiertas. El reset va en finally para
+  // que ese fallo no deje el TestBed instanciado y rompa los tests siguientes.
+  afterEach(() => {
+    try {
+      httpMock.verify();
+    } finally {
+      TestBed.resetTestingModule();
+    }
+  });
 
   function sentWithCredentials(url: string): boolean {
     http.get(url).subscribe();

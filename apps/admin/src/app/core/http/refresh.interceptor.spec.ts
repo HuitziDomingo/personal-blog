@@ -38,7 +38,15 @@ describe('refreshInterceptor', () => {
     httpMock = TestBed.inject(HttpTestingController);
   });
 
-  afterEach(() => httpMock.verify());
+  // verify lanza si quedan peticiones abiertas. El reset va en finally para
+  // que ese fallo no deje el TestBed instanciado y rompa los tests siguientes.
+  afterEach(() => {
+    try {
+      httpMock.verify();
+    } finally {
+      TestBed.resetTestingModule();
+    }
+  });
 
   it('ante tres 401 simultáneos hace un solo refresh y reintenta las tres peticiones', () => {
     const urls = [`${API}/api/v1/admin/posts`, `${API}/api/v1/auth/me`, `${API}/api/v1/admin/posts/1`];
