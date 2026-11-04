@@ -99,7 +99,7 @@ Ver [ADR-003](docs/adr/003-estrategia-global-de-testing.md) y [ADR-006](docs/adr
 
 - Ruta: `docs/adr/NNN-titulo.md`.
 - Secciones: Contexto, Alternativas consideradas, Decisión y Consecuencias.
-- Decisión nueva = ADR nuevo.
+- ADR para decisiones difíciles de revertir, que afectan a varias partes del sistema o con implicaciones de seguridad. Los detalles de implementación que se revierten fácilmente se documentan en el PR y en docs/. Si dudas, pregunta.
 - Los ADRs aprobados en main son inmutables. Solo se edita la línea Estado. Las correcciones van en un ADR nuevo que indica a cuál reemplaza, y el anterior se marca como reemplazado.
 - Si una tarea contradice un ADR, detente y pregunta a León.
 
