@@ -175,11 +175,18 @@ El lint usa las reglas recomendadas de ESLint, typescript-eslint y angular-eslin
 
 El CI corre lint, tests y build del admin en el job `admin` ([ADR-014](adr/014-filtros-del-ci-para-admin-y-api.md)).
 
+Para iniciar sesión en local hace falta un administrador: `INITIAL_ADMIN_EMAIL` e `INITIAL_ADMIN_PASSWORD` en `.env`, con la colección `users` vacía, y una contraseña de al menos 12 caracteres. Sin ellas, la API no arranca.
+
 El admin llama a la API en `http://localhost:8080`, otro origen, como en producción. `ALLOWED_ORIGINS` de `.env` debe incluir `http://localhost:4200`; ya viene así en `.env.example`.
 
 Estructura de `src/app/`:
 
-- `core/`: configuración, y más adelante sesión, interceptores y guards.
+- `core/`: configuración, sesión, interceptores y guards.
+  - `session/session.service.ts`: estado de la sesión con signals. Como la cookie es `HttpOnly`, la sesión se conoce preguntando a `GET /api/v1/auth/me`, una sola vez, en la primera navegación.
+  - `http/credentials.interceptor.ts`: agrega `withCredentials` solo a las peticiones al origen de `API_BASE_URL`.
+  - `http/refresh.interceptor.ts` y `session/session-refresher.ts`: ante un 401 de la API hacen un solo `POST /auth/refresh` compartido y reintentan. No actúan sobre `/auth/login` ni `/auth/refresh`. Si el refresh falla, limpian la sesión y van a `/login?returnUrl=…`.
+  - `session/session.guards.ts`: `authGuard` para las rutas protegidas y `guestGuard` para `/login`.
+  - `http/problem-messages.ts`: traduce los errores de la API al español, incluido el tiempo de `Retry-After` en un 429.
 - `features/`: una carpeta por pantalla, con carga diferida por ruta.
 - `shared/ui/`: componentes helm de Spartan, copiados al repo, y componentes propios.
 
