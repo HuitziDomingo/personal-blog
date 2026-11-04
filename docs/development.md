@@ -105,10 +105,10 @@ Sin `INITIAL_ADMIN_EMAIL` e `INITIAL_ADMIN_PASSWORD`, la API registra un warning
 | `make api-test` | Corre los tests de Go con `-race`; los de integración se saltan |
 | `make api-test-integration` | Levanta MongoDB y corre los tests de `internal/repository` contra él |
 | `make api-lint` | Corre `golangci-lint` |
-| `make admin-dev` | Levanta el admin en `http://localhost:4200` |
+| `make admin-dev` | Levanta el admin en `http://localhost:4200`; con `ADMIN_API_BASE_URL=<origen>` usa otra API |
 | `make admin-lint` | Corre ESLint con angular-eslint en el admin |
 | `make admin-test` | Corre los tests del admin |
-| `make admin-build` | Build de producción del admin |
+| `make admin-build` | Build de producción del admin; antes verifica que la URL de la API de producción sea https |
 | `make api-docs` | Muestra el contrato con Swagger UI en `http://localhost:8081` |
 | `make api-flows` | Corre los flujos de Bruno contra la API local |
 | `make api-build` | Compila el binario en `services/api/bin/api` |
@@ -177,7 +177,30 @@ El CI corre lint, tests y build del admin en el job `admin` ([ADR-014](adr/014-f
 
 Para iniciar sesión en local hace falta un administrador: `INITIAL_ADMIN_EMAIL` e `INITIAL_ADMIN_PASSWORD` en `.env`, con la colección `users` vacía, y una contraseña de al menos 12 caracteres. Sin ellas, la API no arranca.
 
-El admin llama a la API en `http://localhost:8080`, otro origen, como en producción. `ALLOWED_ORIGINS` de `.env` debe incluir `http://localhost:4200`; ya viene así en `.env.example`.
+El admin llama a la API en otro origen, como en producción. `ALLOWED_ORIGINS` de `.env` debe incluir `http://localhost:4200`; ya viene así en `.env.example`.
+
+#### URL de la API
+
+El token `API_BASE_URL` (`core/config/api-config.ts`) toma el origen de la API del `define` de `angular.json`, que el build reemplaza en el código según la configuración:
+
+| Configuración | Se usa en | `ADMIN_API_BASE_URL` |
+| --- | --- | --- |
+| `development` | `make admin-dev` y `make admin-test` | `http://localhost:8080` |
+| `production` | `make admin-build` y el deploy | `https://api.huitzi.xyz` |
+
+El valor es un literal de JavaScript, por eso va entre comillas simples dentro del string de JSON: `"'https://api.huitzi.xyz'"`. Es un origen: sin path ni barra final.
+
+Para correr el admin contra una API en otro puerto, sin editar archivos versionados:
+
+```sh
+make admin-dev ADMIN_API_BASE_URL=http://localhost:9090
+```
+
+`ng serve` combina ese `--define` con el de `development`. La API de ese puerto también debe tener `http://localhost:4200` en `ALLOWED_ORIGINS`. No uses `8081`: es el puerto de `make api-docs`.
+
+El script `build` del paquete corre `scripts/check-api-base-url.mjs` antes de `ng build`. Ese chequeo falla si falta `ADMIN_API_BASE_URL` en `production`, si no es un literal de string, si no es https o si no es un origen limpio. Un `ng build` directo se lo salta, así que el CI, `make admin-build` y Vercel usan `pnpm --filter @personal-blog/admin build`.
+
+Cuando exista la cabecera CSP del admin (BLOG-046), su `connect-src` debe ser el mismo origen que el `define` de `production`.
 
 Estructura de `src/app/`:
 

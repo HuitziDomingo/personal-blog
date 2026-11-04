@@ -41,12 +41,18 @@
                   "maximumError": "8kB"
                 }
               ],
-              "outputHashing": "all"
+              "outputHashing": "all",
+              "define": {
+                "ADMIN_API_BASE_URL": "'https://api.huitzi.xyz'"
+              }
             },
             "development": {
               "optimization": false,
               "extractLicenses": false,
-              "sourceMap": true
+              "sourceMap": true,
+              "define": {
+                "ADMIN_API_BASE_URL": "'http://localhost:8080'"
+              }
             }
           },
           "defaultConfiguration": "production"

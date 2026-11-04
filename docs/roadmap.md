@@ -41,9 +41,9 @@
 - [ ] BLOG-018: Crear vista de gestión y creación de posts (Editor Markdown).
 - [ ] BLOG-036: Sanitizar el Markdown de los posts al renderizar en `apps/web` y `apps/admin`, con allowlist (ADR-010).
 - [ ] BLOG-046: CSP y cabeceras del admin en Vercel (ADR-012).
-- [ ] BLOG-047: Configurar admin.huitzi.xyz en Vercel y DNS en DreamHost.
+- [ ] BLOG-047: Configurar admin.huitzi.xyz en Vercel y DNS en DreamHost. El build command de Vercel debe ser el script `build` del paquete (`pnpm --filter @personal-blog/admin build`), que corre el chequeo de la URL de la API, no `ng build` directo.
 - [ ] BLOG-050: Activar security.autoCsp en angular.json (va con BLOG-046).
-- [ ] BLOG-051: API_BASE_URL del admin desde la configuración de build, no fijo en localhost (antes de BLOG-047).
+- [x] BLOG-051: API_BASE_URL del admin desde la configuración de build, no fijo en localhost (antes de BLOG-047). (PR_LINK)
 
 ## Fase 4: Testing & CI/CD Pipeline
 
@@ -53,6 +53,7 @@
 - [ ] BLOG-052: Job web en ci.yml con su filtro en el job changes, cuando exista `apps/web` (ADR-014).
 - [x] BLOG-049: Incluir Makefile y scripts de generación en el filtro del job api (va en el ADR de BLOG-021). ([#34](https://github.com/HuitziDomingo/personal-blog/pull/34))
 - [x] BLOG-037: Crear el `Dockerfile` multi-stage de la API y compilarlo en CI, sin publicar la imagen (ADR-004). ([#19](https://github.com/HuitziDomingo/personal-blog/pull/19))
+- [ ] BLOG-054: ADR de despliegue: Cloud Run, dominio de la API (api.huitzi.xyz) y certificados.
 - [ ] BLOG-022: Configurar pipeline de despliegue de la API a GCP Cloud Run.
 - [ ] BLOG-041: Verificar en el primer despliegue: rango de proxies, Cache-Control y cookies bajo api.huitzi.xyz.
 - [ ] BLOG-031: Revisar las 3 vulnerabilidades de `govulncheck` en módulos requeridos.

@@ -36,8 +36,10 @@ api-flows:
 		cd docs/api/bruno && "$(CURDIR)/node_modules/.bin/bru" run flows -r --env local \
 		--env-var "adminEmail=$$INITIAL_ADMIN_EMAIL" --env-var "adminPassword=$$INITIAL_ADMIN_PASSWORD"
 
+# Con ADMIN_API_BASE_URL=<origen> apunta el admin a otra API; sin ella usa el
+# define de development en angular.json.
 admin-dev:
-	pnpm --filter @personal-blog/admin start
+	pnpm --filter @personal-blog/admin start $(if $(ADMIN_API_BASE_URL),--define "ADMIN_API_BASE_URL='$(ADMIN_API_BASE_URL)'")
 
 admin-lint:
 	pnpm --filter @personal-blog/admin lint
