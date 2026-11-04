@@ -310,7 +310,7 @@ export interface components {
         /** @description Se superó el límite de peticiones de la IP, o el de logins fallidos del email. */
         TooManyRequests: {
             headers: {
-                /** @description Segundos que faltan para el siguiente intento. */
+                /** @description Segundos que faltan para el siguiente intento. Se expone a los orígenes permitidos con Access-Control-Expose-Headers. */
                 "Retry-After"?: number;
                 [name: string]: unknown;
             };
