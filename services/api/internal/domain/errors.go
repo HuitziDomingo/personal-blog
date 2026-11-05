@@ -15,6 +15,10 @@ var (
 	ErrDuplicateEmail     = errors.New("email already exists")
 	ErrDuplicateSlug      = errors.New("slug already exists")
 
+	// ErrSlugLocked indica que se intentó cambiar el slug de un post que ya
+	// se publicó alguna vez: cambiarlo rompería sus links.
+	ErrSlugLocked = errors.New("slug cannot change once the post has been published")
+
 	// ErrTokenReused indica que llegó un refresh token ya rotado o revocado:
 	// alguien más tiene una copia, así que se revoca toda su familia.
 	ErrTokenReused = errors.New("refresh token reused")
