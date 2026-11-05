@@ -44,6 +44,9 @@
               "outputHashing": "all",
               "define": {
                 "ADMIN_API_BASE_URL": "'https://api.huitzi.xyz'"
+              },
+              "security": {
+                "autoCsp": true
               }
             },
             "development": {
