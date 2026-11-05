@@ -283,7 +283,7 @@ examples:
             "instance": ""
           }
   - name: 409 Response
-    description: El slug ya está en uso.
+    description: El slug ya está en uso, o el post ya se publicó alguna vez y su slug no puede cambiar.
     request:
       url: "{{baseUrl}}/api/v1/admin/posts/:id"
       method: PUT

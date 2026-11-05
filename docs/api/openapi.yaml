@@ -300,12 +300,13 @@ paths:
     delete:
       tags: [admin-posts]
       operationId: deletePost
-      summary: Elimina un post.
+      summary: Archiva un post.
+      description: No hay borrado físico. El post pasa a `archived`, deja de verse en la API pública y conserva su slug y su `publishedAt`. Archivar un post archivado no cambia nada.
       security:
         - accessCookie: []
       responses:
         "204":
-          description: Post eliminado.
+          description: Post archivado.
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
@@ -350,10 +351,11 @@ components:
       name: tag
       in: query
       required: false
-      description: Filtra por etiqueta.
+      description: Filtra por etiqueta. Se compara en minúsculas y con los espacios colapsados.
       schema:
         type: string
         minLength: 1
+        maxLength: 50
     Limit:
       name: limit
       in: query
@@ -374,6 +376,7 @@ components:
         type: integer
         format: int32
         minimum: 0
+        maximum: 10000
         default: 0
 
   responses:
@@ -402,7 +405,7 @@ components:
           schema:
             $ref: "#/components/schemas/Problem"
     Conflict:
-      description: El slug ya está en uso.
+      description: El slug ya está en uso, o el post ya se publicó alguna vez y su slug no puede cambiar.
       content:
         application/problem+json:
           schema:
@@ -496,6 +499,8 @@ components:
 
     Slug:
       type: string
+      minLength: 1
+      maxLength: 80
       pattern: "^[a-z0-9]+(-[a-z0-9]+)*$"
 
     Seo:
@@ -503,40 +508,56 @@ components:
       properties:
         title:
           type: string
+          maxLength: 200
         description:
           type: string
+          maxLength: 300
         keywords:
           type: array
+          maxItems: 20
           items:
             type: string
+            maxLength: 50
         canonicalUrl:
           type: string
           format: uri
+          maxLength: 2048
         ogImageUrl:
           type: string
           format: uri
+          maxLength: 2048
 
     PostWrite:
       type: object
-      description: Datos editables de un post.
-      required: [title, slug, content, status]
+      description: >-
+        Datos editables de un post. `slug` es opcional: si falta, se genera del
+        título al crear y se conserva el actual al editar; solo cambia mientras
+        el post es un borrador que nunca se publicó, y si no, responde 409.
+        Publicar fija `publishedAt` solo la primera vez.
+      required: [title, content, status]
       properties:
         title:
           type: string
           minLength: 1
+          maxLength: 200
         slug:
           $ref: "#/components/schemas/Slug"
         excerpt:
           type: string
+          maxLength: 500
+          description: Opcional. Si falta o está vacío, se generan los primeros ~160 caracteres del contenido sin Markdown.
         content:
           type: string
-          description: Contenido en Markdown.
+          description: Contenido en Markdown. Se guarda tal cual; la API nunca lo convierte a HTML.
           minLength: 1
         tags:
           type: array
+          maxItems: 20
+          description: Se guardan en minúsculas, con los espacios colapsados y sin duplicados.
           items:
             type: string
             minLength: 1
+            maxLength: 50
         status:
           $ref: "#/components/schemas/PostStatus"
         seo:
