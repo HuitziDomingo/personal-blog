@@ -1,0 +1,37 @@
+info:
+  name: 6 Ver en el listado publico
+  type: http
+  seq: 6
+
+http:
+  method: GET
+  url: "{{baseUrl}}/api/v1/posts?tag=bruno&limit=100"
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "200"
+  scripts:
+    - type: tests
+      code: |-
+        test("lists the post", function () {
+          const ids = res.body.items.map((item) => item.id);
+          expect(ids).to.include(bru.getVar("postId"));
+        });
+
+        test("orders by publishedAt, newest first", function () {
+          const dates = res.body.items.map((item) => item.publishedAt);
+          expect(dates).to.eql([...dates].sort().reverse());
+        });
+
+        test("lists only published posts", function () {
+          res.body.items.forEach((item) => expect(item.status).to.equal("published"));
+        });
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: true

@@ -1,0 +1,39 @@
+info:
+  name: 4 Publicar
+  type: http
+  seq: 4
+
+http:
+  method: PUT
+  url: "{{baseUrl}}/api/v1/admin/posts/{{postId}}"
+  body:
+    type: json
+    data: |-
+      {
+        "title": "{{postTitle}} (editado)",
+        "content": "Contenido editado.",
+        "tags": ["bruno", "flujos de prueba"],
+        "status": "published"
+      }
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "200"
+    - expression: res.body.status
+      operator: eq
+      value: published
+    - expression: res.body.publishedAt
+      operator: isString
+  scripts:
+    - type: after-response
+      code: |-
+        bru.setVar("publishedAt", res.body.publishedAt);
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: true

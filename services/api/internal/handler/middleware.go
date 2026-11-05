@@ -15,7 +15,8 @@ import (
 )
 
 const (
-	authPathPrefix = "/api/v1/auth/"
+	authPathPrefix  = "/api/v1/auth/"
+	adminPathPrefix = "/api/v1/admin/"
 
 	hstsPolicy            = "max-age=31536000; includeSubDomains"
 	contentSecurityPolicy = "default-src 'none'; frame-ancestors 'none'"
@@ -39,7 +40,8 @@ func securityHeaders(c *gin.Context) {
 	header.Set("Referrer-Policy", "no-referrer")
 	header.Set("Content-Security-Policy", contentSecurityPolicy)
 
-	if strings.HasPrefix(c.Request.URL.Path, authPathPrefix) {
+	// Las respuestas con sesión o con borradores no se guardan en ninguna caché.
+	if strings.HasPrefix(c.Request.URL.Path, authPathPrefix) || strings.HasPrefix(c.Request.URL.Path, adminPathPrefix) {
 		header.Set("Cache-Control", "no-store")
 	}
 }

@@ -142,7 +142,10 @@ export interface paths {
         /** Reemplaza los datos editables de un post. */
         put: operations["updatePost"];
         post?: never;
-        /** Elimina un post. */
+        /**
+         * Archiva un post.
+         * @description No hay borrado físico. El post pasa a `archived`, deja de verse en la API pública y conserva su slug y su `publishedAt`. Archivar un post archivado no cambia nada.
+         */
         delete: operations["deletePost"];
         options?: never;
         head?: never;
@@ -203,13 +206,15 @@ export interface components {
             /** Format: uri */
             ogImageUrl?: string;
         };
-        /** @description Datos editables de un post. */
+        /** @description Datos editables de un post. `slug` es opcional: si falta, se genera del título al crear y se conserva el actual al editar; solo cambia mientras el post es un borrador que nunca se publicó, y si no, responde 409. Publicar fija `publishedAt` solo la primera vez. */
         PostWrite: {
             title: string;
-            slug: components["schemas"]["Slug"];
+            slug?: components["schemas"]["Slug"];
+            /** @description Opcional. Si falta o está vacío, se generan los primeros ~160 caracteres del contenido sin Markdown. */
             excerpt?: string;
-            /** @description Contenido en Markdown. */
+            /** @description Contenido en Markdown. Se guarda tal cual; la API nunca lo convierte a HTML. */
             content: string;
+            /** @description Se guardan en minúsculas, con los espacios colapsados y sin duplicados. */
             tags?: string[];
             status: components["schemas"]["PostStatus"];
             seo?: components["schemas"]["Seo"];
@@ -289,7 +294,7 @@ export interface components {
                 "application/problem+json": components["schemas"]["Problem"];
             };
         };
-        /** @description El slug ya está en uso. */
+        /** @description El slug ya está en uso, o el post ya se publicó alguna vez y su slug no puede cambiar. */
         Conflict: {
             headers: {
                 [name: string]: unknown;
@@ -331,7 +336,7 @@ export interface components {
     parameters: {
         /** @description Identificador del post en la URL. */
         Slug: components["schemas"]["Slug"];
-        /** @description Filtra por etiqueta. */
+        /** @description Filtra por etiqueta. Se compara en minúsculas y con los espacios colapsados. */
         Tag: string;
         /** @description Tamaño de la página. */
         Limit: number;
@@ -449,7 +454,7 @@ export interface operations {
     listPublishedPosts: {
         parameters: {
             query?: {
-                /** @description Filtra por etiqueta. */
+                /** @description Filtra por etiqueta. Se compara en minúsculas y con los espacios colapsados. */
                 tag?: components["parameters"]["Tag"];
                 /** @description Tamaño de la página. */
                 limit?: components["parameters"]["Limit"];
@@ -508,7 +513,7 @@ export interface operations {
             query?: {
                 /** @description Filtra por estado. */
                 status?: components["schemas"]["PostStatus"];
-                /** @description Filtra por etiqueta. */
+                /** @description Filtra por etiqueta. Se compara en minúsculas y con los espacios colapsados. */
                 tag?: components["parameters"]["Tag"];
                 /** @description Tamaño de la página. */
                 limit?: components["parameters"]["Limit"];
@@ -643,7 +648,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Post eliminado. */
+            /** @description Post archivado. */
             204: {
                 headers: {
                     [name: string]: unknown;

@@ -1,5 +1,5 @@
 info:
-  name: Elimina un post
+  name: Archiva un post
   type: http
   seq: 5
   tags:
@@ -32,7 +32,7 @@ settings:
 
 examples:
   - name: 204 Response
-    description: Post eliminado.
+    description: Post archivado.
     request:
       url: "{{baseUrl}}/api/v1/admin/posts/:id"
       method: DELETE
@@ -199,3 +199,5 @@ examples:
             "detail": "",
             "instance": ""
           }
+
+docs: No hay borrado físico. El post pasa a `archived`, deja de verse en la API pública y conserva su slug y su `publishedAt`. Archivar un post archivado no cambia nada.

@@ -1,0 +1,33 @@
+info:
+  name: 7 Cambiar slug publicado
+  type: http
+  seq: 7
+
+http:
+  method: PUT
+  url: "{{baseUrl}}/api/v1/admin/posts/{{postId}}"
+  body:
+    type: json
+    data: |-
+      {
+        "title": "{{postTitle}} (editado)",
+        "slug": "otro-slug-{{postId}}",
+        "content": "Contenido editado.",
+        "status": "published"
+      }
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "409"
+    - expression: res.body.detail
+      operator: eq
+      value: "slug cannot change once the post has been published"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: true

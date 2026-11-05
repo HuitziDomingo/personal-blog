@@ -1,0 +1,70 @@
+info:
+  name: 2 Crear borrador
+  type: http
+  seq: 2
+
+http:
+  method: POST
+  url: "{{baseUrl}}/api/v1/admin/posts"
+  body:
+    type: json
+    data: |-
+      {
+        "title": "{{postTitle}}",
+        "content": "# Hola\n\nContenido **de prueba** con <em>HTML</em> que se guarda tal cual.",
+        "tags": ["Bruno", "bruno", "  Flujos   de   prueba "],
+        "status": "draft"
+      }
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "201"
+    - expression: res.body.status
+      operator: eq
+      value: draft
+    - expression: res.body.id
+      operator: isString
+  scripts:
+    - type: before-request
+      code: |-
+        // Un título distinto en cada corrida: el slug generado no choca con el de
+        // corridas anteriores, que quedan archivadas.
+        bru.setVar("postTitle", "Flujo de Bruno " + Date.now());
+    - type: after-response
+      code: |-
+        bru.setVar("postId", res.body.id);
+        bru.setVar("postSlug", res.body.slug);
+    - type: tests
+      code: |-
+        test("generates the slug from the title", function () {
+          expect(res.body.slug).to.match(/^flujo-de-bruno-\d+$/);
+        });
+
+        test("normalizes the tags", function () {
+          expect(res.body.tags).to.eql(["bruno", "flujos de prueba"]);
+        });
+
+        test("generates the excerpt without Markdown", function () {
+          expect(res.body.excerpt).to.equal("Hola Contenido de prueba con HTML que se guarda tal cual.");
+        });
+
+        test("keeps the Markdown as is", function () {
+          expect(res.body.content).to.include("**de prueba** con <em>HTML</em>");
+        });
+
+        test("a draft has no publishedAt", function () {
+          expect(res.body.publishedAt).to.equal(undefined);
+        });
+
+        test("is not cached", function () {
+          expect(res.getHeader("cache-control")).to.equal("no-store");
+        });
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: true

@@ -12,7 +12,7 @@ http:
     - name: tag
       value: ""
       type: query
-      description: Filtra por etiqueta.
+      description: Filtra por etiqueta. Se compara en minúsculas y con los espacios colapsados.
       disabled: true
     - name: limit
       value: "20"
@@ -41,7 +41,7 @@ examples:
         - name: tag
           value: ""
           type: query
-          description: Filtra por etiqueta.
+          description: Filtra por etiqueta. Se compara en minúsculas y con los espacios colapsados.
           disabled: true
         - name: limit
           value: "20"
@@ -88,7 +88,7 @@ examples:
         - name: tag
           value: ""
           type: query
-          description: Filtra por etiqueta.
+          description: Filtra por etiqueta. Se compara en minúsculas y con los espacios colapsados.
           disabled: true
         - name: limit
           value: "20"
@@ -123,7 +123,7 @@ examples:
         - name: tag
           value: ""
           type: query
-          description: Filtra por etiqueta.
+          description: Filtra por etiqueta. Se compara en minúsculas y con los espacios colapsados.
           disabled: true
         - name: limit
           value: "20"
@@ -158,7 +158,7 @@ examples:
         - name: tag
           value: ""
           type: query
-          description: Filtra por etiqueta.
+          description: Filtra por etiqueta. Se compara en minúsculas y con los espacios colapsados.
           disabled: true
         - name: limit
           value: "20"

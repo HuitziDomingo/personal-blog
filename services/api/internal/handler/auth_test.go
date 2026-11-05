@@ -27,6 +27,8 @@ const (
 	newAccessToken   = "new-access-token"
 	newRefreshToken  = "new-refresh-token"
 	reusedRefresh    = "reused-refresh-token"
+	// editorAccessToken es una sesión válida de un usuario que no es admin.
+	editorAccessToken = "editor-access-token"
 )
 
 var testUser = &domain.User{ID: "user-1", Email: testEmail, Role: domain.UserRoleAdmin}
@@ -78,11 +80,14 @@ func (f *fakeSessions) Logout(_ context.Context, refreshToken string) error {
 }
 
 func (f *fakeSessions) Authenticate(accessToken string) (service.AccessClaims, error) {
-	if accessToken != testAccessToken {
+	switch accessToken {
+	case testAccessToken:
+		return service.AccessClaims{UserID: testUser.ID, Role: testUser.Role}, nil
+	case editorAccessToken:
+		return service.AccessClaims{UserID: "user-2", Role: "editor"}, nil
+	default:
 		return service.AccessClaims{}, domain.ErrInvalidToken
 	}
-
-	return service.AccessClaims{UserID: testUser.ID, Role: testUser.Role}, nil
 }
 
 func (f *fakeSessions) CurrentUser(_ context.Context, userID string) (*domain.User, error) {
@@ -221,8 +226,7 @@ func TestProtectedRouteAcceptsValidSession(t *testing.T) {
 	withSession := send(router, http.MethodGet, "/api/v1/admin/posts", "", withCookies(accessCookie(testAccessToken)))
 	forged := send(router, http.MethodGet, "/api/v1/admin/posts", "", withCookies(accessCookie("forged")))
 
-	// La operación aún no existe: 501 significa que pasó la autenticación.
-	requireProblem(t, withSession, http.StatusNotImplemented)
+	assert.Equal(t, http.StatusOK, withSession.Code)
 	problem := requireProblem(t, forged, http.StatusUnauthorized)
 	assert.Equal(t, "authentication required", *problem.Detail)
 }

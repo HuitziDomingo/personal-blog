@@ -30,6 +30,8 @@ type RouterConfig struct {
 	TrustedProxies []string
 	// Sessions implementa el login y la sesión; es obligatorio.
 	Sessions Sessions
+	// Posts implementa los posts; es obligatorio.
+	Posts Posts
 }
 
 // NewRouter crea el router HTTP con las rutas de la API. spec debe venir de
@@ -40,6 +42,10 @@ type RouterConfig struct {
 func NewRouter(pinger Pinger, spec *openapi3.T, cfg RouterConfig) (*gin.Engine, error) {
 	if cfg.Sessions == nil {
 		return nil, errors.New("router needs sessions")
+	}
+
+	if cfg.Posts == nil {
+		return nil, errors.New("router needs posts")
 	}
 
 	router := gin.New()
@@ -71,7 +77,7 @@ func NewRouter(pinger Pinger, spec *openapi3.T, cfg RouterConfig) (*gin.Engine, 
 			AuthenticationFunc: authenticateRequest,
 		},
 	})
-	handlers := gen.NewStrictHandlerWithOptions(server{sessions: cfg.Sessions}, nil, gen.StrictGinServerOptions{
+	handlers := gen.NewStrictHandlerWithOptions(server{sessions: cfg.Sessions, posts: cfg.Posts}, nil, gen.StrictGinServerOptions{
 		RequestErrorHandlerFunc:  requestError,
 		HandlerErrorFunc:         handlerError,
 		ResponseErrorHandlerFunc: responseError,

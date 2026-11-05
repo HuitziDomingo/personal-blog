@@ -66,6 +66,13 @@ func NewPostService(posts domain.PostRepository, now func() time.Time) *PostServ
 	return &PostService{posts: posts, now: now}
 }
 
+// timestamp devuelve la hora actual con la precisión con la que MongoDB guarda
+// las fechas (milisegundos). Así el post que devuelve una escritura es igual
+// al que devuelve una lectura posterior.
+func (s *PostService) timestamp() time.Time {
+	return s.now().UTC().Truncate(time.Millisecond)
+}
+
 // Create guarda un post nuevo. Un slug enviado que ya existe devuelve
 // domain.ErrDuplicateSlug; uno generado del título recibe un sufijo libre.
 func (s *PostService) Create(ctx context.Context, authorID string, input PostInput) (*domain.Post, error) {
@@ -73,7 +80,7 @@ func (s *PostService) Create(ctx context.Context, authorID string, input PostInp
 		return nil, fmt.Errorf("create post: %w", err)
 	}
 
-	now := s.now().UTC()
+	now := s.timestamp()
 	post := &domain.Post{AuthorID: authorID, CreatedAt: now}
 	applyPostInput(post, input, now)
 
@@ -160,7 +167,7 @@ func (s *PostService) Update(ctx context.Context, id string, input PostInput) (*
 		post.Slug = input.Slug
 	}
 
-	applyPostInput(post, input, s.now().UTC())
+	applyPostInput(post, input, s.timestamp())
 
 	if err := s.posts.Update(ctx, post); err != nil {
 		return nil, fmt.Errorf("update post: %w", err)
@@ -182,7 +189,7 @@ func (s *PostService) Archive(ctx context.Context, id string) error {
 	}
 
 	post.Status = domain.PostStatusArchived
-	post.UpdatedAt = s.now().UTC()
+	post.UpdatedAt = s.timestamp()
 
 	if err := s.posts.Update(ctx, post); err != nil {
 		return fmt.Errorf("archive post: %w", err)

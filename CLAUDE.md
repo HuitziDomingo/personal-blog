@@ -42,6 +42,7 @@ No inventes comandos. Cuando exista uno real, sustituye su TODO.
 - Una rama por PR, creada desde `main`.
 - PRs chicos.
 - Conventional Commits con scope: `api`, `web`, `admin` o `docs`.
+- Responde a León en español; los mensajes de commit siguen en inglés con Conventional Commits.
 - Nunca hagas push a `main`.
 - Si un PR agrega o cambia un comando, actualiza `docs/development.md` en el mismo PR.
 - Si un PR cambia algo que README.md describe (estructura, estado, cómo empezar), actualízalo en el mismo PR.
@@ -84,7 +85,7 @@ Ver [ADR-010](docs/adr/010-linea-base-de-seguridad-de-la-api.md) y [ADR-011](doc
 
 ## Testing
 
-Ver [ADR-003](docs/adr/003-estrategia-global-de-testing.md) y [ADR-006](docs/adr/006-correcciones-a-adr-002-y-003.md).
+Ver [ADR-003](docs/adr/003-estrategia-global-de-testing.md), [ADR-006](docs/adr/006-correcciones-a-adr-002-y-003.md) y [ADR-015](docs/adr/015-dobles-de-prueba-fakes-por-defecto.md).
 
 - Go: `testify` + fakes escritos a mano (ADR-015).
 - Front: Vitest + Testing Library.

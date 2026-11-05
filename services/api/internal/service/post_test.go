@@ -696,3 +696,15 @@ func TestPostServiceListPage(t *testing.T) {
 		})
 	}
 }
+
+func TestPostServiceTimestampsUseMongoPrecision(t *testing.T) {
+	f := newPostFixture()
+	f.clock.now = time.Date(2026, 11, 5, 12, 0, 0, 123456789, time.UTC)
+
+	post := f.createPost(t, withStatus(draftInput("Precisión"), domain.PostStatusPublished))
+
+	want := time.Date(2026, 11, 5, 12, 0, 0, 123000000, time.UTC)
+	assert.Equal(t, want, post.CreatedAt)
+	assert.Equal(t, want, post.UpdatedAt)
+	assert.Equal(t, want, *post.PublishedAt)
+}

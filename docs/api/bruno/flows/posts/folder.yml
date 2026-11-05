@@ -1,0 +1,14 @@
+info:
+  name: posts
+  type: folder
+
+request:
+  auth: inherit
+
+docs:
+  content: |-
+    Ciclo de vida de un post: login, crear borrador, editar, publicar, verlo en
+    la API pública, intentar cambiar el slug publicado, archivar y comprobar que
+    ya no aparece. El título lleva la hora para que el flujo se pueda repetir.
+    Pide adminEmail y adminPassword, variables secretas del environment local.
+  type: text/markdown
