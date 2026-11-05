@@ -42,9 +42,9 @@
 - [ ] BLOG-017: Diseñar layout principal con estilo Liquid Glass / Glassmorphism.
 - [ ] BLOG-018: Crear vista de gestión y creación de posts (Editor Markdown).
 - [ ] BLOG-036: Sanitizar el Markdown de los posts al renderizar en `apps/web` y `apps/admin`, con allowlist (ADR-010).
-- [ ] BLOG-046: CSP y cabeceras del admin en Vercel (ADR-012).
+- [x] BLOG-046: CSP y cabeceras del admin en Vercel (ADR-012). ([#45](https://github.com/HuitziDomingo/personal-blog/pull/45))
 - [ ] BLOG-047: Configurar admin.huitzi.xyz en Vercel y DNS en DreamHost. El build command de Vercel debe ser el script `build` del paquete (`pnpm --filter @personal-blog/admin build`), que corre el chequeo de la URL de la API, no `ng build` directo.
-- [ ] BLOG-050: Activar security.autoCsp en angular.json (va con BLOG-046).
+- [x] BLOG-050: Activar security.autoCsp en angular.json (va con BLOG-046). ([#45](https://github.com/HuitziDomingo/personal-blog/pull/45))
 - [x] BLOG-051: API_BASE_URL del admin desde la configuración de build, no fijo en localhost (antes de BLOG-047). ([#41](https://github.com/HuitziDomingo/personal-blog/pull/41))
 
 ## Fase 4: Testing & CI/CD Pipeline
