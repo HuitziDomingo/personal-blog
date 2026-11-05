@@ -29,7 +29,7 @@
 - [x] BLOG-044: Agregar GET /api/v1/auth/me al contrato y a la API (ADR-012). ([#29](https://github.com/HuitziDomingo/personal-blog/pull/29))
 - [x] BLOG-012: Implementar middleware de JWT y almacenamiento en Cookie `HttpOnly`. ([#29](https://github.com/HuitziDomingo/personal-blog/pull/29))
 - [x] BLOG-053: Exponer `Retry-After` a los orígenes permitidos con `Access-Control-Expose-Headers`, para que el admin muestre el tiempo de espera de un 429. ([#39](https://github.com/HuitziDomingo/personal-blog/pull/39))
-- [ ] BLOG-032: Implementar `PostRepository` en MongoDB, con índices idempotentes y tests de integración.
+- [x] BLOG-032: Implementar `PostRepository` en MongoDB, con índices idempotentes y tests de integración. ([#42](https://github.com/HuitziDomingo/personal-blog/pull/42))
 - [ ] BLOG-055: Implementar el service de posts (`internal/service`) con las reglas de negocio: slug, `PublishedAt`, archivado, tags y extracto.
 - [ ] BLOG-056: Implementar los endpoints públicos y de admin de posts, con su flujo de Bruno en `flows/posts/`.
 - [x] BLOG-014: Crear colección de pruebas en Bruno, generada desde el contrato con el CLI de Bruno, con flujos manuales. ([#31](https://github.com/HuitziDomingo/personal-blog/pull/31))
