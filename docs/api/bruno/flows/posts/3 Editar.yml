@@ -1,0 +1,43 @@
+info:
+  name: 3 Editar
+  type: http
+  seq: 3
+
+http:
+  method: PUT
+  url: "{{baseUrl}}/api/v1/admin/posts/{{postId}}"
+  body:
+    type: json
+    data: |-
+      {
+        "title": "{{postTitle}} (editado)",
+        "content": "Contenido editado.",
+        "tags": ["bruno", "flujos de prueba"],
+        "status": "draft"
+      }
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "200"
+    - expression: res.body.status
+      operator: eq
+      value: draft
+    - expression: res.body.excerpt
+      operator: eq
+      value: "Contenido editado."
+  scripts:
+    - type: tests
+      code: |-
+        test("keeps the slug when the title changes", function () {
+          expect(res.body.slug).to.equal(bru.getVar("postSlug"));
+          expect(res.body.title).to.equal(bru.getVar("postTitle") + " (editado)");
+        });
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: true

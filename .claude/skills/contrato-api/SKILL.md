@@ -28,7 +28,7 @@ Regenera tres cosas: `services/api/internal/handler/gen/` (oapi-codegen), `packa
 
 Sigue la arquitectura hexagonal de CLAUDE.md (`handler → service → domain ← repository`):
 
-- El handler implementa el método nuevo de `gen.StrictServerInterface`. Si la operación aún no existe, responde con `errNotImplemented` desde `unimplementedServer`.
+- El handler implementa el método nuevo de `gen.StrictServerInterface`; si falta, `server` no compila. Si la operación todavía no tiene lógica, el método devuelve `errNotImplemented` (501).
 - Traduce los errores de dominio en `handlerError` (`handler/problem.go`), no en cada handler.
 - Todo endpoint nuevo lleva test y cumple ADR-010: el PR explica cómo.
 - Los mensajes de error van en inglés y nunca registran tokens, cookies, emails ni contraseñas.

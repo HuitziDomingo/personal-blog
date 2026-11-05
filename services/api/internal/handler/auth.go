@@ -10,13 +10,10 @@ import (
 	"github.com/HuitziDomingo/personal-blog/services/api/internal/handler/gen"
 )
 
-// server implementa el contrato. Las operaciones que aún no existen vienen de
-// unimplementedServer; los métodos de server tienen prioridad sobre los
-// promovidos.
+// server implementa el contrato: la sesión en auth.go y los posts en posts.go.
 type server struct {
-	unimplementedServer
-
 	sessions Sessions
+	posts    Posts
 }
 
 var _ gen.StrictServerInterface = server{}

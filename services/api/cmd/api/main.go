@@ -73,6 +73,7 @@ func run() error {
 		MaxBodyBytes:   cfg.MaxBodyBytes,
 		TrustedProxies: cfg.TrustedProxies,
 		Sessions:       sessions,
+		Posts:          service.NewPostService(mongodb.NewPostRepository(client), time.Now),
 		RateLimits: handler.RateLimits{
 			Global:  handler.RateLimit(cfg.GlobalRateLimit),
 			Login:   handler.RateLimit(cfg.LoginRateLimit),

@@ -30,6 +30,7 @@ func testRouterConfig() RouterConfig {
 		MaxBodyBytes:   testMaxBodyBytes,
 		RateLimits:     RateLimits{Global: generous, Login: generous, Refresh: generous},
 		Sessions:       newFakeSessions(),
+		Posts:          newFakePosts(),
 	}
 }
 
@@ -98,7 +99,7 @@ func TestContractRoutesRespondWithProblems(t *testing.T) {
 		{name: "unknown route", method: http.MethodGet, path: "/api/v1/nope", status: http.StatusNotFound},
 		{name: "unsupported method", method: http.MethodDelete, path: "/api/v1/posts", status: http.StatusNotFound},
 		{name: "valid request reaches the handler", method: http.MethodPost, path: "/api/v1/auth/login", body: `{"email":"a@b.co","password":"x"}`, status: http.StatusUnauthorized, detail: "invalid credentials"},
-		{name: "public route without implementation", method: http.MethodGet, path: "/api/v1/posts/hello-world", status: http.StatusNotImplemented},
+		{name: "public route reaches the handler", method: http.MethodGet, path: "/api/v1/posts/hello-world", status: http.StatusNotFound},
 	}
 
 	router := newContractRouter(t)

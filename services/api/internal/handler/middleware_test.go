@@ -59,13 +59,15 @@ func TestSecurityHeaders(t *testing.T) {
 	}
 }
 
-func TestCacheControlOnlyOnAuthRoutes(t *testing.T) {
+func TestCacheControlOnlyOnPrivateRoutes(t *testing.T) {
 	router := newContractRouter(t)
 
 	login := send(router, http.MethodPost, loginPath, loginBody, nil)
+	admin := send(router, http.MethodGet, "/api/v1/admin/posts", "", withCookies(accessCookie(testAccessToken)))
 	posts := get(router, "/api/v1/posts")
 
 	assert.Equal(t, "no-store", login.Header().Get("Cache-Control"))
+	assert.Equal(t, "no-store", admin.Header().Get("Cache-Control"))
 	assert.Empty(t, posts.Header().Get("Cache-Control"))
 }
 

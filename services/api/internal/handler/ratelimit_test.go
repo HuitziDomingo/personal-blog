@@ -146,9 +146,8 @@ func TestGlobalRateLimit(t *testing.T) {
 	generous := RateLimit{PerMinute: 10000, Burst: 10000}
 	router := limitedRouter(t, RateLimit{PerMinute: 1, Burst: 2}, generous)
 
-	// Las operaciones aún responden 501; aquí solo importa que no sea 429.
 	for range 2 {
-		assert.Equal(t, http.StatusNotImplemented, get(router, "/api/v1/posts").Code)
+		assert.Equal(t, http.StatusOK, get(router, "/api/v1/posts").Code)
 	}
 
 	response := send(router, http.MethodGet, "/api/v1/posts", "", map[string]string{"Origin": testOrigin})
@@ -175,7 +174,7 @@ func TestLoginRateLimit(t *testing.T) {
 	requireProblem(t, second, http.StatusTooManyRequests)
 	assert.Equal(t, "12", second.Header().Get("Retry-After"))
 	assert.Equal(t, "no-store", second.Header().Get("Cache-Control"))
-	assert.Equal(t, http.StatusNotImplemented, get(router, "/api/v1/posts").Code, "other routes keep only the global limit")
+	assert.Equal(t, http.StatusOK, get(router, "/api/v1/posts").Code, "other routes keep only the global limit")
 }
 
 func TestRefreshRateLimit(t *testing.T) {

@@ -21,6 +21,9 @@ const (
 	detailLoginFailed     = "invalid credentials"
 	detailInvalidSession  = "invalid or expired session"
 	detailTooManyAttempts = "too many login attempts"
+	detailInvalidPost     = "invalid post data"
+	detailDuplicateSlug   = "slug already exists"
+	detailSlugLocked      = "slug cannot change once the post has been published"
 )
 
 // errNotImplemented marca las operaciones del contrato que aún no existen.
@@ -73,7 +76,7 @@ func requestError(c *gin.Context, err error) {
 
 // handlerError responde a los errores que devuelven las operaciones.
 // Los errores del login y la sesión se traducen a 401 o 429 sin decir el
-// motivo concreto.
+// motivo concreto. Los del dominio de posts, a 400, 403, 404 o 409.
 func handlerError(c *gin.Context, err error) {
 	var tooMany *service.TooManyAttemptsError
 
@@ -91,6 +94,18 @@ func handlerError(c *gin.Context, err error) {
 		invalidSession(c)
 	case errors.Is(err, domain.ErrInvalidToken):
 		invalidSession(c)
+	case errors.Is(err, domain.ErrForbidden):
+		writeProblem(c, http.StatusForbidden, "")
+	case errors.Is(err, domain.ErrNotFound):
+		writeProblem(c, http.StatusNotFound, "")
+	case errors.Is(err, domain.ErrDuplicateSlug):
+		writeProblem(c, http.StatusConflict, detailDuplicateSlug)
+	case errors.Is(err, domain.ErrSlugLocked):
+		writeProblem(c, http.StatusConflict, detailSlugLocked)
+	case errors.Is(err, domain.ErrInvalidInput):
+		// El validador del contrato ya rechazó casi todo; aquí llegan las reglas
+		// del service, como un título sin caracteres para el slug.
+		writeProblem(c, http.StatusBadRequest, detailInvalidPost)
 	default:
 		internalError(c, err)
 	}
