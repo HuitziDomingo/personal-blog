@@ -50,10 +50,22 @@ type Post struct {
 	UpdatedAt   time.Time
 }
 
-// PostFilter acota un listado de posts. Los campos en su valor cero no filtran.
+// PostOrder es el orden de un listado de posts.
+type PostOrder int
+
+// Órdenes de listado. El valor cero es PostOrderUpdatedDesc.
+const (
+	// PostOrderUpdatedDesc ordena del post editado más recientemente al más antiguo.
+	PostOrderUpdatedDesc PostOrder = iota
+	// PostOrderPublishedDesc ordena del post publicado más recientemente al más antiguo.
+	PostOrderPublishedDesc
+)
+
+// PostFilter acota un listado de posts. Status y Tag en su valor cero no filtran.
 type PostFilter struct {
 	Status PostStatus
 	Tag    string
+	Order  PostOrder
 	Limit  int
 	Offset int
 }
@@ -69,8 +81,7 @@ type PostRepository interface {
 	// List devuelve la página solicitada y el total de posts que cumplen el filtro.
 	List(ctx context.Context, filter PostFilter) ([]*Post, int64, error)
 	// Update devuelve ErrNotFound si el post no existe y ErrDuplicateSlug si
-	// el nuevo slug ya está en uso.
+	// el nuevo slug ya está en uso. Borrar un post es archivarlo con Update:
+	// el puerto no tiene borrado físico.
 	Update(ctx context.Context, post *Post) error
-	// Delete devuelve ErrNotFound si el post no existe.
-	Delete(ctx context.Context, id string) error
 }

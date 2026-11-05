@@ -70,6 +70,10 @@ func (c *Client) EnsureIndexes(ctx context.Context) error {
 		return fmt.Errorf("create refresh token indexes: %w", err)
 	}
 
+	if _, err := c.database.Collection(postsCollection).Indexes().CreateMany(ctx, postIndexes()); err != nil {
+		return fmt.Errorf("create post indexes: %w", err)
+	}
+
 	return nil
 }
 

@@ -16,7 +16,8 @@ Cómo levantar y probar el proyecto en local. Las decisiones están en [docs/adr
 
 ```text
 personal-blog/
-├── apps/                 # Pendiente: web (Next.js) y admin (Angular)
+├── apps/
+│   └── admin/            # Dashboard en Angular; web (Next.js) está pendiente
 ├── packages/
 │   └── api-types/        # Tipos TypeScript generados del contrato
 ├── services/
