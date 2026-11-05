@@ -44,6 +44,7 @@ No inventes comandos. Cuando exista uno real, sustituye su TODO.
 - Conventional Commits con scope: `api`, `web`, `admin` o `docs`.
 - Nunca hagas push a `main`.
 - Si un PR agrega o cambia un comando, actualiza `docs/development.md` en el mismo PR.
+- Si un PR cambia algo que README.md describe (estructura, estado, cómo empezar), actualízalo en el mismo PR.
 - Merge solo con CI verde; el check obligatorio es `ci`. El merge lo hace León, no Claude:
 
   ```sh
