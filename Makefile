@@ -2,7 +2,7 @@ API_DIR := services/api
 # Swagger UI para ver el contrato en local; fijada por tag y digest.
 SWAGGER_UI_IMAGE := swaggerapi/swagger-ui:v5.33.3@sha256:b26661cd754a7efbb2e1aab419ffb5603320d8f35f0bd086d1d7506e23934d23
 
-.PHONY: admin-dev admin-lint admin-test admin-build api-run api-test api-test-integration api-lint api-build api-docker-build api-docs api-flows generate db-up db-down db-logs db-reset
+.PHONY: admin-dev admin-lint admin-test admin-build admin-preview api-run api-test api-test-integration api-lint api-build api-docker-build api-docs api-flows generate db-up db-down db-logs db-reset
 
 api-run:
 	@test -f .env || { echo "Falta .env: copia .env.example a .env"; exit 1; }
@@ -49,6 +49,11 @@ admin-test:
 
 admin-build:
 	pnpm --filter @personal-blog/admin build
+
+# Sirve el último build de producción con las cabeceras de apps/admin/vercel.json.
+admin-preview:
+	@test -f apps/admin/dist/admin/browser/index.html || { echo "Falta el build: corre make admin-build"; exit 1; }
+	cd apps/admin && node scripts/serve-dist.mjs
 
 generate:
 	cd $(API_DIR) && go tool oapi-codegen -config oapi-codegen.yaml ../../docs/api/openapi.yaml

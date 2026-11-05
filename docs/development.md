@@ -109,7 +109,8 @@ Sin `INITIAL_ADMIN_EMAIL` e `INITIAL_ADMIN_PASSWORD`, la API registra un warning
 | `make admin-dev` | Levanta el admin en `http://localhost:4200`; con `ADMIN_API_BASE_URL=<origen>` usa otra API |
 | `make admin-lint` | Corre ESLint con angular-eslint en el admin |
 | `make admin-test` | Corre los tests del admin |
-| `make admin-build` | Build de producción del admin; antes verifica que la URL de la API de producción sea https |
+| `make admin-build` | Build de producción del admin; antes verifica que la URL de la API de producción sea https y que coincida con el `connect-src` de `vercel.json` |
+| `make admin-preview` | Sirve el último build de producción en `http://127.0.0.1:4300` con las cabeceras de `apps/admin/vercel.json` |
 | `make api-docs` | Muestra el contrato con Swagger UI en `http://localhost:8081` |
 | `make api-flows` | Corre los flujos de Bruno contra la API local |
 | `make api-build` | Compila el binario en `services/api/bin/api` |
@@ -199,9 +200,23 @@ make admin-dev ADMIN_API_BASE_URL=http://localhost:9090
 
 `ng serve` combina ese `--define` con el de `development`. La API de ese puerto también debe tener `http://localhost:4200` en `ALLOWED_ORIGINS`. No uses `8081`: es el puerto de `make api-docs`.
 
-El script `build` del paquete corre `scripts/check-api-base-url.mjs` antes de `ng build`. Ese chequeo falla si falta `ADMIN_API_BASE_URL` en `production`, si no es un literal de string, si no es https o si no es un origen limpio. Un `ng build` directo se lo salta, así que el CI, `make admin-build` y Vercel usan `pnpm --filter @personal-blog/admin build`.
+El script `build` del paquete corre `scripts/check-api-base-url.mjs` antes de `ng build`. Ese chequeo falla si falta `ADMIN_API_BASE_URL` en `production`, si no es un literal de string, si no es https o si no es un origen limpio. También falla si la CSP de `vercel.json` no tiene `connect-src` igual a ese origen, o si incluye `default-src` o `script-src`. Un `ng build` directo se lo salta, así que el CI, `make admin-build` y Vercel usan `pnpm --filter @personal-blog/admin build`.
 
-Cuando exista la cabecera CSP del admin (BLOG-046), su `connect-src` debe ser el mismo origen que el `define` de `production`.
+### Content-Security-Policy
+
+La CSP del admin está repartida en dos partes (ADR-012, punto 7):
+
+- **Scripts:** `security.autoCsp` en la configuración `production` de `angular.json`. El build agrega a `index.html` un `<meta>` con `script-src` basado en hashes y `'strict-dynamic'`, y carga `main-*.js` desde un script inline con hash. `make admin-dev` no lo usa.
+- **El resto:** la cabecera `Content-Security-Policy` de `apps/admin/vercel.json`, sin `default-src` ni `script-src` (bloquearían el loader de `autoCsp`), con cada directiva explícita y `connect-src` limitado al origen de la API. Trusted Types va solo en `Content-Security-Policy-Report-Only`, porque el loader de `autoCsp` asigna `script.src` con un string. `vercel.json` también envía `nosniff`, `Referrer-Policy`, `X-Robots-Tag: noindex` y un rewrite de todas las rutas a `index.html`.
+
+Para probarla en local:
+
+```sh
+make admin-build
+make admin-preview   # http://127.0.0.1:4300
+```
+
+`scripts/serve-dist.mjs` solo usa módulos de Node: aplica las cabeceras y los rewrites de `vercel.json`, primero busca el archivo y después aplica el rewrite, como Vercel. Las violaciones de CSP se ven en la consola del navegador. Las únicas esperadas son las de Trusted Types en modo reporte, que causa el loader de `autoCsp`. Antes de producción hay que validarlo también en un preview de Vercel.
 
 Estructura de `src/app/`:
 
