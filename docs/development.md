@@ -253,7 +253,9 @@ El tema se generó igual, con `ng g @spartan-ng/cli:ui-theme --theme=neutral`, y
 La colección está en `docs/api/bruno/`, en formato OpenCollection (YAML):
 
 - `generated/`: una petición por operación del contrato. `make generate` la regenera desde `docs/api/openapi.yaml` con el CLI de Bruno; no se edita a mano.
-- `flows/`: flujos escritos a mano, con aserciones. `flows/sesion/` recorre login, `/me`, refresh, logout y `/me` sin sesión.
+- `flows/`: flujos escritos a mano, con aserciones:
+  - `flows/posts/` recorre el ciclo de vida de un post: login, crear borrador, editar, publicar, verlo en la API pública, intentar cambiar el slug ya publicado (409), archivar y comprobar que ya no aparece. Cada corrida crea un post nuevo con la hora en el título, que queda archivado en tu base.
+  - `flows/sesion/` recorre login, `/me`, refresh, logout y `/me` sin sesión.
 - `environments/local.yml`: `baseUrl` apunta a `http://localhost:8080`. `adminEmail` y `adminPassword` son variables secretas sin valor.
 
 Para usarla desde la app de Bruno, que se instala aparte, abre la carpeta `docs/api/bruno`, elige el environment `local` y escribe el email y la contraseña en sus variables secretas. Bruno los guarda en tu equipo, fuera de los archivos del repo.
@@ -265,6 +267,8 @@ make api-flows
 ```
 
 Toma el email y la contraseña de `INITIAL_ADMIN_EMAIL` e `INITIAL_ADMIN_PASSWORD` de `.env` y se los pasa al CLI como variables, sin escribirlos en ningún archivo. Deben ser los del administrador que existe en tu base.
+
+Los flujos hacen unas 16 peticiones. Si los corres dos veces seguidas, la segunda puede chocar con el rate limit global de la API (429); espera un minuto.
 
 El generador de Bruno convierte los esquemas de seguridad en cookie (`accessCookie`, `refreshCookie`) en una cabecera `access_token: {{apiKey}}`, no en una cookie. Las peticiones protegidas funcionan igual después del login, porque Bruno guarda las cookies de la respuesta y las reenvía; la API ignora esa cabecera de más. `generated/` se deja tal como sale del CLI.
 
