@@ -36,6 +36,7 @@ No inventes comandos. Cuando exista uno real, sustituye su TODO.
 - Correr los flujos de Bruno contra la API local: `make api-flows`
 - Levantar el admin: `make admin-dev`
 - Build del admin: `make admin-build`
+- Servir el build del admin con las cabeceras de Vercel: `make admin-preview`
 
 ## Flujo
 
