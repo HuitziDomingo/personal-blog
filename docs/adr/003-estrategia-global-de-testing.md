@@ -1,5 +1,5 @@
 # ADR-003: Estrategia de Testing (Unitario, Integración y E2E)
-* Estado: Aprobado — parcialmente reemplazado por ADR-006
+* Estado: Aprobado — parcialmente reemplazado por ADR-006 y ADR-015
 * Fecha: 2026-10-30
 * Autor: León Nieves Huitzitzili Domingo
 

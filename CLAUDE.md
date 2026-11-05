@@ -86,7 +86,7 @@ Ver [ADR-010](docs/adr/010-linea-base-de-seguridad-de-la-api.md) y [ADR-011](doc
 
 Ver [ADR-003](docs/adr/003-estrategia-global-de-testing.md) y [ADR-006](docs/adr/006-correcciones-a-adr-002-y-003.md).
 
-- Go: `testify` + `mockery`.
+- Go: `testify` + fakes escritos a mano (ADR-015).
 - Front: Vitest + Testing Library.
 - Flujo crítico: Playwright.
 - Todo endpoint nuevo lleva test.
