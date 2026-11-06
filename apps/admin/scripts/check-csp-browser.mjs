@@ -74,8 +74,8 @@ async function connect(url) {
   const pending = new Map();
   socket.addEventListener('message', ({ data }) => {
     const message = JSON.parse(data);
-    const callback = pending.get(message.id);
-    if (callback) {
+    const callback = Number.isInteger(message.id) ? pending.get(message.id) : undefined;
+    if (typeof callback === 'function') {
       pending.delete(message.id);
       callback(message);
     }

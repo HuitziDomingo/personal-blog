@@ -85,7 +85,7 @@ if (lower.includes("'unsafe-eval'")) {
 
 // Cada script inline del documento debe tener su hash en script-src. Si no, el
 // meta es de otro build o el script no corre en producción.
-const inlineScripts = [...html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi)].filter(
+const inlineScripts = [...html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script\s*>/gi)].filter(
   ([, attrs]) => !attributes(attrs).has('src'),
 );
 for (const [, , body] of inlineScripts) {

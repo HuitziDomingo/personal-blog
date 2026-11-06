@@ -45,6 +45,7 @@ const failures = [
   ['sin hashes ni unsafe-inline', page({ head: meta("script-src 'strict-dynamic'"), body: '' }), /no tiene hashes/],
   ["'unsafe-eval'", page({ head: meta(`script-src 'strict-dynamic' ${sha(LOADER)} 'unsafe-eval'`) }), /'unsafe-eval'/],
   ['script inline sin su hash', page({ body: `<script>${LOADER}</script><script>alert(1)</script>` }), /no tiene su hash/],
+  ['script inline sin su hash, con </script >', page({ body: `<script>${LOADER}</script><script>alert(1)</script >` }), /no tiene su hash/],
 ];
 
 for (const [name, html, message] of failures) {
