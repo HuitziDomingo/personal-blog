@@ -45,6 +45,26 @@ function findBrowser() {
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
+// Corta una promesa que no responde (por ejemplo, si el renderer se cae), para
+// fallar con un mensaje en vez de colgarse hasta el timeout del CI.
+function withTimeout(promise, label) {
+  let timer;
+  const timeout = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`${label}: sin respuesta en ${TIMEOUT_MS} ms`)), TIMEOUT_MS);
+  });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+}
+
+// Termina un proceso y espera a que salga, con un tope.
+function stop(child) {
+  if (child.exitCode !== null || child.signalCode !== null) {
+    return Promise.resolve();
+  }
+  const exited = new Promise((resolve) => child.once('exit', resolve));
+  child.kill();
+  return Promise.race([exited, sleep(5000)]);
+}
+
 // Espera una línea de la salida de un proceso que cumpla la expresión regular.
 function waitForOutput(child, stream, pattern) {
   return new Promise((resolve, reject) => {
@@ -65,10 +85,13 @@ function waitForOutput(child, stream, pattern) {
 // Cliente mínimo del protocolo de DevTools: un id por mensaje.
 async function connect(url) {
   const socket = new WebSocket(url);
-  await new Promise((resolve, reject) => {
-    socket.addEventListener('open', resolve, { once: true });
-    socket.addEventListener('error', reject, { once: true });
-  });
+  await withTimeout(
+    new Promise((resolve, reject) => {
+      socket.addEventListener('open', resolve, { once: true });
+      socket.addEventListener('error', reject, { once: true });
+    }),
+    'conexión con DevTools',
+  );
 
   let nextId = 0;
   const pending = new Map();
@@ -85,8 +108,11 @@ async function connect(url) {
     send(method, params = {}) {
       const id = ++nextId;
       socket.send(JSON.stringify({ id, method, params }));
-      return new Promise((resolve, reject) =>
-        pending.set(id, (message) => (message.error ? reject(new Error(message.error.message)) : resolve(message.result))),
+      return withTimeout(
+        new Promise((resolve, reject) =>
+          pending.set(id, (message) => (message.error ? reject(new Error(message.error.message)) : resolve(message.result))),
+        ),
+        method,
       );
     },
     close: () => socket.close(),
@@ -105,22 +131,28 @@ async function evaluate(page, expression) {
   return result.value;
 }
 
-// Se evalúa en la página: inyecta los dos ataques y junta las violaciones.
-const PROBE = `(async () => {
+// Se evalúa en la página: corre un solo ataque, que debe poner window.__cspRan
+// en true si se ejecuta, y devuelve las violaciones que causó solo él. Cada
+// ataque va por separado para que la violación de uno no cuente para otro.
+const probe = (attack) => `(async () => {
   const violations = [];
-  document.addEventListener('securitypolicyviolation', (e) => violations.push(e.effectiveDirective + ' ' + e.disposition));
-  window.__cspImg = false;
-  window.__cspLink = false;
-  window.__cspScript = false;
-  document.body.insertAdjacentHTML('beforeend', '<img src="/csp-probe.png" onerror="window.__cspImg = true">');
-  document.body.insertAdjacentHTML('beforeend', '<a id="csp-probe" href="javascript:window.__cspLink = true">x</a>');
-  document.getElementById('csp-probe').click();
-  const script = document.createElement('script');
-  script.textContent = 'window.__cspScript = true';
-  document.body.appendChild(script);
+  const record = (e) => violations.push(e.effectiveDirective + ' ' + e.disposition);
+  document.addEventListener('securitypolicyviolation', record);
+  window.__cspRan = false;
+  ${attack}
   await new Promise((resolve) => setTimeout(resolve, 1000));
-  return { img: window.__cspImg, link: window.__cspLink, script: window.__cspScript, violations };
+  document.removeEventListener('securitypolicyviolation', record);
+  return { ran: window.__cspRan, violations };
 })()`;
+
+const ATTACKS = {
+  img: `document.body.insertAdjacentHTML('beforeend', '<img src="/csp-probe.png" onerror="window.__cspRan = true">');`,
+  link: `document.body.insertAdjacentHTML('beforeend', '<a id="csp-probe" href="javascript:window.__cspRan = true">x</a>');
+  document.getElementById('csp-probe').click();`,
+  script: `const script = document.createElement('script');
+  script.textContent = 'window.__cspRan = true';
+  document.body.appendChild(script);`,
+};
 
 async function run() {
   const browserPath = findBrowser();
@@ -130,9 +162,15 @@ async function run() {
 
   const profile = mkdtempSync(join(tmpdir(), 'check-csp-browser-'));
   const children = [];
-  const cleanup = () => {
-    for (const child of children) child.kill();
-    rmSync(profile, { recursive: true, force: true, maxRetries: 3 });
+  // Espera a que el navegador salga antes de borrar el perfil: si no, sigue
+  // escribiendo en él y rmSync puede fallar y tapar el resultado.
+  const cleanup = async () => {
+    await Promise.all(children.map(stop));
+    try {
+      rmSync(profile, { recursive: true, force: true, maxRetries: 3 });
+    } catch (error) {
+      console.warn(`check-csp-browser: no se pudo borrar ${profile}: ${error.message}`);
+    }
   };
 
   try {
@@ -148,7 +186,10 @@ async function run() {
     children.push(browser);
     const [, debuggerUrl] = await waitForOutput(browser, 'stderr', /DevTools listening on (ws:\/\/\S+)/);
 
-    const target = await fetch(`${new URL(debuggerUrl).origin.replace('ws:', 'http:')}/json/new?${ORIGIN}/login`, { method: 'PUT' }).then((r) => r.json());
+    const target = await fetch(`${new URL(debuggerUrl).origin.replace('ws:', 'http:')}/json/new?${ORIGIN}/login`, {
+      method: 'PUT',
+      signal: AbortSignal.timeout(TIMEOUT_MS),
+    }).then((r) => r.json());
     const page = await connect(target.webSocketDebuggerUrl);
 
     // El admin arrancó si Angular pintó el formulario de login.
@@ -157,23 +198,29 @@ async function run() {
       booted = await evaluate(page, "!!document.querySelector('app-root form')").catch(() => false);
     }
     const hasMeta = await evaluate(page, `!!document.querySelector('meta[http-equiv="Content-Security-Policy"]')`);
-    const probe = await evaluate(page, PROBE);
+    const results = {};
+    for (const [name, attack] of Object.entries(ATTACKS)) {
+      results[name] = await evaluate(page, probe(attack));
+    }
     page.close();
 
+    const blocked = ({ ran, violations }, directive) => !ran && violations.includes(`${directive} enforce`);
     const checks = [
       ['el admin arranca (el loader inline con hash corre)', booted],
       ['index.html trae el <meta> de CSP', hasMeta],
-      ['un <img onerror> inyectado no se ejecuta', !probe.img && probe.violations.includes('script-src-attr enforce')],
-      ['un link javascript: inyectado no se ejecuta', !probe.link && probe.violations.includes('script-src-elem enforce')],
+      ['un <img onerror> inyectado no se ejecuta', blocked(results.img, 'script-src-attr')],
+      ['un link javascript: inyectado no se ejecuta', blocked(results.link, 'script-src-elem')],
     ];
     for (const [name, ok] of checks) {
       console.log(`${ok ? 'ok  ' : 'FALLA'} ${name}`);
     }
-    console.log(`info  <script> inline creado con createElement: ${probe.script ? "corre ('strict-dynamic')" : 'bloqueado'}`);
-    console.log(`violaciones: ${probe.violations.join(', ') || 'ninguna'}`);
+    console.log(`info  <script> inline creado con createElement: ${results.script.ran ? "corre ('strict-dynamic')" : 'bloqueado'}`);
+    for (const [name, { violations }] of Object.entries(results)) {
+      console.log(`violaciones (${name}): ${violations.join(', ') || 'ninguna'}`);
+    }
     return checks.every(([, ok]) => ok);
   } finally {
-    cleanup();
+    await cleanup();
   }
 }
 
