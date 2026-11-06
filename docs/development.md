@@ -108,9 +108,10 @@ Sin `INITIAL_ADMIN_EMAIL` e `INITIAL_ADMIN_PASSWORD`, la API registra un warning
 | `make api-lint` | Corre `golangci-lint` |
 | `make admin-dev` | Levanta el admin en `http://localhost:4200`; con `ADMIN_API_BASE_URL=<origen>` usa otra API |
 | `make admin-lint` | Corre ESLint con angular-eslint en el admin |
-| `make admin-test` | Corre los tests del admin |
-| `make admin-build` | Build de producción del admin; antes verifica que la URL de la API de producción sea https y que coincida con el `connect-src` de `vercel.json` |
-| `make admin-preview` | Sirve el último build de producción en `http://127.0.0.1:4300` con las cabeceras de `apps/admin/vercel.json` |
+| `make admin-test` | Corre los tests del admin y los de los scripts de `apps/admin/scripts/` |
+| `make admin-build` | Build de producción del admin; antes verifica que la URL de la API de producción sea https y que coincida con el `connect-src` de `vercel.json`, y después que `index.html` traiga el `<meta>` de CSP de `autoCsp` |
+| `make admin-preview` | Hace el build de producción y lo sirve en `http://127.0.0.1:4300` con las cabeceras de `apps/admin/vercel.json` |
+| `make admin-csp-test` | Hace el build de producción y prueba su CSP en Chrome o Chromium headless |
 | `make api-docs` | Muestra el contrato con Swagger UI en `http://localhost:8081` |
 | `make api-flows` | Corre los flujos de Bruno contra la API local |
 | `make api-build` | Compila el binario en `services/api/bin/api` |
@@ -200,7 +201,7 @@ make admin-dev ADMIN_API_BASE_URL=http://localhost:9090
 
 `ng serve` combina ese `--define` con el de `development`. La API de ese puerto también debe tener `http://localhost:4200` en `ALLOWED_ORIGINS`. No uses `8081`: es el puerto de `make api-docs`.
 
-El script `build` del paquete corre `scripts/check-api-base-url.mjs` antes de `ng build`. Ese chequeo falla si falta `ADMIN_API_BASE_URL` en `production`, si no es un literal de string, si no es https o si no es un origen limpio. También falla si la CSP de `vercel.json` no tiene `connect-src` igual a ese origen, o si incluye `default-src` o `script-src`. Un `ng build` directo se lo salta, así que el CI, `make admin-build` y Vercel usan `pnpm --filter @personal-blog/admin build`.
+El script `build` del paquete corre `scripts/check-api-base-url.mjs` antes de `ng build`. Ese chequeo falla si falta `ADMIN_API_BASE_URL` en `production`, si no es un literal de string, si no es https o si no es un origen limpio. También falla si la CSP de `vercel.json` no tiene `connect-src` igual a ese origen, o si incluye `default-src` o `script-src`. Después de `ng build`, `scripts/check-csp-meta.mjs` revisa `dist/admin/browser/index.html`. Falla si no tiene el `<meta http-equiv="Content-Security-Policy">`, si hay más de uno o si aparece después de un `<script>`. También falla si `script-src` no incluye `'strict-dynamic'`, si no tiene hashes (con `'unsafe-inline'` y sin hashes, cualquier script inline correría), si incluye `'unsafe-eval'` o si algún script inline del documento no tiene su hash. Sus casos se prueban con `node --test` dentro de `make admin-test`. Un `ng build` directo se salta los dos chequeos, así que el CI, `make admin-build` y Vercel usan `pnpm --filter @personal-blog/admin build`. Por la misma razón, no le pases argumentos a `pnpm build`: se los llevaría el último comando, `check-csp-meta.mjs`.
 
 ### Content-Security-Policy
 
@@ -209,14 +210,30 @@ La CSP del admin está repartida en dos partes (ADR-012, punto 7):
 - **Scripts:** `security.autoCsp` en la configuración `production` de `angular.json`. El build agrega a `index.html` un `<meta>` con `script-src` basado en hashes y `'strict-dynamic'`, y carga `main-*.js` desde un script inline con hash. `make admin-dev` no lo usa.
 - **El resto:** la cabecera `Content-Security-Policy` de `apps/admin/vercel.json`, sin `default-src` ni `script-src` (bloquearían el loader de `autoCsp`), con cada directiva explícita y `connect-src` limitado al origen de la API. Trusted Types va solo en `Content-Security-Policy-Report-Only`, porque el loader de `autoCsp` asigna `script.src` con un string. `vercel.json` también envía `nosniff`, `Referrer-Policy`, `X-Robots-Tag: noindex` y un rewrite de todas las rutas a `index.html`.
 
+Como la cabecera no tiene `script-src`, el `<meta>` es la única protección de scripts: un build sin él no muestra ningún error y deja correr cualquier script inyectado. Por eso `make admin-build` falla si falta, y `make admin-preview` y `make admin-csp-test` siempre reconstruyen en vez de servir un `dist/` viejo.
+
 Para probarla en local:
 
 ```sh
-make admin-build
-make admin-preview   # http://127.0.0.1:4300
+make admin-csp-test  # prueba automática en Chrome o Chromium headless
+make admin-preview   # http://127.0.0.1:4300, para probar a mano
 ```
 
-`scripts/serve-dist.mjs` solo usa módulos de Node: aplica las cabeceras y los rewrites de `vercel.json`, primero busca el archivo y después aplica el rewrite, como Vercel. Las violaciones de CSP se ven en la consola del navegador. Las únicas esperadas son las de Trusted Types en modo reporte, que causa el loader de `autoCsp`. Antes de producción hay que validarlo también en un preview de Vercel.
+`scripts/serve-dist.mjs` solo usa módulos de Node: aplica las cabeceras y los rewrites de `vercel.json`, primero busca el archivo y después aplica el rewrite, como Vercel. Acepta un puerto y un directorio: `node scripts/serve-dist.mjs 4300 <dir>`.
+
+`scripts/check-csp-browser.mjs` levanta `serve-dist.mjs` en el puerto 4310, abre `/login` en un navegador headless y lo controla por el protocolo de DevTools con el `WebSocket` nativo de Node, sin dependencias. Busca Chrome, Chromium o Brave en las rutas habituales; con `CHROME_PATH=<ruta>` usa otro. Comprueba que el admin arranca, que trae el `<meta>` y que no se ejecutan ni un `<img onerror>` ni un link `javascript:` inyectados. No corre en el CI.
+
+Si no hay navegador headless, la prueba manual es esta: con `make admin-preview` abierto, pega en la consola de DevTools
+
+```js
+document.body.insertAdjacentHTML('beforeend', '<img src="/x.png" onerror="console.log(\'XSS\')">')
+```
+
+Lo esperado es que **no** aparezca `XSS` y sí una violación de `script-src-attr`. Si aparece `XSS`, el build no trae el `<meta>` de CSP.
+
+Un `<script>` inline creado con `document.createElement('script')` sí se ejecuta, y es correcto: con `'strict-dynamic'`, el código que ya corre puede crear scripts, inline o no. Una inyección de HTML no puede hacerlo, porque `innerHTML` no ejecuta `<script>`.
+
+En la consola también aparecen violaciones de Trusted Types en modo reporte, que causa el loader de `autoCsp`; son esperadas. Antes de producción hay que validarlo también en un preview de Vercel.
 
 Estructura de `src/app/`:
 
