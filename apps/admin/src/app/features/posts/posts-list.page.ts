@@ -68,9 +68,10 @@ type ListState =
       </label>
     </div>
 
-    <!-- Una sola región viva, siempre en el DOM: un role="status" que se
-         inserta con el texto ya puesto no se anuncia de forma fiable. -->
-    <p role="status" class="text-sm empty:hidden">{{ notice() }}</p>
+    <!-- Una sola región viva, siempre en el DOM y nunca con display:none: una
+         región que aparece junto con su texto no se anuncia de forma fiable.
+         Vacía no ocupa espacio. -->
+    <p role="status" class="text-sm">{{ notice() }}</p>
     @if (pageError(); as message) {
       <p role="alert" class="text-destructive text-sm">{{ message }}</p>
     }
