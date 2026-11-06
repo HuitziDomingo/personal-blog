@@ -246,10 +246,10 @@ Estructura de `src/app/`:
   - `http/api-error.ts`: `ApiError`, el error que devuelven los servicios de la API: `message` ya en español, más el `status` y el `detail` del problem+json para decidir qué hacer.
   - `markdown/render-markdown.ts`: convierte Markdown con `marked` y sanitiza con DOMPurify (ADR-010, punto 4; ADR-012, punto 6).
     - **Allowlist explícita:** `ALLOWED_TAGS` y `ALLOWED_ATTR`.
-    - **URLs:** solo `http(s)`, `mailto` (en links), `#` y rutas que empiezan con `/`. DOMPurify deja pasar `data:` en `<img>`, así que un hook lo filtra.
+    - **URLs:** un hook las valida con `new URL()`: absolutas solo `http(s)` o `mailto` (en links), relativas solo si resuelven al origen del admin, y anclas. DOMPurify deja pasar `data:` en `<img>`, y el navegador lee `/\host` como `//host`; los dos casos tienen test.
     - **Links:** abren en otra pestaña con `rel="noopener noreferrer"`.
-    - **Uso:** el resultado se enlaza con `[innerHTML]`, y está prohibido `bypassSecurityTrust*`.
-    - **Tests:** los de `render-markdown.spec.ts` fallan si se quita DOMPurify (29 de 30) o el hook de URLs.
+    - **Uso:** el resultado se enlaza con `[innerHTML]`. `bypassSecurityTrust*` está prohibido por una regla `no-restricted-syntax` de ESLint.
+    - **Tests:** los de `render-markdown.spec.ts` fallan si se quita DOMPurify o el hook de URLs.
   - `api/posts-api.ts`: `PostsApi`, los endpoints de admin de posts tipados con `@personal-blog/api-types`. Codifica el ID en la URL, puntos incluidos, para que no cambie la ruta de la petición.
 - `features/`: una carpeta por pantalla, con carga diferida por ruta.
   - `posts/posts.routes.ts`: las rutas de posts, cargadas con `loadChildren` desde `app.routes.ts`. `/` redirige a `/posts`.
