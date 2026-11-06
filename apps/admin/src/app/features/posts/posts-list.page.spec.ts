@@ -257,7 +257,76 @@ describe('PostsListPage', () => {
 
     expect(within(dialog).getByRole('alert').textContent).toContain('El post no existe o ya no está disponible.');
     expect(screen.getByRole('alertdialog')).toBeTruthy();
+    expect(within(dialog).getByRole('button', { name: 'Archivar' }).hasAttribute('disabled')).toBe(false);
+    expect(within(dialog).getByRole('button', { name: 'Cancelar' }).hasAttribute('disabled')).toBe(false);
     expect(api.listCalls).toHaveLength(1);
+  });
+
+  it('cerrar el diálogo con Escape mientras se archiva muestra el error en la página y deja volver a abrirlo', async () => {
+    const api = new FakePostsApi();
+    api.posts = [summary(1), summary(2)];
+    const pending = new Subject<void>();
+    api.nextArchive = pending;
+
+    await renderList(api);
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Archivar «Post 1»' }));
+    const dialog = await screen.findByRole('alertdialog');
+    await fireEvent.click(within(dialog).getByRole('button', { name: 'Archivar' }));
+    await fireEvent.keyDown(dialog, { key: 'Escape', code: 'Escape' });
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
+
+    pending.error(ApiError.from(new HttpErrorResponse({ status: 500 }), 'post'));
+    await waitFor(() =>
+      expect(screen.getByRole('alert').textContent).toContain('No se pudo archivar «Post 1». Error inesperado del servidor.'),
+    );
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Archivar «Post 2»' }));
+    const second = await screen.findByRole('alertdialog');
+    expect(second.textContent).toContain('«Post 2»');
+    expect(screen.queryByRole('alert', { name: /No se pudo archivar/ })).toBeNull();
+  });
+
+  it('el aviso de archivado es visible y se repite aunque el título sea el mismo', async () => {
+    const api = new FakePostsApi();
+    api.posts = [summary(1), { ...summary(2), title: 'Post 1' }];
+
+    await renderList(api);
+
+    const archive = async (index: number) => {
+      await fireEvent.click(screen.getAllByRole('button', { name: 'Archivar «Post 1»' })[index]);
+      const dialog = await screen.findByRole('alertdialog');
+      await fireEvent.click(within(dialog).getByRole('button', { name: 'Archivar' }));
+      await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
+    };
+
+    await archive(0);
+    const status = screen.getByText('Se archivó «Post 1».');
+    expect(status.getAttribute('role')).toBe('status');
+    expect(status.classList.contains('sr-only')).toBe(false);
+    await archive(0);
+    expect(api.archiveCalls).toEqual(['id-1', 'id-2']);
+    expect(screen.getByRole('status').textContent).toBe('Se archivó «Post 1».');
+  });
+
+  it('no deja pasar de la página con offset 10000, el máximo del contrato', async () => {
+    const api = new FakePostsApi();
+    api.nextList = of({ items: [summary(1)], total: 20000, limit: PAGE_SIZE, offset: 10000 });
+
+    await renderList(api, { offset: '10000' });
+
+    expect(api.listCalls[0].offset).toBe(10000);
+    const nav = screen.getByRole('navigation', { name: 'Paginación' });
+    expect(within(nav).getByRole('button', { name: 'Siguiente' }).hasAttribute('disabled')).toBe(true);
+  });
+
+  it('muestra el título completo en el atributo title de la celda', async () => {
+    const api = new FakePostsApi();
+    api.posts = [summary(1)];
+
+    await renderList(api);
+
+    expect(screen.getByText('Post 1').getAttribute('title')).toBe('Post 1');
   });
 
   it('cierra la sesión desde la cabecera', async () => {

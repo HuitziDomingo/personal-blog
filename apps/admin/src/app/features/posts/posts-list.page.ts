@@ -68,11 +68,16 @@ type ListState =
       </label>
     </div>
 
-    <p class="sr-only" role="status">{{ notice() }}</p>
+    <!-- Una sola región viva, siempre en el DOM: un role="status" que se
+         inserta con el texto ya puesto no se anuncia de forma fiable. -->
+    <p role="status" class="text-sm empty:hidden">{{ notice() }}</p>
+    @if (pageError(); as message) {
+      <p role="alert" class="text-destructive text-sm">{{ message }}</p>
+    }
 
     @switch (state().kind) {
       @case ('loading') {
-        <p role="status" class="text-muted-foreground text-sm">Cargando posts…</p>
+        <p class="text-muted-foreground text-sm">Cargando posts…</p>
       }
       @case ('error') {
         <div role="alert" class="flex flex-wrap items-center gap-3">
@@ -98,7 +103,7 @@ type ListState =
               <tbody hlmTBody>
                 @for (post of current.items; track post.id) {
                   <tr hlmTr>
-                    <td hlmTd class="max-w-xs truncate font-medium">{{ post.title }}</td>
+                    <td hlmTd class="max-w-xs truncate font-medium" [attr.title]="post.title">{{ post.title }}</td>
                     <td hlmTd>
                       <span hlmBadge [variant]="badgeVariant(post.status)">{{ statusLabels[post.status] }}</span>
                     </td>
@@ -164,7 +169,7 @@ type ListState =
         <hlm-alert-dialog-header>
           <h2 hlmAlertDialogTitle>¿Archivar este post?</h2>
           <p hlmAlertDialogDescription>
-            «{{ archiveTarget()?.title }}» dejará de verse en el blog. Podrás encontrarlo con el filtro Archivados.
+            «{{ archiveTarget()?.title }}» dejará de verse en el blog. Podrás encontrarlo con el filtro «Archivado».
           </p>
         </hlm-alert-dialog-header>
         @if (archiveError(); as message) {
@@ -252,6 +257,7 @@ export class PostsListPage {
   protected readonly archiving = signal(false);
   protected readonly archiveError = signal<string | null>(null);
   protected readonly notice = signal('');
+  protected readonly pageError = signal<string | null>(null);
   protected readonly loggingOut = signal(false);
 
   protected badgeVariant(status: PostStatus): 'default' | 'secondary' | 'outline' {
@@ -278,13 +284,16 @@ export class PostsListPage {
 
   protected askArchive(post: PostSummary): void {
     this.archiveError.set(null);
+    this.pageError.set(null);
     this.archiveTarget.set(post);
   }
 
+  // El diálogo se puede cerrar con Escape aunque haya una petición en curso: el
+  // estado se limpia siempre, para que [state] vuelva a 'closed' y el diálogo
+  // se pueda abrir otra vez. La petición sigue y su resultado se muestra en la
+  // página.
   protected cancelArchive(): void {
-    if (!this.archiving()) {
-      this.archiveTarget.set(null);
-    }
+    this.archiveTarget.set(null);
   }
 
   protected confirmArchive(): void {
@@ -295,6 +304,7 @@ export class PostsListPage {
 
     this.archiving.set(true);
     this.archiveError.set(null);
+    this.notice.set('');
 
     this.api
       .archive(post.id)
@@ -304,14 +314,24 @@ export class PostsListPage {
       )
       .subscribe({
         next: () => {
-          this.archiveTarget.set(null);
+          if (this.archiveTarget() === post) {
+            this.archiveTarget.set(null);
+          }
           this.notice.set(`Se archivó «${post.title}».`);
           this.retry();
           // El botón que abrió el diálogo puede desaparecer con la recarga (por
           // ejemplo, con el filtro Publicados): el foco va al título.
           this.heading().nativeElement.focus();
         },
-        error: (error: unknown) => this.archiveError.set(messageOf(error)),
+        error: (error: unknown) => {
+          const message = messageOf(error);
+          // Si el diálogo ya se cerró, el error va a la página.
+          if (this.archiveTarget() === post) {
+            this.archiveError.set(message);
+          } else {
+            this.pageError.set(`No se pudo archivar «${post.title}». ${message}`);
+          }
+        },
       });
   }
 
