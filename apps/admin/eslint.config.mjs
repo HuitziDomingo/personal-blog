@@ -10,6 +10,14 @@ export default defineConfig(
     extends: [eslint.configs.recommended, tseslint.configs.recommended, angular.configs.tsRecommended],
     processor: angular.processInlineTemplates,
     rules: {
+      // ADR-012, punto 6: nunca se confía a mano en HTML, URLs o recursos.
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: 'MemberExpression[property.name=/^bypassSecurityTrust/]',
+          message: 'Prohibido bypassSecurityTrust* (ADR-012): sanitiza con renderMarkdown y enlaza con [innerHTML].',
+        },
+      ],
       '@angular-eslint/directive-selector': [
         'error',
         { type: 'attribute', prefix: 'app', style: 'camelCase' },

@@ -244,11 +244,23 @@ Estructura de `src/app/`:
   - `session/session.guards.ts`: `authGuard` para las rutas protegidas y `guestGuard` para `/login`.
   - `http/problem-messages.ts`: traduce los errores de la API al español, incluido el tiempo de `Retry-After` en un 429.
   - `http/api-error.ts`: `ApiError`, el error que devuelven los servicios de la API: `message` ya en español, más el `status` y el `detail` del problem+json para decidir qué hacer.
+  - `markdown/render-markdown.ts`: convierte Markdown con `marked` y sanitiza con DOMPurify (ADR-010, punto 4; ADR-012, punto 6).
+    - **Allowlist explícita:** `ALLOWED_TAGS` y `ALLOWED_ATTR`.
+    - **URLs:** un hook las valida con `new URL()`: absolutas solo `http(s)` o `mailto` (en links), relativas solo si resuelven al origen del admin, y anclas. DOMPurify deja pasar `data:` en `<img>`, y el navegador lee `/\host` como `//host`; los dos casos tienen test.
+    - **Links:** abren en otra pestaña con `rel="noopener noreferrer"`.
+    - **Uso:** el resultado se enlaza con `[innerHTML]`. `bypassSecurityTrust*` está prohibido por una regla `no-restricted-syntax` de ESLint.
+    - **Tests:** los de `render-markdown.spec.ts` fallan si se quita DOMPurify o el hook de URLs.
   - `api/posts-api.ts`: `PostsApi`, los endpoints de admin de posts tipados con `@personal-blog/api-types`. Codifica el ID en la URL, puntos incluidos, para que no cambie la ruta de la petición.
 - `features/`: una carpeta por pantalla, con carga diferida por ruta.
   - `posts/posts.routes.ts`: las rutas de posts, cargadas con `loadChildren` desde `app.routes.ts`. `/` redirige a `/posts`.
+  - `posts/post-editor.page.ts`: crear (`/posts/new`) y editar (`/posts/:id`) en la misma ruta, que se carga en su propio chunk.
+    - **Formulario:** los límites del contrato están en `post-form.ts`.
+    - **Slug:** queda de solo lectura, con la explicación, si el post ya se publicó alguna vez o no es un borrador. Un 409 de slug duplicado o bloqueado se muestra en el campo.
+    - **Acciones según el estado:** borrador → guardar o publicar; publicado → guardar cambios o despublicar; archivado → restaurar como borrador o publicar. También se puede archivar con confirmación.
+    - **Al salir con cambios sin guardar:** `unsaved-changes.guard.ts` pregunta en un diálogo, y `beforeunload` cubre cerrar o recargar la pestaña.
   - `posts/posts-list.page.ts`: lista con filtro por estado y paginación de 20 en 20. El filtro y la página van en la URL (`?status=draft&offset=20`); un valor inválido se ignora. Archivar pide confirmación en un `alert-dialog`.
 - `shared/ui/`: componentes helm de Spartan, copiados al repo, y componentes propios.
+- `shared/markdown-editor/`: el editor de ADR-012, un textarea con la vista previa al lado. Su interfaz es solo `value` y `valueChange`, para poder cambiarlo por un WYSIWYG sin tocar el formulario.
 
 #### Agregar un componente de Spartan
 
@@ -283,7 +295,7 @@ El CLI de Spartan no entra al repo porque depende de Nx (ADR-012). Los component
 
 El tema se generó igual, con `ng g @spartan-ng/cli:ui-theme --theme=neutral`, y está en `apps/admin/src/styles.css`.
 
-Hoy están `alert-dialog`, `badge`, `button`, `card`, `empty`, `field`, `input`, `label`, `separator`, `table` y `utils`. `native-select`, `spinner` y `tabs` importan `@ng-icons/*`, que no es dependencia del admin; por eso el filtro de estado es un `<select>` nativo.
+Hoy están `alert-dialog`, `badge`, `button`, `card`, `empty`, `field`, `input`, `label`, `separator`, `table`, `textarea` y `utils`. `native-select`, `spinner` y `tabs` importan `@ng-icons/*`, que no es dependencia del admin; por eso el filtro de estado es un `<select>` nativo.
 
 El admin no usa `provideSpartanHlm()`. Solo cambia el default de los overlays del CDK (`usePopover: false`) para que convivan con `<hlm-toaster>`, que el admin no tiene, y como importa `@angular/cdk/overlay` desde `app.config`, metería el overlay entero del CDK (unos 46 kB) en el bundle inicial. Tampoco sirve en las `providers` de una ruta: el CDK lo lee del injector raíz. Sin él, los diálogos se muestran en el top layer del navegador (`popover`). Si algún día entra `<hlm-toaster>`, hay que volver a ponerlo en `app.config` y aceptar ese tamaño.
 

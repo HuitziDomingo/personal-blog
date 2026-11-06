@@ -1,6 +1,6 @@
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { ApplicationConfig, provideBrowserGlobalErrorListeners } from '@angular/core';
-import { provideRouter, withComponentInputBinding } from '@angular/router';
+import { provideRouter, withComponentInputBinding, withRouterConfig } from '@angular/router';
 
 import { routes } from './app.routes';
 import { credentialsInterceptor } from './core/http/credentials.interceptor';
@@ -10,7 +10,13 @@ import { refreshInterceptor } from './core/http/refresh.interceptor';
 export const appConfig: ApplicationConfig = {
   providers: [
     provideBrowserGlobalErrorListeners(),
-    provideRouter(routes, withComponentInputBinding()),
+    // 'computed': si un guard cancela una navegación con el botón atrás del
+    // navegador (el de cambios sin guardar), el historial vuelve a su sitio.
+    provideRouter(
+      routes,
+      withComponentInputBinding(),
+      withRouterConfig({ canceledNavigationResolution: 'computed' }),
+    ),
     // El orden importa: el reintento del refresh ya lleva withCredentials.
     provideHttpClient(withInterceptors([credentialsInterceptor, refreshInterceptor])),
     // Sin provideSpartanHlm(): solo cambia el default de los overlays del CDK
