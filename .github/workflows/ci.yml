@@ -143,6 +143,15 @@ jobs:
       - name: build
         run: pnpm --filter @personal-blog/admin build
 
+      # Prueba la CSP del build anterior en el Chrome que traen los runners de
+      # Ubuntu: falla si un <img onerror> o un link javascript: inyectados se
+      # ejecutan (ADR-012, punto 7). Es lo mismo que make admin-csp-test, sin
+      # repetir el build.
+      - name: csp
+        working-directory: apps/admin
+        timeout-minutes: 5
+        run: node scripts/check-csp-browser.mjs
+
   ci:
     name: ci
     needs: [changes, api, admin]
