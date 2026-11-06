@@ -10,7 +10,7 @@ import {
   viewChild,
 } from '@angular/core';
 import { takeUntilDestroyed, toObservable, toSignal } from '@angular/core/rxjs-interop';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { HlmAlertDialogImports } from '@spartan-ng/helm/alert-dialog';
 import { HlmBadgeImports } from '@spartan-ng/helm/badge';
 import { HlmButtonImports } from '@spartan-ng/helm/button';
@@ -39,15 +39,18 @@ type ListState =
  */
 @Component({
   selector: 'app-posts-list-page',
-  imports: [HlmAlertDialogImports, HlmBadgeImports, HlmButtonImports, HlmEmptyImports, HlmTableImports],
+  imports: [RouterLink, HlmAlertDialogImports, HlmBadgeImports, HlmButtonImports, HlmEmptyImports, HlmTableImports],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'mx-auto flex w-full max-w-5xl flex-col gap-6 p-4 sm:p-6' },
   template: `
     <header class="flex flex-wrap items-center justify-between gap-4">
       <h1 #heading tabindex="-1" class="text-2xl font-semibold outline-none">Posts</h1>
-      <button hlmBtn variant="outline" type="button" [disabled]="loggingOut()" (click)="logout()">
-        Cerrar sesión
-      </button>
+      <div class="flex gap-2">
+        <a hlmBtn routerLink="/posts/new">Nuevo post</a>
+        <button hlmBtn variant="outline" type="button" [disabled]="loggingOut()" (click)="logout()">
+          Cerrar sesión
+        </button>
+      </div>
     </header>
 
     <div class="flex flex-wrap items-end gap-2">
@@ -104,7 +107,9 @@ type ListState =
               <tbody hlmTBody>
                 @for (post of current.items; track post.id) {
                   <tr hlmTr>
-                    <td hlmTd class="max-w-xs truncate font-medium" [attr.title]="post.title">{{ post.title }}</td>
+                    <td hlmTd class="max-w-xs truncate font-medium" [attr.title]="post.title">
+                      <a class="hover:underline" [routerLink]="['/posts', post.id]">{{ post.title }}</a>
+                    </td>
                     <td hlmTd>
                       <span hlmBadge [variant]="badgeVariant(post.status)">{{ statusLabels[post.status] }}</span>
                     </td>

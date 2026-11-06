@@ -326,7 +326,18 @@ describe('PostsListPage', () => {
 
     await renderList(api);
 
-    expect(screen.getByText('Post 1').getAttribute('title')).toBe('Post 1');
+    const link = screen.getByRole('link', { name: 'Post 1' });
+    expect(link.closest('td')?.getAttribute('title')).toBe('Post 1');
+  });
+
+  it('enlaza cada título a su editor y ofrece crear un post', async () => {
+    const api = new FakePostsApi();
+    api.posts = [summary(1)];
+
+    await renderList(api);
+
+    expect(screen.getByRole('link', { name: 'Post 1' }).getAttribute('href')).toBe('/posts/id-1');
+    expect(screen.getByRole('link', { name: 'Nuevo post' }).getAttribute('href')).toBe('/posts/new');
   });
 
   it('cierra la sesión desde la cabecera', async () => {
