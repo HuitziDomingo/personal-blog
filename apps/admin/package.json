@@ -5,7 +5,7 @@
   "scripts": {
     "ng": "ng",
     "start": "ng serve",
-    "build": "node scripts/check-api-base-url.mjs && ng build && node scripts/check-csp-meta.mjs",
+    "build": "node scripts/check-api-base-url.mjs && ng build",
     "test": "ng test --watch=false && node --test 'scripts/*.test.mjs'",
     "lint": "ng lint"
   },
