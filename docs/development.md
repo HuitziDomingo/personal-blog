@@ -243,7 +243,11 @@ Estructura de `src/app/`:
   - `http/refresh.interceptor.ts` y `session/session-refresher.ts`: ante un 401 de la API hacen un solo `POST /auth/refresh` compartido y reintentan. No actúan sobre `/auth/login` ni `/auth/refresh`. Si el refresh falla, limpian la sesión y van a `/login?returnUrl=…`.
   - `session/session.guards.ts`: `authGuard` para las rutas protegidas y `guestGuard` para `/login`.
   - `http/problem-messages.ts`: traduce los errores de la API al español, incluido el tiempo de `Retry-After` en un 429.
+  - `http/api-error.ts`: `ApiError`, el error que devuelven los servicios de la API: `message` ya en español, más el `status` y el `detail` del problem+json para decidir qué hacer.
+  - `api/posts-api.ts`: `PostsApi`, los endpoints de admin de posts tipados con `@personal-blog/api-types`. Codifica el ID en la URL, puntos incluidos, para que no cambie la ruta de la petición.
 - `features/`: una carpeta por pantalla, con carga diferida por ruta.
+  - `posts/posts.routes.ts`: las rutas de posts, cargadas con `loadChildren` desde `app.routes.ts`. `/` redirige a `/posts`.
+  - `posts/posts-list.page.ts`: lista con filtro por estado y paginación de 20 en 20. El filtro y la página van en la URL (`?status=draft&offset=20`); un valor inválido se ignora. Archivar pide confirmación en un `alert-dialog`.
 - `shared/ui/`: componentes helm de Spartan, copiados al repo, y componentes propios.
 
 #### Agregar un componente de Spartan
@@ -278,6 +282,10 @@ El CLI de Spartan no entra al repo porque depende de Nx (ADR-012). Los component
 7. Revisa el diff y borra el proyecto temporal.
 
 El tema se generó igual, con `ng g @spartan-ng/cli:ui-theme --theme=neutral`, y está en `apps/admin/src/styles.css`.
+
+Hoy están `alert-dialog`, `badge`, `button`, `card`, `empty`, `field`, `input`, `label`, `separator`, `table` y `utils`. `native-select`, `spinner` y `tabs` importan `@ng-icons/*`, que no es dependencia del admin; por eso el filtro de estado es un `<select>` nativo.
+
+El admin no usa `provideSpartanHlm()`. Solo cambia el default de los overlays del CDK (`usePopover: false`) para que convivan con `<hlm-toaster>`, que el admin no tiene, y como importa `@angular/cdk/overlay` desde `app.config`, metería el overlay entero del CDK (unos 46 kB) en el bundle inicial. Tampoco sirve en las `providers` de una ruta: el CDK lo lee del injector raíz. Sin él, los diálogos se muestran en el top layer del navegador (`popover`). Si algún día entra `<hlm-toaster>`, hay que volver a ponerlo en `app.config` y aceptar ese tamaño.
 
 
 ## Colección de Bruno

@@ -12,12 +12,10 @@ export const routes: Routes = [
     loadComponent: () => import('./features/auth/login/login.page').then((m) => m.LoginPage),
   },
   {
-    path: '',
-    pathMatch: 'full',
-    title: 'Panel · Admin',
+    path: 'posts',
     canMatch: [authGuard],
-    loadComponent: () =>
-      import('./features/dashboard/dashboard.page').then((m) => m.DashboardPage),
+    loadChildren: () => import('./features/posts/posts.routes').then((m) => m.POSTS_ROUTES),
   },
-  { path: '**', redirectTo: '' },
+  { path: '', pathMatch: 'full', redirectTo: 'posts' },
+  { path: '**', redirectTo: 'posts' },
 ];

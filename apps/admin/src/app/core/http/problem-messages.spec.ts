@@ -14,6 +14,11 @@ describe('problemMessage', () => {
     expect(problemMessage(httpError(401), 'login')).toBe('Email o contraseña incorrectos.');
     expect(problemMessage(httpError(401))).toBe('Tu sesión expiró. Inicia sesión de nuevo.');
     expect(problemMessage(httpError(403))).toBe('El servidor rechazó la petición desde este sitio.');
+    expect(problemMessage(httpError(404))).toBe('No se encontró lo que buscabas.');
+    expect(problemMessage(httpError(404), 'post')).toBe('El post no existe o ya no está disponible.');
+    expect(problemMessage(httpError(409))).toBe('La petición choca con el estado actual de los datos.');
+    expect(problemMessage(httpError(409), 'post')).toBe('El slug ya está en uso o ya no se puede cambiar.');
+    expect(problemMessage(httpError(400), 'post')).toBe('Revisa los datos enviados.');
     expect(problemMessage(httpError(413))).toBe('Los datos enviados son demasiado grandes.');
     expect(problemMessage(httpError(500))).toBe('Error inesperado del servidor. Inténtalo de nuevo.');
     expect(problemMessage(new Error('boom'))).toBe('Error inesperado del servidor. Inténtalo de nuevo.');

@@ -4,6 +4,7 @@ export const API_PATHS = {
   refresh: '/api/v1/auth/refresh',
   logout: '/api/v1/auth/logout',
   me: '/api/v1/auth/me',
+  adminPosts: '/api/v1/admin/posts',
 } as const;
 
 /**

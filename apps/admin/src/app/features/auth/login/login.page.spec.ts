@@ -83,7 +83,7 @@ describe('LoginPage', () => {
     expect(screen.queryAllByRole('alert')).toHaveLength(0);
   });
 
-  it('con una URL de regreso externa va al dashboard', async () => {
+  it('con una URL de regreso externa va a /', async () => {
     const { httpMock, navigate } = await renderLogin('//evil.test');
 
     await fillAndSubmit();
