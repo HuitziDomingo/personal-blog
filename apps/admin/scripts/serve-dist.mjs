@@ -3,13 +3,16 @@
 // en local antes de un preview de Vercel (ADR-012, punto 7).
 // Solo usa módulos de Node: no agrega dependencias.
 //
-// Uso: node scripts/serve-dist.mjs [puerto]   (por defecto 4300)
+// Uso: node scripts/serve-dist.mjs [puerto] [directorio]
+// Por defecto, puerto 4300 y directorio dist/admin/browser.
 import { readFileSync, statSync } from 'node:fs';
 import { createServer } from 'node:http';
-import { extname, join, normalize, sep } from 'node:path';
+import { extname, join, normalize, resolve as resolvePath, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const ROOT = fileURLToPath(new URL('../dist/admin/browser/', import.meta.url));
+const ROOT = process.argv[3]
+  ? resolvePath(process.argv[3]) + sep
+  : fileURLToPath(new URL('../dist/admin/browser/', import.meta.url));
 const VERCEL_JSON = new URL('../vercel.json', import.meta.url);
 const HOST = '127.0.0.1';
 const PORT = Number(process.argv[2] ?? 4300);
