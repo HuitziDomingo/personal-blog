@@ -26,6 +26,7 @@ import { renderMarkdown } from '../../core/markdown/render-markdown';
           class="border-input focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 min-h-96 w-full rounded-md border bg-transparent px-2.5 py-2 font-mono text-sm outline-none focus-visible:ring-3 aria-invalid:ring-3"
           [id]="inputId()"
           [value]="value()"
+          [disabled]="disabled()"
           [attr.aria-invalid]="invalid() || null"
           [attr.aria-describedby]="describedBy() || null"
           (input)="valueChange.emit($any($event.target).value)"
@@ -69,6 +70,7 @@ export class MarkdownEditor {
   readonly inputId = input('markdown-editor');
   readonly label = input('Contenido');
   readonly invalid = input(false);
+  readonly disabled = input(false);
   readonly describedBy = input<string>();
 
   protected readonly html = computed(() => renderMarkdown(this.value()));

@@ -89,7 +89,8 @@ const SLUG_CONFLICTS: Record<string, string> = {
       }
     </header>
 
-    <p role="status" class="text-sm empty:hidden">{{ notice() }}</p>
+    <!-- Siempre en el DOM y nunca con display:none, para que se anuncie. -->
+    <p role="status" class="text-sm">{{ notice() }}</p>
 
     @if (loading()) {
       <p class="text-muted-foreground text-sm">Cargando post…</p>
@@ -132,7 +133,7 @@ const SLUG_CONFLICTS: Record<string, string> = {
           <div hlmField>
             <label hlmFieldLabel for="excerpt">Extracto</label>
             <textarea hlmTextarea id="excerpt" formControlName="excerpt" [attr.maxlength]="limits.excerpt"></textarea>
-            <p hlmFieldDescription>Opcional. Si lo dejas vacío, se genera del contenido al guardar.</p>
+            <p hlmFieldDescription>{{ excerptHint() }}</p>
           </div>
 
           <div hlmField>
@@ -149,6 +150,7 @@ const SLUG_CONFLICTS: Record<string, string> = {
             inputId="content"
             [value]="form.controls.content.value"
             [invalid]="contentInvalid()"
+            [disabled]="saving()"
             [describedBy]="contentInvalid() ? 'content-error' : undefined"
             (valueChange)="setContent($event)"
             (touched)="form.controls.content.markAsTouched()"
@@ -284,6 +286,13 @@ export class PostEditorPage {
     }
     return 'Si lo dejas vacío, se conserva el actual.';
   });
+  // La API guarda el extracto generado igual que uno escrito: una vez guardado,
+  // ya no se regenera al cambiar el contenido, salvo que se vacíe el campo.
+  protected readonly excerptHint = computed(() =>
+    this.post()
+      ? 'Si lo vacías, se vuelve a generar del contenido al guardar. Si no, se conserva aunque cambies el contenido.'
+      : 'Opcional. Si lo dejas vacío, se genera del contenido al guardar.',
+  );
   protected readonly contentInvalid = computed(() => this.contentState().invalid && this.contentState().touched);
 
   /** Acciones según el estado guardado. La primera es la del Enter. */
@@ -323,6 +332,10 @@ export class PostEditorPage {
       const id = this.id();
       untracked(() => {
         if (id === NEW_POST_ID) {
+          this.loadSubscription?.unsubscribe();
+          this.loading.set(false);
+          this.loadError.set(null);
+          this.notice.set('');
           this.reset(null);
         } else if (this.post()?.id !== id) {
           this.load(id);
@@ -333,7 +346,9 @@ export class PostEditorPage {
 
   /** Para el guard de cambios sin guardar. */
   hasUnsavedChanges(): boolean {
-    return this.form.dirty && !this.saving();
+    // Mientras se guarda también: salir cancelaría la petición y no se sabría
+    // si el post quedó guardado.
+    return this.form.dirty || this.saving();
   }
 
   /** Pregunta antes de salir con cambios sin guardar. */
@@ -381,21 +396,31 @@ export class PostEditorPage {
     this.saving.set(true);
     this.saveError.set(null);
     this.notice.set('');
+    // El formulario no se edita mientras se guarda: la respuesta lo reemplaza
+    // con lo guardado y se perdería lo escrito entretanto.
+    this.form.disable({ emitEvent: false });
+    // Se vuelve a habilitar antes de mostrar errores: enable() valida de nuevo
+    // y borraría el error `server` del slug.
+    const done = () => {
+      this.form.enable({ emitEvent: false });
+      this.saving.set(false);
+    };
 
     request
-      .pipe(
-        finalize(() => this.saving.set(false)),
-        takeUntilDestroyed(this.destroyRef),
-      )
+      .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (saved) => {
+          done();
           this.reset(saved);
           this.notice.set(savedNotice(current?.status ?? null, saved.status));
           if (!current) {
             void this.router.navigate(['/posts', saved.id], { replaceUrl: true });
           }
         },
-        error: (error: unknown) => this.showSaveError(error),
+        error: (error: unknown) => {
+          done();
+          this.showSaveError(error);
+        },
       });
   }
 
@@ -459,6 +484,17 @@ export class PostEditorPage {
     if (apiError.status === 409) {
       const slug = this.form.controls.slug;
       slug.setErrors({ server: SLUG_CONFLICTS[apiError.detail ?? ''] ?? apiError.message });
+      slug.markAsTouched();
+      document.getElementById('slug')?.focus();
+      return;
+    }
+
+    // Al crear sin slug, la API lo genera del título. Si el título no tiene
+    // letras ni números con los que formarlo (por ejemplo, "¿?" o "日本語"),
+    // responde 400: el formulario ya validó todo lo demás.
+    if (apiError.status === 400 && !this.post() && this.form.controls.slug.value.trim() === '') {
+      const slug = this.form.controls.slug;
+      slug.setErrors({ server: 'No se pudo generar un slug con este título. Escribe uno.' });
       slug.markAsTouched();
       document.getElementById('slug')?.focus();
       return;

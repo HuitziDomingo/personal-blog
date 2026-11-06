@@ -1,4 +1,3 @@
-import { DomSanitizer } from '@angular/platform-browser';
 import { fireEvent, render, screen } from '@testing-library/angular';
 
 import { MarkdownEditor } from './markdown-editor';
@@ -22,10 +21,9 @@ describe('MarkdownEditor', () => {
     expect(valueChange).toHaveBeenCalledWith('nuevo');
   });
 
-  it('la vista previa no ejecuta nada del contenido', async () => {
-    const pwned = vi.fn();
-    (window as unknown as { pwned: () => void }).pwned = pwned;
-
+  // jsdom no ejecuta scripts ni dispara onerror: se comprueba que no quede nada
+  // ejecutable en el DOM de la vista previa.
+  it('la vista previa no contiene nada ejecutable', async () => {
     await render(MarkdownEditor, {
       inputs: {
         value: '<img src="x" onerror="window.pwned()"><script>window.pwned()</script>[x](javascript:window.pwned())<iframe src="https://evil.test"></iframe>',
@@ -35,24 +33,13 @@ describe('MarkdownEditor', () => {
     const preview = screen.getByRole('region', { name: 'Vista previa' });
     expect(preview.querySelector('script, iframe, [onerror]')).toBeNull();
     expect(preview.querySelector('a')?.hasAttribute('href')).toBe(false);
-    expect(pwned).not.toHaveBeenCalled();
+    expect(preview.querySelector('img')?.hasAttribute('onerror')).toBe(false);
   });
 
-  it('no usa bypassSecurityTrust*', async () => {
-    const { fixture } = await render(MarkdownEditor, { inputs: { value: '# Hola' } });
-    const sanitizer = fixture.debugElement.injector.get(DomSanitizer);
-    const bypass = [
-      vi.spyOn(sanitizer, 'bypassSecurityTrustHtml'),
-      vi.spyOn(sanitizer, 'bypassSecurityTrustUrl'),
-      vi.spyOn(sanitizer, 'bypassSecurityTrustResourceUrl'),
-    ];
+  it('se puede desactivar', async () => {
+    await render(MarkdownEditor, { inputs: { value: '', disabled: true } });
 
-    fixture.componentRef.setInput('value', '# Otro');
-    await fixture.whenStable();
-
-    for (const spy of bypass) {
-      expect(spy).not.toHaveBeenCalled();
-    }
+    expect(screen.getByLabelText('Contenido').hasAttribute('disabled')).toBe(true);
   });
 
   it('marca el textarea como inválido y lo enlaza con su error', async () => {

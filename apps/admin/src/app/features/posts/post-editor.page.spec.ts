@@ -1,8 +1,9 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { TestBed } from '@angular/core/testing';
-import { provideRouter, Router } from '@angular/router';
+import { provideRouter, Router, withComponentInputBinding } from '@angular/router';
+import { RouterTestingHarness } from '@angular/router/testing';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/angular';
-import { firstValueFrom, Observable, of, throwError } from 'rxjs';
+import { firstValueFrom, Observable, of, Subject, throwError } from 'rxjs';
 
 import { Post, PostWrite } from '../../core/api/api-types';
 import { PostsApi } from '../../core/api/posts-api';
@@ -44,6 +45,8 @@ class FakePostsApi {
   updated: { id: string; body: PostWrite }[] = [];
   archived: string[] = [];
   nextError: ApiError | null = null;
+  /** Si está, create y update responden cuando el test lo decide. */
+  pendingSave: Subject<void> | null = null;
 
   get(id: string): Observable<Post> {
     if (this.nextError) return this.fail();
@@ -55,15 +58,24 @@ class FakePostsApi {
   create(body: PostWrite): Observable<Post> {
     this.created.push(body);
     if (this.nextError) return this.fail();
-    this.post = this.toPost('p-new', body, null);
-    return of(this.post);
+    return this.respond(() => (this.post = this.toPost('p-new', body, null)));
   }
 
   update(id: string, body: PostWrite): Observable<Post> {
     this.updated.push({ id, body });
     if (this.nextError) return this.fail();
-    this.post = this.toPost(id, body, this.post);
-    return of(this.post);
+    return this.respond(() => (this.post = this.toPost(id, body, this.post)));
+  }
+
+  private respond(save: () => Post): Observable<Post> {
+    const pending = this.pendingSave;
+    if (!pending) return of(save());
+    return new Observable<Post>((subscriber) =>
+      pending.subscribe(() => {
+        subscriber.next(save());
+        subscriber.complete();
+      }),
+    );
   }
 
   archive(id: string): Observable<void> {
@@ -78,9 +90,10 @@ class FakePostsApi {
     return throwError(() => error);
   }
 
-  // Imita las reglas del service: slug generado o conservado, PublishedAt solo
-  // la primera vez.
+  // Imita las reglas del service: slug generado o conservado, tags en
+  // minúsculas y sin repetir, PublishedAt solo la primera vez.
   private toPost(id: string, body: PostWrite, previous: Post | null): Post {
+    const tags = [...new Set((body.tags ?? []).map((tag) => tag.toLowerCase()))];
     const publishedAt = previous?.publishedAt ?? (body.status === 'published' ? NOW : null);
     return {
       id,
@@ -89,7 +102,7 @@ class FakePostsApi {
       slug: body.slug ?? previous?.slug ?? 'generado-del-titulo',
       excerpt: body.excerpt || 'generado',
       content: body.content,
-      tags: body.tags ?? [],
+      tags,
       status: body.status,
       publishedAt,
       createdAt: previous?.createdAt ?? NOW,
@@ -166,6 +179,73 @@ describe('PostEditorPage', () => {
       expect(screen.getByRole('status').textContent).toBe('Borrador guardado.');
       expect(screen.getByRole('heading', { name: 'Editar post' })).toBeTruthy();
       expect((screen.getByLabelText('Slug') as HTMLInputElement).value).toBe('generado-del-titulo');
+      // El formulario muestra lo que guardó la API, no lo que se escribió.
+      expect((screen.getByLabelText('Etiquetas') as HTMLInputElement).value).toBe('go, ia');
+      expect(screen.getByText('Si lo vacías, se vuelve a generar del contenido al guardar. Si no, se conserva aunque cambies el contenido.')).toBeTruthy();
+    });
+
+    it('al crear de verdad con el router, pasa a /posts/:id con el mismo componente sin recargar', async () => {
+      const api = new FakePostsApi();
+      TestBed.configureTestingModule({
+        providers: [
+          provideRouter(
+            [{ path: 'posts/:id', component: PostEditorPage, canDeactivate: [unsavedChangesGuard] }],
+            withComponentInputBinding(),
+          ),
+          { provide: PostsApi, useValue: api },
+        ],
+      });
+      const harness = await RouterTestingHarness.create();
+      const page = await harness.navigateByUrl('/posts/new', PostEditorPage);
+      const get = vi.spyOn(api, 'get');
+
+      await type('Título', 'Hola');
+      await type('Contenido', 'Texto');
+      await fireEvent.click(screen.getByRole('button', { name: 'Guardar borrador' }));
+      await harness.fixture.whenStable();
+
+      expect(TestBed.inject(Router).url).toBe('/posts/p-new');
+      expect(harness.routeDebugElement?.componentInstance).toBe(page);
+      expect(get).not.toHaveBeenCalled();
+      expect(screen.getByRole('status').textContent).toBe('Borrador guardado.');
+    });
+
+    it('mientras guarda, el formulario no se edita, no se envía dos veces y cuenta como cambio sin guardar', async () => {
+      const api = new FakePostsApi();
+      api.pendingSave = new Subject<void>();
+      const { page } = await renderEditor(api, 'new');
+
+      await type('Título', 'Hola');
+      await type('Contenido', 'Texto');
+      await fireEvent.click(screen.getByRole('button', { name: 'Guardar borrador' }));
+      await fireEvent.click(screen.getByRole('button', { name: 'Guardar borrador' }));
+
+      expect(api.created).toHaveLength(1);
+      expect(screen.getByLabelText('Título').hasAttribute('disabled')).toBe(true);
+      expect(screen.getByLabelText('Contenido').hasAttribute('disabled')).toBe(true);
+      expect(screen.getByRole('button', { name: 'Publicar' }).hasAttribute('disabled')).toBe(true);
+      expect(page.hasUnsavedChanges()).toBe(true);
+
+      api.pendingSave.next();
+      await waitFor(() => expect(screen.getByLabelText('Título').hasAttribute('disabled')).toBe(false));
+      expect(screen.getByLabelText('Contenido').hasAttribute('disabled')).toBe(false);
+      expect(page.hasUnsavedChanges()).toBe(false);
+    });
+
+    it('un 400 al crear sin slug pide escribir uno en el campo', async () => {
+      const api = new FakePostsApi();
+      api.nextError = ApiError.from(
+        new HttpErrorResponse({ status: 400, error: { detail: 'invalid post data' } }),
+        'post',
+      );
+      await renderEditor(api, 'new');
+
+      await type('Título', '¿?');
+      await type('Contenido', 'Texto');
+      await fireEvent.click(screen.getByRole('button', { name: 'Guardar borrador' }));
+
+      expect(screen.getByText('No se pudo generar un slug con este título. Escribe uno.')).toBeTruthy();
+      expect(document.activeElement).toBe(screen.getByLabelText('Slug'));
     });
 
     it('publica con un slug elegido', async () => {
@@ -235,6 +315,17 @@ describe('PostEditorPage', () => {
       expect(screen.getByRole('alert').textContent).toContain('El post no existe o ya no está disponible.');
       expect(screen.getByRole('link', { name: 'Volver a la lista' }).getAttribute('href')).toBe('/posts');
       expect(screen.queryByRole('textbox', { name: 'Título' })).toBeNull();
+    });
+
+    it('pasar de un post que no existe a /posts/new muestra el formulario vacío', async () => {
+      const { fixture } = await renderEditor(new FakePostsApi(), 'no-existe');
+
+      fixture.componentRef.setInput('id', 'new');
+      await fixture.whenStable();
+
+      expect(screen.queryByRole('alert')).toBeNull();
+      expect((screen.getByLabelText('Título') as HTMLInputElement).value).toBe('');
+      expect(screen.getByRole('heading', { name: 'Nuevo post' })).toBeTruthy();
     });
 
     it('un borrador nunca publicado puede cambiar el slug y publicarse', async () => {
@@ -351,6 +442,22 @@ describe('PostEditorPage', () => {
       dialog = await screen.findByRole('alertdialog');
       await fireEvent.click(within(dialog).getByRole('button', { name: 'Salir sin guardar' }));
       expect(await leaveResult).toBe(true);
+    });
+
+    it('Escape en el diálogo de salida es quedarse', async () => {
+      const api = new FakePostsApi();
+      api.post = stored();
+      const { page } = await renderEditor(api, 'p1');
+      await type('Título', 'Editado');
+
+      const result = firstValueFrom(
+        TestBed.runInInjectionContext(() => unsavedChangesGuard(page, null!, null!, null!)) as Observable<boolean>,
+      );
+      const dialog = await screen.findByRole('alertdialog');
+      await fireEvent.keyDown(dialog, { key: 'Escape', code: 'Escape' });
+
+      expect(await result).toBe(false);
+      expect(page.hasUnsavedChanges()).toBe(true);
     });
 
     it('escribir en el editor de contenido también cuenta como cambio', async () => {

@@ -49,17 +49,16 @@ export function listValidator(maxItems: number, maxItemLength: number): Validato
 }
 
 /**
- * URL absoluta http o https. El contrato pide `format: uri`; se restringe a
- * http(s) porque son las únicas que tienen sentido como canónica o imagen.
+ * URL absoluta https. El contrato pide `format: uri`; se restringe a https
+ * porque la canónica y la imagen para redes son URLs públicas del blog.
  */
-export const httpUrl: ValidatorFn = (control: AbstractControl<string>) => {
+export const httpsUrl: ValidatorFn = (control: AbstractControl<string>) => {
   const value = control.value.trim();
   if (value === '') {
     return null;
   }
   try {
-    const url = new URL(value);
-    return url.protocol === 'http:' || url.protocol === 'https:' ? null : { url: true };
+    return new URL(value).protocol === 'https:' ? null : { url: true };
   } catch {
     return { url: true };
   }
@@ -76,8 +75,8 @@ export function createPostForm(fb: NonNullableFormBuilder) {
       title: ['', Validators.maxLength(POST_LIMITS.seoTitle)],
       description: ['', Validators.maxLength(POST_LIMITS.seoDescription)],
       keywords: ['', listValidator(POST_LIMITS.keywords, POST_LIMITS.keyword)],
-      canonicalUrl: ['', [httpUrl, Validators.maxLength(POST_LIMITS.url)]],
-      ogImageUrl: ['', [httpUrl, Validators.maxLength(POST_LIMITS.url)]],
+      canonicalUrl: ['', [httpsUrl, Validators.maxLength(POST_LIMITS.url)]],
+      ogImageUrl: ['', [httpsUrl, Validators.maxLength(POST_LIMITS.url)]],
     }),
   });
 }

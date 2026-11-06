@@ -17,10 +17,39 @@ export const ALLOWED_TAGS = [
 
 export const ALLOWED_ATTR = ['href', 'title', 'alt', 'src', 'start', 'align'] as const;
 
-// URLs permitidas. DOMPurify deja pasar `data:` en <img> aunque su expresión de
-// URIs no lo acepte, así que las URLs se filtran también en un hook.
-const SAFE_HREF = /^(?:https?:|mailto:|#|\/(?!\/))/i;
-const SAFE_SRC = /^(?:https?:|\/(?!\/))/i;
+const ABSOLUTE = /^[a-z][a-z0-9+.-]*:/i;
+
+/**
+ * Decide si una URL de la vista previa se conserva. DOMPurify deja pasar
+ * `data:` en <img> aunque su expresión de URIs no lo acepte, así que las URLs se
+ * filtran también en un hook, con el parser de URLs del navegador: así se
+ * resuelve como lo haría el navegador: `/\host`, `\\host` o `/`, tab y `/host`
+ * son `//host`.
+ * - Absolutas: solo `https:` y `http:`, y `mailto:` en links.
+ * - Relativas: solo si resuelven al origen del admin.
+ * - Anclas (`#…`) solo en links.
+ */
+export function isSafeUrl(value: string, attribute: 'href' | 'src'): boolean {
+  const trimmed = value.trim();
+  if (attribute === 'href' && trimmed.startsWith('#')) {
+    return true;
+  }
+
+  let url: URL;
+  try {
+    url = new URL(trimmed, window.location.href);
+  } catch {
+    return false;
+  }
+
+  if (!ABSOLUTE.test(trimmed)) {
+    return url.origin === window.location.origin;
+  }
+  if (url.protocol === 'https:' || url.protocol === 'http:') {
+    return true;
+  }
+  return attribute === 'href' && url.protocol === 'mailto:';
+}
 
 const markdown = new Marked({ gfm: true, async: false });
 
@@ -29,11 +58,7 @@ const markdown = new Marked({ gfm: true, async: false });
 const purify = DOMPurify(window);
 
 purify.addHook('uponSanitizeAttribute', (_node, data) => {
-  const value = data.attrValue.trim();
-  if (data.attrName === 'href' && !SAFE_HREF.test(value)) {
-    data.keepAttr = false;
-  }
-  if (data.attrName === 'src' && !SAFE_SRC.test(value)) {
+  if ((data.attrName === 'href' || data.attrName === 'src') && !isSafeUrl(data.attrValue, data.attrName)) {
     data.keepAttr = false;
   }
 });

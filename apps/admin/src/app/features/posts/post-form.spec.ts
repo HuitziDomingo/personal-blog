@@ -79,11 +79,11 @@ describe('post-form', () => {
   it.each([
     ['', true],
     ['https://huitzi.xyz/post', true],
-    ['http://localhost/x', true],
+    ['http://huitzi.xyz/post', false],
     ['javascript:alert(1)', false],
     ['data:image/png;base64,AAAA', false],
     ['huitzi.xyz/post', false],
-  ])('acepta solo URLs http(s) absolutas: %s', (url, valid) => {
+  ])('acepta solo URLs https absolutas: %s', (url, valid) => {
     const f = form();
     f.controls.seo.controls.ogImageUrl.setValue(url);
 

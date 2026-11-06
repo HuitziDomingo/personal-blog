@@ -139,9 +139,19 @@ describe('renderMarkdown', () => {
       expectOnlyAllowlisted(html);
     });
 
-    it('URLs protocol-relative en links e imágenes', () => {
-      const html = renderMarkdown('[x](//evil.test) ![y](//evil.test/y.png)');
+    it.each([
+      ['Markdown //', '[x](//evil.test) ![y](//evil.test/y.png)'],
+      ['HTML //', '<a href="//evil.test">x</a><img src="//evil.test/y.png">'],
+      ['HTML /\\', '<a href="/\\evil.test">x</a><img src="/\\evil.test/y.png">'],
+      ['HTML \\\\', '<a href="\\\\evil.test">x</a><img src="\\\\evil.test/y.png">'],
+      ['HTML con tab entre las barras', '<a href="/\t/evil.test">x</a><img src="/\t/evil.test/y.png">'],
+      ['HTML con salto de línea', '<a href="/\n/evil.test">x</a>'],
+    ])('URLs que salen del origen sin esquema: %s', (_name, source) => {
+      const html = renderMarkdown(source);
 
+      for (const element of parse(html).querySelectorAll('a, img')) {
+        expect(element.hasAttribute('href') || element.hasAttribute('src')).toBe(false);
+      }
       expect(html).not.toContain('evil.test');
     });
   });
