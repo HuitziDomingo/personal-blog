@@ -46,7 +46,7 @@ describe('authGuard', () => {
 });
 
 describe('guestGuard', () => {
-  it('con sesión, /login lleva al dashboard', async () => {
+  it('con sesión, /login lleva a /', async () => {
     const { harness, router } = await setup('authenticated');
 
     await harness.navigateByUrl('/login');

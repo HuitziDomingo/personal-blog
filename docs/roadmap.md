@@ -41,6 +41,8 @@
 - [x] BLOG-045: Interceptor de credenciales y refresh single-flight con tests (ADR-012). ([#40](https://github.com/HuitziDomingo/personal-blog/pull/40))
 - [ ] BLOG-017: Diseñar layout principal con estilo Liquid Glass / Glassmorphism.
 - [ ] BLOG-018: Crear vista de gestión y creación de posts (Editor Markdown).
+  - [x] Parte A: lista de posts con filtro por estado, paginación y archivar. ([#50](https://github.com/HuitziDomingo/personal-blog/pull/50))
+  - [ ] Parte B: crear y editar posts con el editor Markdown.
 - [ ] BLOG-036: Sanitizar el Markdown de los posts al renderizar en `apps/web` y `apps/admin`, con allowlist (ADR-010).
 - [x] BLOG-046: CSP y cabeceras del admin en Vercel (ADR-012). ([#45](https://github.com/HuitziDomingo/personal-blog/pull/45))
 - [ ] BLOG-047: Configurar admin.huitzi.xyz en Vercel y DNS en DreamHost. El build command de Vercel debe ser el script `build` del paquete (`pnpm --filter @personal-blog/admin build`), que corre el chequeo de la URL de la API, no `ng build` directo.

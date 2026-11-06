@@ -21,7 +21,7 @@ import { SessionService } from '../../../core/session/session.service';
 
 /**
  * Pantalla de inicio de sesión. Tras el login vuelve a `returnUrl`, que llega
- * como query param, o al panel.
+ * como query param, o a `/` (la lista de posts).
  */
 @Component({
   selector: 'app-login-page',

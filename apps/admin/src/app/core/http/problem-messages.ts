@@ -1,6 +1,6 @@
 import { HttpErrorResponse } from '@angular/common/http';
 
-export type ProblemContext = 'login' | 'generic';
+export type ProblemContext = 'login' | 'post' | 'generic';
 
 const UNEXPECTED = 'Error inesperado del servidor. Inténtalo de nuevo.';
 
@@ -24,6 +24,14 @@ export function problemMessage(error: unknown, context: ProblemContext = 'generi
         : 'Tu sesión expiró. Inicia sesión de nuevo.';
     case 403:
       return 'El servidor rechazó la petición desde este sitio.';
+    case 404:
+      return context === 'post'
+        ? 'El post no existe o ya no está disponible.'
+        : 'No se encontró lo que buscabas.';
+    case 409:
+      return context === 'post'
+        ? 'El slug ya está en uso o ya no se puede cambiar.'
+        : 'La petición choca con el estado actual de los datos.';
     case 413:
       return 'Los datos enviados son demasiado grandes.';
     case 429:

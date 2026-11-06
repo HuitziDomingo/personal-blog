@@ -18,7 +18,7 @@ describe('safeReturnUrl', () => {
     }
   });
 
-  it('sin valor vuelve al dashboard', () => {
+  it('sin valor vuelve a /', () => {
     expect(safeReturnUrl(undefined)).toBe('/');
     expect(safeReturnUrl(null)).toBe('/');
   });

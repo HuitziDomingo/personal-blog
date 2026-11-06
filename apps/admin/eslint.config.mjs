@@ -32,6 +32,10 @@ export default defineConfig(
         'error',
         { type: 'element', prefix: 'hlm', style: 'kebab-case' },
       ],
+      // Los componentes helm reciben clases extra con un input con alias
+      // `class` (por ejemplo, el overlay de alert-dialog). Es el patrón de
+      // Spartan y el código se copia tal cual sale del CLI.
+      '@angular-eslint/no-input-rename': 'off',
     },
   },
   {

@@ -23,7 +23,7 @@ export const authGuard: CanMatchFn = (_route, segments) => {
     );
 };
 
-/** `/login` con sesión iniciada lleva al dashboard. */
+/** `/login` con sesión iniciada lleva a `/`, que redirige a la lista de posts. */
 export const guestGuard: CanMatchFn = () => {
   const session = inject(SessionService);
   const router = inject(Router);
