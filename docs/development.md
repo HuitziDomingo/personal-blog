@@ -221,7 +221,7 @@ make admin-preview   # http://127.0.0.1:4300, para probar a mano
 
 `scripts/serve-dist.mjs` solo usa módulos de Node: aplica las cabeceras y los rewrites de `vercel.json`, primero busca el archivo y después aplica el rewrite, como Vercel. Acepta un puerto y un directorio: `node scripts/serve-dist.mjs 4300 <dir>`.
 
-`scripts/check-csp-browser.mjs` levanta `serve-dist.mjs` en el puerto 4310, abre `/login` en un navegador headless y lo controla por el protocolo de DevTools con el `WebSocket` nativo de Node, sin dependencias. Busca Chrome, Chromium o Brave en las rutas habituales; con `CHROME_PATH=<ruta>` usa otro. Comprueba que el admin arranca, que trae el `<meta>` y que no se ejecutan ni un `<img onerror>` ni un link `javascript:` inyectados. No corre en el CI.
+`scripts/check-csp-browser.mjs` levanta `serve-dist.mjs` en el puerto 4310, abre `/login` en un navegador headless y lo controla por el protocolo de DevTools con el `WebSocket` nativo de Node, sin dependencias. Busca Chrome, Chromium o Brave en las rutas habituales; con `CHROME_PATH=<ruta>` usa otro. Comprueba que el admin arranca, que trae el `<meta>` y que no se ejecutan ni un `<img onerror>` ni un link `javascript:` inyectados. El job `admin` del CI la corre después del build, con el Chrome que traen los runners de Ubuntu.
 
 Si no hay navegador headless, la prueba manual es esta: con `make admin-preview` abierto, pega en la consola de DevTools
 
