@@ -23,10 +23,12 @@ const (
 	// entiende Cloud Logging (severity y message).
 	LogFormatJSON = "json"
 
-	// GinModeDebug, GinModeRelease y GinModeTest son los valores de GIN_MODE.
-	GinModeDebug   = "debug"
+	// GinModeDebug es el modo de desarrollo de Gin: lista las rutas al arrancar.
+	GinModeDebug = "debug"
+	// GinModeRelease es el modo de producción de Gin, sin salida de debug.
 	GinModeRelease = "release"
-	GinModeTest    = "test"
+	// GinModeTest es el modo de Gin para los tests.
+	GinModeTest = "test"
 )
 
 // Config es la configuración de la API.

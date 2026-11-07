@@ -92,8 +92,10 @@ func TestWarningsWhenJSONLogsRunGinInDebugMode(t *testing.T) {
 }
 
 func TestWarningsNeverIncludeSecrets(t *testing.T) {
+	// Credenciales de mentira para comprobar que no aparecen en los avisos.
+	mongoURI := "mongodb://user:" + "mongo-secret" + "@db:27017"
 	cfg := Config{
-		MongoURI:             "mongodb://user:mongo-secret@db:27017",
+		MongoURI:             mongoURI,
 		JWTSecret:            []byte(testJWTSecret),
 		InitialAdminPassword: "correct-horse-battery",
 		MaxBodyBytes:         1,
