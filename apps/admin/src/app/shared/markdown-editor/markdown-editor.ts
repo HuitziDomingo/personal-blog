@@ -89,7 +89,7 @@ export class MarkdownEditor {
     effect((onCleanup) => {
       const value = this.value();
 
-      // El primer valor (el post cargado) no espera.
+      // El primer valor (el contenido inicial) no espera.
       if (untracked(this.previewSource) === undefined) {
         this.previewSource.set(value);
         return;

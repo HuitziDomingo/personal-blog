@@ -99,15 +99,20 @@ describe('MarkdownEditor', () => {
       expect(valueChange).toHaveBeenNthCalledWith(2, 'ho');
     });
 
-    it('no deja timers pendientes al destruirse', async () => {
+    it('cancela el timer pendiente al destruirse', async () => {
       const { rerender, fixture } = await render(MarkdownEditor, { inputs: { value: 'a' } });
+      // Solo el timer de la vista previa: el scheduler zoneless tiene los suyos.
+      const setTimeoutSpy = vi.spyOn(globalThis, 'setTimeout');
+      const clearTimeoutSpy = vi.spyOn(globalThis, 'clearTimeout');
       await rerender({ inputs: { value: 'b' }, partialUpdate: true });
       fixture.detectChanges();
-      expect(vi.getTimerCount()).toBe(1);
+      const call = setTimeoutSpy.mock.calls.findIndex(([, delay]) => delay === PREVIEW_DEBOUNCE_MS);
+      expect(call).toBeGreaterThanOrEqual(0);
+      const timer = setTimeoutSpy.mock.results[call]?.value;
 
       fixture.destroy();
 
-      expect(vi.getTimerCount()).toBe(0);
+      expect(clearTimeoutSpy).toHaveBeenCalledWith(timer);
     });
   });
 });
