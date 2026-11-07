@@ -59,6 +59,21 @@ export const CASES = {
     ['HTML con tab entre las barras', '<a href="/\t/evil.test">x</a><img src="/\t/evil.test/y.png">'],
     ['HTML con salto de línea', '<a href="/\n/evil.test">x</a>'],
   ],
+  // Entradas con las que se comprobó que el paquete da el mismo HTML que el
+  // render original del admin (BLOG-065).
+  regressions: [
+    ['URLs relativas y de otro puerto', '<a href="/relativo">r</a> <a href="https://huitzi.xyz:8443/x">p</a> <img src="/a.png"> <img src="http://x.test/a.png">'],
+    ['esquemas no permitidos', '<a href="mailto:x@y.z">m</a><img src="mailto:x@y.z"><a href="tel:123">t</a><a href="ftp://x">f</a>'],
+    ['anclas y vacíos', '<a href="#a">a</a><img src="#a"><a href="?q=1">q</a><a href="">e</a><a href=" ">s</a>'],
+    ['listas, citas y tachado', '1. uno\n2. dos\n\n3. tres\n\n> cita\n\n---\n\n~~tachado~~'],
+    ['<details>', '<details><summary>x</summary>y</details>'],
+    ['<math> con xlink', '<math><mi xlink:href="javascript:alert(1)">x</mi></math>'],
+    ['<svg> con xlink', '<svg><a xlink:href="javascript:alert(1)"><text>x</text></a></svg>'],
+    ['mXSS con <noscript>', '<noscript><p title="</noscript><img src=x onerror=alert(1)>"></noscript>'],
+    ['atributos fuera de la allowlist', '<table><tr><td align="center" style="x">c</td></tr></table><img src="https://huitzi.xyz/a.png" width="1" loading="lazy">'],
+    ['link con < >', '[x](<javascript:alert(1)>)'],
+    ['target y rel propios', '<a href="https://huitzi.xyz" target="_self" rel="opener">x</a>'],
+  ],
 } as const satisfies Record<string, string | readonly (readonly [string, string])[]>;
 
 /** Todos los Markdown de la suite, con su nombre. */
@@ -165,6 +180,13 @@ export function describeSanitization(variant: string, renderMarkdown: MarkdownRe
 
         expect(parse(html).querySelector('iframe, object, embed, form, input, button, style, base, meta')).toBeNull();
         expect(html).not.toContain('evil.test');
+        expectOnlyAllowlisted(html);
+      });
+
+      it.each(CASES.regressions)('regresión: %s', (_name, source) => {
+        const html = renderMarkdown(source);
+
+        expect(html).not.toMatch(/\son\w+=|javascript:|style=/i);
         expectOnlyAllowlisted(html);
       });
 

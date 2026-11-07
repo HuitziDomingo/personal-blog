@@ -2,6 +2,10 @@
  * Etiquetas y atributos que puede producir el render (ADR-010, punto 4;
  * ADR-012, punto 6; ADR-017, punto 5). Es una allowlist: lo que no está aquí se
  * elimina, aunque DOMPurify lo permita por defecto.
+ *
+ * No agregues `svg`, `math`, `style`, `template`, `textarea`, `title`,
+ * `noscript` ni `iframe`: son la base de los ataques de mutation XSS, en los
+ * que el HTML sanitizado se reparsea distinto en el navegador.
  */
 export const ALLOWED_TAGS = [
   'p', 'br', 'hr',

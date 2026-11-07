@@ -372,7 +372,8 @@ El admin no usa `provideSpartanHlm()`. Solo cambia el default de los overlays de
 
 - **Variantes:**
   - `@personal-blog/markdown`, para el navegador: `renderMarkdown(source)` sanitiza con el DOM de la página y resuelve las URLs relativas contra `window.location`. La usa el admin.
-  - `@personal-blog/markdown/server`, para el servidor: `createServerRenderer({ siteUrl })` devuelve el mismo render, con DOMPurify sobre un DOM de jsdom; las URLs relativas se resuelven contra `siteUrl`. Crea el DOM una vez: guarda el render y reúsalo. La usará `apps/web`.
+  - `@personal-blog/markdown/server`, para el servidor: `createServerRenderer({ siteUrl })` devuelve el mismo render, con DOMPurify sobre un DOM de jsdom; las URLs relativas se resuelven contra `siteUrl`. Crea el DOM una vez: guarda el render y reúsalo. Un `siteUrl` inválido lanza al crearlo. La usará `apps/web`, que nunca debe importar la raíz del paquete en el servidor: la raíz lee `window` al cargarse.
+  - Si el DOM no sirve a DOMPurify, crear el render lanza un error en lugar de devolver HTML sin sanitizar.
   - Las dos comparten `src/renderer.ts`; solo cambian el DOM y la URL base.
 - **Allowlist explícita:** `ALLOWED_TAGS` y `ALLOWED_ATTR` en `src/policy.ts`.
 - **URLs (`isSafeUrl`):** un hook las valida con el parser de URLs WHATWG (`new URL()`). Las absolutas solo pueden ser `http(s)`, o `mailto` en links. Las relativas solo valen si resuelven al origen de la página, y las anclas valen en links. DOMPurify deja pasar `data:` en `<img>`, y el navegador lee `/\host` como `//host`; los dos casos tienen test.

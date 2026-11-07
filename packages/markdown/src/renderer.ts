@@ -19,6 +19,10 @@ export function createRenderer(window: WindowLike, baseUrl: () => string): Markd
   // Instancia propia: los hooks de DOMPurify son globales a cada instancia, y así
   // no afectan a nadie más que use la librería.
   const purify = createDOMPurify(window);
+  // Sin un DOM utilizable, DOMPurify devuelve la entrada sin sanitizar.
+  if (!purify.isSupported) {
+    throw new Error('DOMPurify is not supported by this DOM');
+  }
 
   purify.addHook('uponSanitizeAttribute', (_node, data) => {
     if ((data.attrName === 'href' || data.attrName === 'src') && !isSafeUrl(data.attrValue, data.attrName, baseUrl())) {
