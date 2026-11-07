@@ -82,6 +82,21 @@ personal-blog/
 
 Sin `INITIAL_ADMIN_EMAIL` e `INITIAL_ADMIN_PASSWORD`, la API registra un warning y funciona sin administrador. Para crearlo, define ambas en `.env` antes de arrancar con la colección `users` vacía. La contraseña va de 12 caracteres a 72 bytes.
 
+## `make api-run` frente a `make api-watch`
+
+Los dos cargan `.env` igual y levantan la misma API en el puerto de `PORT` (8080 por defecto).
+
+| | `make api-run` | `make api-watch` |
+| --- | --- | --- |
+| Qué ejecuta | `go run ./cmd/api` | `go tool air`, con `services/api/.air.toml` |
+| Al cambiar el código | Hay que pararla con Ctrl+C y volver a lanzarla | Recompila y reinicia sola al guardar un `.go`, incluido `handler/gen` tras `make generate` |
+| Qué no la reinicia | — | Los `_test.go`, `openapi.yaml` y `.env`; un cambio en `.env` exige parar y relanzar |
+| Cuándo usarla | Una corrida puntual, `make api-flows` o `make e2e` | Mientras programas la API |
+
+Al reiniciar, Air manda `SIGINT`, que dispara el graceful shutdown de la API (hasta 8 s), y espera a que salga antes de arrancar el binario nuevo. Esa espera de Air es de 5 s como máximo y no se configura: si la API vieja sigue drenando peticiones, la nueva arranca igual (el puerto ya está libre, porque el shutdown cierra el listener al empezar) y conviven unos segundos. A los 10 s (`kill_delay`), Air mata la vieja con `SIGKILL`. Sin peticiones en vuelo, la API sale al instante. Si el build falla, detiene la API vieja para que no pruebes código desactualizado: arregla el error y guarda otra vez. El binario se compila en `services/api/tmp/`, ignorado por git y borrado al salir.
+
+Air es una herramienta de Go declarada con la directiva `tool` de `services/api/go.mod`, así que no hace falta instalarla: `go tool air` usa la versión fijada.
+
 ## Variables de la API
 
 | Variable | Obligatoria | Por defecto | Qué hace |
@@ -136,6 +151,7 @@ Los valores de producción son los previstos; el despliegue está pendiente (BLO
 | Comando | Qué hace |
 | --- | --- |
 | `make api-run` | Carga `.env` y levanta la API |
+| `make api-watch` | Como `api-run`, pero recompila y reinicia la API al guardar un `.go` (Air) |
 | `make api-test` | Corre los tests de Go con `-race`; los de integración se saltan |
 | `make api-test-integration` | Levanta MongoDB y corre los tests de `internal/repository` contra él |
 | `make api-lint` | Corre `golangci-lint` |

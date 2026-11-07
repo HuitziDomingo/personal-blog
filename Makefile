@@ -2,11 +2,16 @@ API_DIR := services/api
 # Swagger UI para ver el contrato en local; fijada por tag y digest.
 SWAGGER_UI_IMAGE := swaggerapi/swagger-ui:v5.33.3@sha256:b26661cd754a7efbb2e1aab419ffb5603320d8f35f0bd086d1d7506e23934d23
 
-.PHONY: e2e e2e-clean admin-dev admin-lint admin-test admin-build admin-preview admin-csp-test api-run api-test api-test-integration api-lint api-build api-docker-build api-docs api-flows generate db-up db-down db-logs db-reset
+.PHONY: e2e e2e-clean admin-dev admin-lint admin-test admin-build admin-preview admin-csp-test api-run api-watch api-test api-test-integration api-lint api-build api-docker-build api-docs api-flows generate db-up db-down db-logs db-reset
 
 api-run:
 	@test -f .env || { echo "Falta .env: copia .env.example a .env"; exit 1; }
 	@set -a && . ./.env && set +a && cd $(API_DIR) && go run ./cmd/api
+
+# Como api-run, pero recompila y reinicia la API al guardar un .go (Air).
+api-watch:
+	@test -f .env || { echo "Falta .env: copia .env.example a .env"; exit 1; }
+	@set -a && . ./.env && set +a && cd $(API_DIR) && go tool air
 
 api-test:
 	cd $(API_DIR) && go test -race ./...

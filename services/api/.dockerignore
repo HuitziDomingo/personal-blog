@@ -8,3 +8,5 @@ bin/
 coverage.*
 oapi-codegen.yaml
 **/*_test.go
+tmp/
+.air.toml
