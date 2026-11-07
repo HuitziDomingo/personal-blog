@@ -1,6 +1,7 @@
 packages:
   - "apps/*"
   - "packages/api-types"
+  - "e2e"
 
 # ADR-013: pnpm solo instala versiones publicadas hace al menos 7 días
 # (10080 minutos). Un parche de seguridad urgente va en

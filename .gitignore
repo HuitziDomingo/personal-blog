@@ -21,6 +21,10 @@ out/
 next-env.d.ts
 .vercel/
 
+# Playwright (e2e/)
+e2e/test-results/
+e2e/playwright-report/
+
 # Angular
 dist/
 .angular/

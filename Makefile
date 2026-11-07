@@ -2,7 +2,7 @@ API_DIR := services/api
 # Swagger UI para ver el contrato en local; fijada por tag y digest.
 SWAGGER_UI_IMAGE := swaggerapi/swagger-ui:v5.33.3@sha256:b26661cd754a7efbb2e1aab419ffb5603320d8f35f0bd086d1d7506e23934d23
 
-.PHONY: admin-dev admin-lint admin-test admin-build admin-preview admin-csp-test api-run api-test api-test-integration api-lint api-build api-docker-build api-docs api-flows generate db-up db-down db-logs db-reset
+.PHONY: e2e e2e-clean admin-dev admin-lint admin-test admin-build admin-preview admin-csp-test api-run api-test api-test-integration api-lint api-build api-docker-build api-docs api-flows generate db-up db-down db-logs db-reset
 
 api-run:
 	@test -f .env || { echo "Falta .env: copia .env.example a .env"; exit 1; }
@@ -58,6 +58,18 @@ admin-preview: admin-build
 # Hace el build de producción y prueba su CSP en Chrome o Chromium headless.
 admin-csp-test: admin-build
 	cd apps/admin && node scripts/check-csp-browser.mjs
+
+# E2E con Playwright contra el stack local: base temporal, API y admin en
+# puertos libres, y un admin de prueba con credenciales generadas por la
+# corrida. Limpia todo al terminar. E2E_ARGS va a playwright test.
+e2e: db-up
+	@test -f .env || { echo "Falta .env: copia .env.example a .env"; exit 1; }
+	pnpm --filter @personal-blog/e2e exec playwright install chromium
+	@set -a && . ./.env && set +a && cd e2e && node scripts/run.mjs $(E2E_ARGS)
+
+# Borra las bases e2e_* que haya dejado una corrida interrumpida a la fuerza.
+e2e-clean:
+	docker compose exec -T mongo sh -c 'mongosh -u "$$MONGO_INITDB_ROOT_USERNAME" -p "$$MONGO_INITDB_ROOT_PASSWORD" --authenticationDatabase admin --quiet --eval "db.adminCommand({listDatabases: 1}).databases.map((d) => d.name).filter((n) => /^e2e_[0-9a-f]{12}$$/.test(n)).forEach((n) => { db.getSiblingDB(n).dropDatabase(); print(\"borrada \" + n) })"'
 
 generate:
 	cd $(API_DIR) && go tool oapi-codegen -config oapi-codegen.yaml ../../docs/api/openapi.yaml

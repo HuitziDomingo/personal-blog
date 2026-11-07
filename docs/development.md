@@ -20,6 +20,7 @@ personal-blog/
 │   └── admin/            # Dashboard en Angular; web (Next.js) está pendiente
 ├── packages/
 │   └── api-types/        # Tipos TypeScript generados del contrato
+├── e2e/                  # E2E con Playwright (make e2e)
 ├── services/
 │   └── api/              # API en Go + Gin
 │       ├── cmd/api/      # Punto de entrada
@@ -144,6 +145,8 @@ Los valores de producción son los previstos; el despliegue está pendiente (BLO
 | `make admin-build` | Build de producción del admin; antes verifica que la URL de la API de producción sea https y que coincida con el `connect-src` de `vercel.json`, y después que `index.html` traiga el `<meta>` de CSP de `autoCsp` |
 | `make admin-preview` | Hace el build de producción y lo sirve en `http://127.0.0.1:4300` con las cabeceras de `apps/admin/vercel.json` |
 | `make admin-csp-test` | Hace el build de producción y prueba su CSP en Chrome o Chromium headless |
+| `make e2e` | Corre los E2E con Playwright contra el stack local, en una base temporal que borra al terminar (ver «E2E») |
+| `make e2e-clean` | Borra las bases `e2e_*` que haya dejado una corrida terminada a la fuerza |
 | `make api-docs` | Muestra el contrato con Swagger UI en `http://localhost:8081` |
 | `make api-flows` | Corre los flujos de Bruno contra la API local |
 | `make api-build` | Compila el binario en `services/api/bin/api` |
@@ -180,6 +183,34 @@ Sin instalarlo, y también para `govulncheck`, desde `services/api`:
 go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.15.0 run ./...
 go run golang.org/x/vuln/cmd/govulncheck@v1.9.0 ./...
 ```
+
+## E2E
+
+Playwright (ADR-003), solo Chromium, en el paquete `e2e/` del workspace. Cubre el flujo crítico de ADR-006 (login, crear un borrador, editarlo, publicarlo, verlo en la API pública y archivarlo), más la contraseña incorrecta y el logout.
+
+```sh
+make e2e                      # todo, headless
+make e2e E2E_ARGS="--headed"  # cualquier opción de playwright test
+```
+
+`make e2e` levanta MongoDB (`make db-up`), descarga los navegadores de Playwright la primera vez (`playwright install chromium`: Chromium, Chrome Headless Shell y ffmpeg, unos 570 MB en `~/Library/Caches/ms-playwright`) y corre `e2e/scripts/run.mjs`, que:
+
+1. Comprueba que `MONGO_URI` apunta al MongoDB local de docker compose (`127.0.0.1:27017` o `localhost:27017`); si no, no corre, porque el borrado de la base se hace dentro de ese contenedor.
+2. Genera una base temporal `e2e_<id>`, un admin de prueba con email `e2e-<id>@example.test` y contraseña aleatoria, y un `JWT_SECRET` aleatorio. De `.env` solo toma `MONGO_URI`: los procesos hijos no heredan el resto de la configuración ni los secretos, y lo que la corrida no fija usa los valores por defecto de la API.
+3. Compila la API y la levanta en un puerto libre contra esa base, con `ALLOWED_ORIGINS` igual al origen del admin. El rate limit global se sube para la corrida, porque el navegador y las comprobaciones de la API pública comparten la IP; los de login y refresh quedan por defecto (la suite hace 3 logins, dentro de la ráfaga de 5: con `--repeat-each` o reintentos, el sexto recibe 429).
+4. Levanta el admin con `ng serve` en otro puerto libre de `127.0.0.1`, apuntando a la API en `127.0.0.1`. Admin y API van en el mismo host porque la cookie es `SameSite=Strict`.
+5. Corre `playwright test` con las URLs y las credenciales de prueba por variables de entorno.
+6. Siempre, aunque algo falle o se interrumpa (Ctrl+C, `SIGTERM` o cerrar la terminal): para los procesos y borra la base temporal con `mongosh` dentro del contenedor, después de comprobar que existe ahí.
+
+Los logs de la API y del admin quedan en `e2e/test-results/{api,admin}.log`, y el reporte de Playwright en `e2e/playwright-report/` (los dos ignorados por git). El trace de un test fallido guarda lo que se escribió en los campos, incluida la contraseña de prueba (efímera).
+
+Si una corrida muere sin limpiar (por ejemplo, con `kill -9`), `make e2e-clean` borra las bases `e2e_*`, incluida la de una corrida que esté en curso. Los procesos de esa corrida siguen vivos: páralos con `pkill -f 'personal-blog-e2e-.*/api'` y `pkill -f 'ng serve --host 127.0.0.1'`.
+
+Los specs son TypeScript y Playwright no verifica sus tipos: `pnpm --filter @personal-blog/e2e typecheck`.
+
+Desde un worktree de git, `make e2e` necesita su propio `.env` (cópialo o enlázalo del checkout principal). `docker-compose.yml` declara `name: personal-blog`, así que usa el mismo MongoDB.
+
+No corre en el CI todavía.
 
 ## Regenerar el contrato
 
