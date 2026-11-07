@@ -108,7 +108,7 @@ Sin `INITIAL_ADMIN_EMAIL` e `INITIAL_ADMIN_PASSWORD`, la API registra un warning
 | `make api-lint` | Corre `golangci-lint` |
 | `make admin-dev` | Levanta el admin en `http://localhost:4200`; con `ADMIN_API_BASE_URL=<origen>` usa otra API |
 | `make admin-lint` | Corre ESLint con angular-eslint en el admin |
-| `make admin-test` | Corre los tests del admin y los de los scripts de `apps/admin/scripts/` |
+| `make admin-test` | Corre los tests del admin y los de los scripts de `apps/admin/scripts/`, incluido el contraste WCAG AA de las paletas de acento |
 | `make admin-build` | Build de producción del admin; antes verifica que la URL de la API de producción sea https y que coincida con el `connect-src` de `vercel.json`, y después que `index.html` traiga el `<meta>` de CSP de `autoCsp` |
 | `make admin-preview` | Hace el build de producción y lo sirve en `http://127.0.0.1:4300` con las cabeceras de `apps/admin/vercel.json` |
 | `make admin-csp-test` | Hace el build de producción y prueba su CSP en Chrome o Chromium headless |
@@ -221,7 +221,7 @@ make admin-preview   # http://127.0.0.1:4300, para probar a mano
 
 `scripts/serve-dist.mjs` solo usa módulos de Node: aplica las cabeceras y los rewrites de `vercel.json`, primero busca el archivo y después aplica el rewrite, como Vercel. Acepta un puerto y un directorio: `node scripts/serve-dist.mjs 4300 <dir>`.
 
-`scripts/check-csp-browser.mjs` levanta `serve-dist.mjs` en el puerto 4310, abre `/login` en un navegador headless y lo controla por el protocolo de DevTools con el `WebSocket` nativo de Node, sin dependencias. Busca Chrome, Chromium o Brave en las rutas habituales; con `CHROME_PATH=<ruta>` usa otro. Comprueba que el admin arranca, que trae el `<meta>` y que no se ejecutan ni un `<img onerror>` ni un link `javascript:` inyectados. El job `admin` del CI la corre después del build, con el Chrome que traen los runners de Ubuntu.
+`scripts/check-csp-browser.mjs` levanta `serve-dist.mjs` en el puerto 4310, abre `/login` en un navegador headless y lo controla por el protocolo de DevTools con el `WebSocket` nativo de Node, sin dependencias. Busca Chrome, Chromium o Brave en las rutas habituales; con `CHROME_PATH=<ruta>` usa otro. Comprueba que el admin arranca, que trae el `<meta>` y que no se ejecutan ni un `<img onerror>` ni un link `javascript:` inyectados. Después recarga con el sistema emulado en oscuro y comprueba que la clase `dark` llega a `<html>` antes de que exista `<body>`: eso solo lo hace el script de tema de `<head>`, así que prueba que corre bajo la CSP. El job `admin` del CI la corre después del build, con el Chrome que traen los runners de Ubuntu.
 
 Si no hay navegador headless, la prueba manual es esta: con `make admin-preview` abierto, pega en la consola de DevTools
 
@@ -237,7 +237,15 @@ En la consola también aparecen violaciones de Trusted Types en modo reporte, qu
 
 Estructura de `src/app/`:
 
-- `core/`: configuración, sesión, interceptores y guards.
+- `core/`: configuración, sesión, interceptores, guards, el layout y el tema.
+  - `layout/admin-shell.ts`: el layout de las pantallas con sesión (BLOG-017). Barra superior con el nombre del sitio; en escritorio (`lg`, 64rem) el menú es una barra lateral fija, y en móvil y tablet un offcanvas (`sheet` de Spartan) que se abre con el botón de la barra. Se carga por ruta, con las rutas de posts como hijas; el login queda fuera. El offcanvas se cierra con Esc, al empezar una navegación y al pasar a escritorio. El foco queda atrapado en el panel y, al cerrarlo, vuelve al botón (CDK); si se cierra porque la ventana pasó a escritorio, el botón ya no existe y el foco va a `<main>`.
+  - `layout/admin-nav.ts`: el contenido del menú. Navegación (Posts y Nuevo post, con `aria-current`) y Perfil: email, cerrar sesión y Apariencia (tema y color de acento como grupos de radios). Se pinta en la barra lateral o en el offcanvas, nunca en los dos a la vez. «Cerrar sesión» primero navega a `/posts` y solo cierra la sesión si la navegación no se cancela: si el editor tiene cambios sin guardar y eliges seguir editando, la sesión sigue abierta.
+  - `theme/theme.service.ts`: tema Claro, Oscuro o Sistema, y color de acento. Pone la clase `dark` (variante dark de Tailwind por clase) y `data-accent` en `<html>`. En Sistema sigue `prefers-color-scheme` en vivo, y escucha el evento `storage` para aplicar lo que se elija en otra pestaña. Guarda en `localStorage` (`admin-theme` y `admin-accent`) con try/catch: si no se puede, la preferencia vale para la sesión y la app arranca con el tema del sistema. Se crea al arrancar, con `provideAppInitializer`.
+  - `theme/theme.ts`: las listas de modos y paletas, sin imports, para que los tests de `scripts/` las lean con Node.
+  - **Sin parpadeo:** un script inline en `src/index.html` aplica el tema guardado antes de que arranque Angular. `autoCsp` le pone su hash en el `<meta>` de CSP; `check-csp-meta.mjs` y `make admin-csp-test` lo comprueban, y `scripts/theme-script.test.mjs` prueba su lógica y que use las listas de `theme.ts`.
+  - **Paletas de acento:** Neutro, Azul, Verde, Violeta, Ámbar y Rosa, en `styles.css` como bloques `[data-accent='…']` y `.dark[data-accent='…']` que redefinen `--primary` y afines. Neutro repite los valores del tema de Spartan, para que su muestra se vea neutra aunque `<html>` tenga otro acento; un test lo comprueba. `scripts/check-theme-contrast.mjs` comprueba WCAG AA en claro y oscuro: texto principal, botones, acento sobre el fondo, link activo, y el texto y el acento sobre el glass de la barra y el offcanvas (`bg-background/80`) en el peor caso, con negro o blanco detrás. Para ver la tabla: `node scripts/check-theme-contrast.mjs` desde `apps/admin`.
+  - **Sin texto secundario sobre el glass:** `muted-foreground` sobre el glass baja a 2.95:1 en claro en el peor caso, así que el shell y el menú no lo usan; `scripts/theme-glass-text.test.mjs` falla si aparece.
+  - `browser/match-media.ts`: `MATCH_MEDIA` e `injectMediaQuery()`, una signal que sigue una media query. jsdom no tiene `matchMedia`; los tests usan los fakes de `browser/browser-fakes.ts`.
   - `session/session.service.ts`: estado de la sesión con signals. Como la cookie es `HttpOnly`, la sesión se conoce preguntando a `GET /api/v1/auth/me`, una sola vez, en la primera navegación.
   - `http/credentials.interceptor.ts`: agrega `withCredentials` solo a las peticiones al origen de `API_BASE_URL`.
   - `http/refresh.interceptor.ts` y `session/session-refresher.ts`: ante un 401 de la API hacen un solo `POST /auth/refresh` compartido y reintentan. No actúan sobre `/auth/login` ni `/auth/refresh`. Si el refresh falla, limpian la sesión y van a `/login?returnUrl=…`.
@@ -295,7 +303,7 @@ El CLI de Spartan no entra al repo porque depende de Nx (ADR-012). Los component
 
 El tema se generó igual, con `ng g @spartan-ng/cli:ui-theme --theme=neutral`, y está en `apps/admin/src/styles.css`.
 
-Hoy están `alert-dialog`, `badge`, `button`, `card`, `empty`, `field`, `input`, `label`, `separator`, `table`, `textarea` y `utils`. `native-select`, `spinner` y `tabs` importan `@ng-icons/*`, que no es dependencia del admin; por eso el filtro de estado es un `<select>` nativo.
+Hoy están `alert-dialog`, `badge`, `button`, `card`, `empty`, `field`, `input`, `label`, `radio-group`, `separator`, `sheet`, `table`, `textarea` y `utils`. `sheet` importa `@ng-icons/core` y `@ng-icons/lucide` para su botón de cerrar, así que desde BLOG-017 son dependencias del admin; el shell los usa también para el ícono de menú.
 
 El admin no usa `provideSpartanHlm()`. Solo cambia el default de los overlays del CDK (`usePopover: false`) para que convivan con `<hlm-toaster>`, que el admin no tiene, y como importa `@angular/cdk/overlay` desde `app.config`, metería el overlay entero del CDK (unos 46 kB) en el bundle inicial. Tampoco sirve en las `providers` de una ruta: el CDK lo lee del injector raíz. Sin él, los diálogos se muestran en el top layer del navegador (`popover`). Si algún día entra `<hlm-toaster>`, hay que volver a ponerlo en `app.config` y aceptar ese tamaño.
 

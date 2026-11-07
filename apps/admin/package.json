@@ -6,7 +6,7 @@
     "ng": "ng",
     "start": "ng serve",
     "build": "node scripts/check-api-base-url.mjs && ng build && node scripts/check-csp-meta.mjs",
-    "test": "ng test --watch=false && node --test 'scripts/*.test.mjs'",
+    "test": "ng test --watch=false && node --no-warnings=MODULE_TYPELESS_PACKAGE_JSON --test 'scripts/*.test.mjs'",
     "lint": "ng lint"
   },
   "dependencies": {
@@ -17,6 +17,8 @@
     "@angular/forms": "22.2.3",
     "@angular/platform-browser": "22.2.3",
     "@angular/router": "22.2.3",
+    "@ng-icons/core": "33.4.0",
+    "@ng-icons/lucide": "33.4.0",
     "@personal-blog/api-types": "workspace:*",
     "@spartan-ng/brain": "1.8.2",
     "class-variance-authority": "0.7.1",

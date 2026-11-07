@@ -39,8 +39,8 @@
 - [x] BLOG-015: Configurar proyecto Angular en `apps/admin` con Tailwind CSS y Spartan UI, según ADR-012. ([#33](https://github.com/HuitziDomingo/personal-blog/pull/33))
 - [x] BLOG-016: Crear servicio de Autenticación y `AuthGuard` para rutas protegidas. ([#40](https://github.com/HuitziDomingo/personal-blog/pull/40))
 - [x] BLOG-045: Interceptor de credenciales y refresh single-flight con tests (ADR-012). ([#40](https://github.com/HuitziDomingo/personal-blog/pull/40))
-- [ ] BLOG-017: Diseñar layout principal con estilo Liquid Glass / Glassmorphism.
-- [x] BLOG-018: Crear vista de gestión y creación de posts (Editor Markdown).
+- [x] BLOG-017: Diseñar layout principal: menú lateral u offcanvas, perfil y preferencias de apariencia (tema y acento), con efecto glass en la barra superior y el offcanvas. ([#52](https://github.com/HuitziDomingo/personal-blog/pull/52))
+- [x] BLOG-018: Crear vista de gestión y creación de posts (Editor Markdown). ([#50](https://github.com/HuitziDomingo/personal-blog/pull/50), [#51](https://github.com/HuitziDomingo/personal-blog/pull/51))
   - [x] Parte A: lista de posts con filtro por estado, paginación y archivar. ([#50](https://github.com/HuitziDomingo/personal-blog/pull/50))
   - [x] Parte B: crear y editar posts con el editor Markdown. ([#51](https://github.com/HuitziDomingo/personal-blog/pull/51))
 - [ ] BLOG-036: Sanitizar el Markdown de los posts al renderizar en `apps/web` y `apps/admin`, con allowlist (ADR-010).

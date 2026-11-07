@@ -12,10 +12,18 @@ export const routes: Routes = [
     loadComponent: () => import('./features/auth/login/login.page').then((m) => m.LoginPage),
   },
   {
-    path: 'posts',
+    // Las pantallas con sesión viven dentro del shell (BLOG-017). El shell va
+    // en su propio chunk: trae el overlay del CDK que el login no necesita.
+    path: '',
     canMatch: [authGuard],
-    loadChildren: () => import('./features/posts/posts.routes').then((m) => m.POSTS_ROUTES),
+    loadComponent: () => import('./core/layout/admin-shell').then((m) => m.AdminShell),
+    children: [
+      {
+        path: 'posts',
+        loadChildren: () => import('./features/posts/posts.routes').then((m) => m.POSTS_ROUTES),
+      },
+      { path: '', pathMatch: 'full', redirectTo: 'posts' },
+    ],
   },
-  { path: '', pathMatch: 'full', redirectTo: 'posts' },
   { path: '**', redirectTo: 'posts' },
 ];

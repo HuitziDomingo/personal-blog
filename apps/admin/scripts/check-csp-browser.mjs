@@ -7,7 +7,9 @@
 // Comprueba que:
 // - el admin arranca: el loader inline con hash corre;
 // - un <img onerror> inyectado no se ejecuta (script-src-attr);
-// - un link javascript: inyectado no se ejecuta (script-src-elem).
+// - un link javascript: inyectado no se ejecuta (script-src-elem);
+// - con el sistema en oscuro, el script de tema de <head> pone la clase dark
+//   antes de que exista <body>: corre bajo la CSP, antes que Angular.
 // También informa, sin exigirlo, si corre un <script> inline creado con
 // createElement: con 'strict-dynamic' corre, porque lo crea código que ya se
 // está ejecutando; una inyección de HTML no puede hacerlo.
@@ -193,15 +195,46 @@ async function run() {
     const page = await connect(target.webSocketDebuggerUrl);
 
     // El admin arrancó si Angular pintó el formulario de login.
-    let booted = false;
-    for (const deadline = Date.now() + TIMEOUT_MS; Date.now() < deadline && !booted; await sleep(250)) {
-      booted = await evaluate(page, "!!document.querySelector('app-root form')").catch(() => false);
-    }
+    const waitForBoot = async () => {
+      for (const deadline = Date.now() + TIMEOUT_MS; Date.now() < deadline; await sleep(250)) {
+        if (await evaluate(page, "!!document.querySelector('app-root form')").catch(() => false)) {
+          return true;
+        }
+      }
+      return false;
+    };
+    const booted = await waitForBoot();
     const hasMeta = await evaluate(page, `!!document.querySelector('meta[http-equiv="Content-Security-Policy"]')`);
     const results = {};
     for (const [name, attack] of Object.entries(ATTACKS)) {
       results[name] = await evaluate(page, probe(attack));
     }
+
+    // Tema sin parpadeo: recarga con el sistema en oscuro y anota si la clase
+    // dark llegó a <html> cuando todavía no había <body>, es decir, desde el
+    // script inline de <head> y no desde Angular. El observer lo inyecta
+    // DevTools, que no pasa por la CSP.
+    await page.send('Page.enable');
+    await page.send('Page.addScriptToEvaluateOnNewDocument', {
+      // Observa document, que ya existe; <html> todavía no.
+      source: `new MutationObserver((records, observer) => {
+        if (document.documentElement?.classList.contains('dark')) {
+          window.__themeBeforeBody = document.body === null;
+          observer.disconnect();
+        }
+      }).observe(document, { subtree: true, attributes: true, attributeFilter: ['class'] });`,
+    });
+    await page.send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: 'dark' }] });
+    // Marca el documento actual para saber cuándo lo reemplazó la recarga: si
+    // no, waitForBoot podría responder con el documento viejo.
+    await evaluate(page, 'window.__beforeReload = true');
+    await page.send('Page.reload');
+    let reloaded = false;
+    for (const deadline = Date.now() + TIMEOUT_MS; Date.now() < deadline && !reloaded; await sleep(100)) {
+      reloaded = await evaluate(page, 'window.__beforeReload !== true').catch(() => false);
+    }
+    const rebooted = reloaded && (await waitForBoot());
+    const themeBeforeBody = rebooted && (await evaluate(page, 'window.__themeBeforeBody === true'));
     page.close();
 
     const blocked = ({ ran, violations }, directive) => !ran && violations.includes(`${directive} enforce`);
@@ -210,6 +243,7 @@ async function run() {
       ['index.html trae el <meta> de CSP', hasMeta],
       ['un <img onerror> inyectado no se ejecuta', blocked(results.img, 'script-src-attr')],
       ['un link javascript: inyectado no se ejecuta', blocked(results.link, 'script-src-elem')],
+      ['el script de tema pone dark antes de <body> (sistema en oscuro)', themeBeforeBody],
     ];
     for (const [name, ok] of checks) {
       console.log(`${ok ? 'ok  ' : 'FALLA'} ${name}`);

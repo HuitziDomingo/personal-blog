@@ -21,7 +21,6 @@ import { catchError, finalize, map, Observable, of, startWith, switchMap } from 
 import { PostPage, PostStatus, PostSummary } from '../../core/api/api-types';
 import { MAX_POST_OFFSET, PostsApi } from '../../core/api/posts-api';
 import { ApiError } from '../../core/http/api-error';
-import { SessionService } from '../../core/session/session.service';
 import { formatDateTime, POST_STATUS_LABELS, POST_STATUSES } from './post-display';
 
 /** Posts por página. El contrato admite hasta 100 (`MAX_POST_LIMIT`). */
@@ -45,12 +44,7 @@ type ListState =
   template: `
     <header class="flex flex-wrap items-center justify-between gap-4">
       <h1 #heading tabindex="-1" class="text-2xl font-semibold outline-none">Posts</h1>
-      <div class="flex gap-2">
-        <a hlmBtn routerLink="/posts/new">Nuevo post</a>
-        <button hlmBtn variant="outline" type="button" [disabled]="loggingOut()" (click)="logout()">
-          Cerrar sesión
-        </button>
-      </div>
+      <a hlmBtn routerLink="/posts/new">Nuevo post</a>
     </header>
 
     <div class="flex flex-wrap items-end gap-2">
@@ -194,7 +188,6 @@ type ListState =
 export class PostsListPage {
   private readonly api = inject(PostsApi);
   private readonly router = inject(Router);
-  private readonly session = inject(SessionService);
   private readonly destroyRef = inject(DestroyRef);
 
   private readonly heading = viewChild.required<ElementRef<HTMLElement>>('heading');
@@ -264,7 +257,6 @@ export class PostsListPage {
   protected readonly archiveError = signal<string | null>(null);
   protected readonly notice = signal('');
   protected readonly pageError = signal<string | null>(null);
-  protected readonly loggingOut = signal(false);
 
   protected badgeVariant(status: PostStatus): 'default' | 'secondary' | 'outline' {
     return status === 'published' ? 'default' : status === 'draft' ? 'secondary' : 'outline';
@@ -339,11 +331,6 @@ export class PostsListPage {
           }
         },
       });
-  }
-
-  protected logout(): void {
-    this.loggingOut.set(true);
-    this.session.logout().subscribe();
   }
 
   private load(status: PostStatus | undefined, offset: number): Observable<ListState> {

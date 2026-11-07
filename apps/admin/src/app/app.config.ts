@@ -1,15 +1,21 @@
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
-import { ApplicationConfig, provideBrowserGlobalErrorListeners } from '@angular/core';
+import { ApplicationConfig, inject, provideAppInitializer, provideBrowserGlobalErrorListeners } from '@angular/core';
 import { provideRouter, withComponentInputBinding, withRouterConfig } from '@angular/router';
 
 import { routes } from './app.routes';
 import { credentialsInterceptor } from './core/http/credentials.interceptor';
 import { refreshInterceptor } from './core/http/refresh.interceptor';
+import { ThemeService } from './core/theme/theme.service';
 
 // Zoneless: Angular 22 no usa zone.js por defecto (ADR-012).
 export const appConfig: ApplicationConfig = {
   providers: [
     provideBrowserGlobalErrorListeners(),
+    // Crea ThemeService al arrancar, también en el login: toma el relevo del
+    // script de index.html y sigue en vivo los cambios del tema del sistema.
+    provideAppInitializer(() => {
+      inject(ThemeService);
+    }),
     // 'computed': si un guard cancela una navegación con el botón atrás del
     // navegador (el de cambios sin guardar), el historial vuelve a su sitio.
     provideRouter(

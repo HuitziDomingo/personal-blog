@@ -7,6 +7,25 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="robots" content="noindex" />
     <link rel="icon" type="image/x-icon" href="favicon.ico" />
+    <script>
+      (function () {
+        var root = document.documentElement;
+        var mode = null;
+        var accent = null;
+        try {
+          mode = localStorage.getItem('admin-theme');
+          accent = localStorage.getItem('admin-accent');
+        } catch (e) {}
+        if (mode !== 'light' && mode !== 'dark') {
+          mode = window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        }
+        if (['neutral', 'blue', 'green', 'violet', 'amber', 'rose'].indexOf(accent) === -1) {
+          accent = 'neutral';
+        }
+        root.classList.toggle('dark', mode === 'dark');
+        root.setAttribute('data-accent', accent);
+      })();
+    </script>
   </head>
   <body>
     <app-root></app-root>
