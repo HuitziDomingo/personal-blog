@@ -97,6 +97,37 @@ Sin `INITIAL_ADMIN_EMAIL` e `INITIAL_ADMIN_PASSWORD`, la API registra un warning
 | `RATE_LIMIT_REFRESH_PER_MINUTE` / `_BURST` | No | `10` / `10` | Límite extra en `POST /api/v1/auth/refresh` |
 | `INITIAL_ADMIN_EMAIL` | No | | Email del administrador inicial |
 | `INITIAL_ADMIN_PASSWORD` | No | | Contraseña del administrador inicial |
+| `LOG_FORMAT` | No | `text` | `text` (key=value, para la terminal) o `json` (una línea por evento con `severity`, `message` y `time`, los campos de Cloud Logging). En `json`, el access log también es JSON, con el grupo `httpRequest` que Cloud Logging muestra como petición HTTP |
+| `GIN_MODE` | No | `debug` con `LOG_FORMAT=text`, `release` con `json` | Modo de Gin: `debug`, `release` o `test`. En `debug`, Gin lista las rutas al arrancar y avisa que corre en modo debug. Un valor inválido hace que Gin termine con panic al iniciarse, antes de leer la configuración |
+
+### Avisos al arrancar
+
+La API arranca con cualquier configuración válida, pero algunas la dejan inútil para algo. En esos casos registra un `WARN` al arrancar, sin mostrar valores secretos:
+
+| Aviso | Qué pasa |
+| --- | --- |
+| `ALLOWED_ORIGINS is empty` | Ningún navegador puede iniciar sesión ni cambiar estado: CORS y la verificación de `Origin` rechazan todo. El admin solo dice «no se pudo conectar» |
+| `INITIAL_ADMIN_EMAIL is set but INITIAL_ADMIN_PASSWORD is empty` (o al revés) | No se crea el administrador inicial |
+| `users already exist: INITIAL_ADMIN_EMAIL and INITIAL_ADMIN_PASSWORD are ignored` | Ya hay usuarios: cambiar esas variables no cambia ninguna contraseña |
+| `no users and no initial admin` | No hay usuarios ni credenciales iniciales: nadie puede iniciar sesión |
+| `MAX_BODY_BYTES is N bytes` | Menos de 64 KiB: un post más grande falla con 413 (el contrato no limita el largo del contenido) |
+| `TRUSTED_PROXIES is empty in release mode` | Detrás de Cloud Run todos los clientes comparten la IP del proxy, y con ella el rate limit |
+| `GIN_MODE=debug with LOG_FORMAT=json` | Gin mezcla su salida de debug en texto con el JSON |
+
+### Local frente a producción
+
+| Variable | Local | Producción (Cloud Run) |
+| --- | --- | --- |
+| `LOG_FORMAT` | `text` (o vacía) | `json` |
+| `GIN_MODE` | `debug` (o vacía) | `release` (o vacía con `LOG_FORMAT=json`) |
+| `ALLOWED_ORIGINS` | `http://localhost:3000,http://localhost:4200` | `https://admin.huitzi.xyz` y el origen de la web |
+| `TRUSTED_PROXIES` | Vacía | El rango del par directo de Cloud Run (ADR-011) |
+| `MONGO_URI` y `MONGO_DB_NAME` | MongoDB de `docker compose` | Atlas, desde Secret Manager |
+| `JWT_SECRET` | Generado con `openssl rand -base64 32` | Desde Secret Manager |
+| `INITIAL_ADMIN_EMAIL` e `INITIAL_ADMIN_PASSWORD` | Solo la primera vez, con `users` vacía | Solo en el primer despliegue; después se quitan |
+| `PORT` | `8080` | La que asigna Cloud Run |
+
+Los valores de producción son los previstos; el despliegue está pendiente (BLOG-054 y BLOG-022).
 
 ## Comandos del Makefile
 

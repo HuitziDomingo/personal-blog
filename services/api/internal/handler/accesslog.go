@@ -15,6 +15,10 @@ import (
 func AccessLog(logger *slog.Logger) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		start := time.Now()
+		// Antes de c.Next(): el validador del contrato agrega a la URL los
+		// valores por defecto de la query, y el log debe mostrar lo que pidió
+		// el cliente.
+		requestURI := c.Request.URL.RequestURI()
 		c.Next()
 
 		status := c.Writer.Status()
@@ -26,7 +30,7 @@ func AccessLog(logger *slog.Logger) gin.HandlerFunc {
 		logger.LogAttrs(c.Request.Context(), level, "request",
 			slog.Group("httpRequest",
 				slog.String("requestMethod", c.Request.Method),
-				slog.String("requestUrl", c.Request.URL.RequestURI()),
+				slog.String("requestUrl", requestURI),
 				slog.Int("status", status),
 				slog.String("responseSize", strconv.Itoa(max(c.Writer.Size(), 0))),
 				slog.String("userAgent", c.Request.UserAgent()),

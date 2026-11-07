@@ -18,7 +18,11 @@ func TestAccessLogWritesCloudLoggingHTTPRequest(t *testing.T) {
 	var out bytes.Buffer
 	router := gin.New()
 	router.Use(AccessLog(logging.New(&out, logging.JSON)))
-	router.GET("/api/v1/posts", func(c *gin.Context) { c.String(http.StatusTeapot, "hola") })
+	router.GET("/api/v1/posts", func(c *gin.Context) {
+		// Como el validador: reescribe la query con los valores por defecto.
+		c.Request.URL.RawQuery = "limit=5&offset=0"
+		c.String(http.StatusTeapot, "hola")
+	})
 	router.GET("/boom", func(c *gin.Context) { c.Status(http.StatusInternalServerError) })
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/posts?limit=5", nil)
