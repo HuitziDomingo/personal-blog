@@ -1,5 +1,5 @@
 # ADR-001: Estructura de Monorepo y Selección de Stack Tecnológico
-* Estado: Aprobado
+* Estado: Aprobado — complementado por ADR-017
 * Fecha: 2026-10-30
 * Autor: León Nieves Huitzitzili Domingo
 

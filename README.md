@@ -11,7 +11,8 @@ personal-blog/
 ├── apps/
 │   └── admin/          # Dashboard: Angular + Spartan UI + Tailwind CSS
 ├── packages/
-│   └── api-types/      # Tipos TypeScript generados del contrato
+│   ├── api-types/      # Tipos TypeScript generados del contrato
+│   └── markdown/       # Render y sanitización de Markdown (admin y web)
 ├── e2e/                # E2E con Playwright del flujo crítico (make e2e)
 ├── services/
 │   └── api/            # API: Go + Gin + MongoDB

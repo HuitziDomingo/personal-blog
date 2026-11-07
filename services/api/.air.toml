@@ -1,0 +1,28 @@
+# Configuración de Air para make api-watch. Se ejecuta desde services/api.
+root = "."
+tmp_dir = "tmp"
+
+# make api-watch ya exporta las variables de .env, igual que api-run.
+env_files = []
+
+[build]
+cmd = "go build -o ./tmp/api ./cmd/api"
+entrypoint = ["./tmp/api"]
+
+# Solo código Go, incluido handler/gen tras make generate. Los tests no
+# cambian el binario.
+include_ext = ["go"]
+exclude_dir = ["tmp", "bin"]
+exclude_regex = ["_test\\.go$"]
+
+# Si el build falla, detiene la API vieja para no probar código desactualizado.
+stop_on_error = true
+
+# SIGINT dispara el graceful shutdown de cmd/api (shutdownTimeout = 8s). Air
+# espera hasta 5s (fijo en Air) a que salga antes de arrancar el binario nuevo;
+# si el viejo sigue drenando, lo mata con SIGKILL a los 10s.
+send_interrupt = true
+kill_delay = "10s"
+
+[misc]
+clean_on_exit = true
