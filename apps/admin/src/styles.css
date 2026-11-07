@@ -82,6 +82,100 @@
   --sidebar-ring: oklch(0.556 0 0);
 }
 
+/*
+ * Paletas de acento (BLOG-017). Cada una redefine el color primario de Spartan
+ * en claro y en oscuro; `neutral` es el tema de arriba, sin reglas propias.
+ * ThemeService y el script de index.html ponen data-accent en <html>, y las
+ * muestras del menú lo ponen en su propio elemento para pintarse con su paleta.
+ * Van después de :root.dark: `.dark[data-accent]` empata con él en
+ * especificidad y gana por orden. scripts/check-theme-contrast.mjs comprueba
+ * el contraste WCAG AA de todas dentro de make admin-test.
+ */
+[data-accent='blue'] {
+  --primary: oklch(0.488 0.243 264.376);
+  --primary-foreground: oklch(0.985 0 0);
+  --ring: oklch(0.488 0.243 264.376);
+  --sidebar-primary: oklch(0.488 0.243 264.376);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+}
+
+.dark[data-accent='blue'],
+.dark [data-accent='blue'] {
+  --primary: oklch(0.707 0.165 254.624);
+  --primary-foreground: oklch(0.205 0 0);
+  --ring: oklch(0.707 0.165 254.624);
+  --sidebar-primary: oklch(0.707 0.165 254.624);
+  --sidebar-primary-foreground: oklch(0.205 0 0);
+}
+
+[data-accent='green'] {
+  --primary: oklch(0.527 0.154 150.069);
+  --primary-foreground: oklch(0.985 0 0);
+  --ring: oklch(0.527 0.154 150.069);
+  --sidebar-primary: oklch(0.527 0.154 150.069);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+}
+
+.dark[data-accent='green'],
+.dark [data-accent='green'] {
+  --primary: oklch(0.792 0.209 151.711);
+  --primary-foreground: oklch(0.205 0 0);
+  --ring: oklch(0.792 0.209 151.711);
+  --sidebar-primary: oklch(0.792 0.209 151.711);
+  --sidebar-primary-foreground: oklch(0.205 0 0);
+}
+
+[data-accent='violet'] {
+  --primary: oklch(0.491 0.27 292.581);
+  --primary-foreground: oklch(0.985 0 0);
+  --ring: oklch(0.491 0.27 292.581);
+  --sidebar-primary: oklch(0.491 0.27 292.581);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+}
+
+.dark[data-accent='violet'],
+.dark [data-accent='violet'] {
+  --primary: oklch(0.702 0.183 293.541);
+  --primary-foreground: oklch(0.205 0 0);
+  --ring: oklch(0.702 0.183 293.541);
+  --sidebar-primary: oklch(0.702 0.183 293.541);
+  --sidebar-primary-foreground: oklch(0.205 0 0);
+}
+
+[data-accent='amber'] {
+  --primary: oklch(0.555 0.163 48.998);
+  --primary-foreground: oklch(0.985 0 0);
+  --ring: oklch(0.555 0.163 48.998);
+  --sidebar-primary: oklch(0.555 0.163 48.998);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+}
+
+.dark[data-accent='amber'],
+.dark [data-accent='amber'] {
+  --primary: oklch(0.828 0.189 84.429);
+  --primary-foreground: oklch(0.205 0 0);
+  --ring: oklch(0.828 0.189 84.429);
+  --sidebar-primary: oklch(0.828 0.189 84.429);
+  --sidebar-primary-foreground: oklch(0.205 0 0);
+}
+
+[data-accent='rose'] {
+  --primary: oklch(0.514 0.222 16.935);
+  --primary-foreground: oklch(0.985 0 0);
+  --ring: oklch(0.514 0.222 16.935);
+  --sidebar-primary: oklch(0.514 0.222 16.935);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+}
+
+.dark[data-accent='rose'],
+.dark [data-accent='rose'] {
+  --primary: oklch(0.712 0.194 13.428);
+  --primary-foreground: oklch(0.205 0 0);
+  --ring: oklch(0.712 0.194 13.428);
+  --sidebar-primary: oklch(0.712 0.194 13.428);
+  --sidebar-primary-foreground: oklch(0.205 0 0);
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
