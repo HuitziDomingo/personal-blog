@@ -18,7 +18,8 @@ Cómo levantar y probar el proyecto en local. Las decisiones están en [docs/adr
 ```text
 personal-blog/
 ├── apps/
-│   └── admin/            # Dashboard en Angular; web (Next.js) está pendiente
+│   ├── admin/            # Dashboard en Angular
+│   └── web/              # Blog público en Next.js (spike en borrador)
 ├── packages/
 │   ├── api-types/        # Tipos TypeScript generados del contrato
 │   └── markdown/         # Render y sanitización de Markdown (admin y web)
@@ -199,6 +200,9 @@ Los valores de producción son los previstos; el despliegue está pendiente (BLO
 | `make api-test` | Corre los tests de Go con `-race`; los de integración se saltan |
 | `make api-test-integration` | Levanta MongoDB y corre los tests de `internal/repository` contra él |
 | `make api-lint` | Corre `golangci-lint` |
+| `make web-dev` | Levanta el spike de `apps/web` en `http://localhost:3000`; con `WEB_API_BASE_URL=<origen>` usa otra API |
+| `make web-typecheck` | Verifica los tipos del JavaScript de `apps/web` contra los JSDoc y el contrato |
+| `make web-test` | Corre los tests de `apps/web/lib/` con `node --test` |
 | `make admin-dev` | Levanta el admin en `http://localhost:4200`; con `ADMIN_API_BASE_URL=<origen>` usa otra API |
 | `make admin-lint` | Corre ESLint con angular-eslint en el admin |
 | `make admin-test` | Corre los tests del admin y los de los scripts de `apps/admin/scripts/`, incluido el contraste WCAG AA de las paletas de acento |
@@ -285,7 +289,23 @@ El código generado nunca se edita a mano.
 
 ## Frontends
 
-`apps/web` todavía no existe.
+### Web (`apps/web`), spike en borrador
+
+**Spike sin ADR:** no se mergea hasta que exista el ADR de `apps/web`. Next.js 16 con App Router, en JavaScript con `// @ts-check` y JSDoc, y Chakra UI v3.
+
+```sh
+make web-dev        # http://localhost:3000, contra la API de make api-run
+make web-typecheck  # tsc con checkJs sobre jsconfig.json
+make web-test       # node --test de lib/*.test.mjs
+```
+
+- **API:** `lib/api.js` llama a la API pública de posts (`GET /api/v1/posts` y `GET /api/v1/posts/{slug}`) con `fetch` nativo desde el servidor. Next la cachea con `revalidate` (ISR, 60 s). La URL sale de `API_BASE_URL` (por defecto `http://localhost:8080`); con `make web-dev WEB_API_BASE_URL=<origen>` usa otra. Como las peticiones salen del servidor de Next y no del navegador, no hace falta agregar `localhost:3000` a `ALLOWED_ORIGINS`.
+- **Páginas:**
+  - `/`: los posts publicados; estática, regenerada como mucho cada minuto.
+  - `/posts/[slug]`: el post; `generateStaticParams` devuelve una lista vacía, así que el build no llama a la API y cada slug se genera en su primera visita y queda en caché. Un slug que no existe da 404.
+- **Tipos:** `pnpm typecheck` (`tsc -p jsconfig.json`) verifica los JSDoc y los tipos del contrato importados de `@personal-blog/api-types` (ADR-007). `maxNodeModuleJsDepth: 0` evita que `tsc` analice el JavaScript de las dependencias.
+- **Markdown:** `lib/render-markdown.js` usa la misma allowlist que el admin, duplicada (con un TODO) hasta que el ADR decida si se comparte en `packages/`. DOMPurify corre en el servidor sobre `jsdom`. Un test compara las listas con las de `apps/admin`.
+- **Lo que falta antes de producción** (va en el ADR): CSP, tema propio y modo oscuro, job `web` en el CI (BLOG-052) y despliegue en Vercel.
 
 ### Admin (`apps/admin`)
 

@@ -26,7 +26,7 @@ personal-blog/
 └── Makefile            # Comandos del proyecto
 ```
 
-`apps/web`, el blog público en Next.js para Vercel, todavía no existe.
+`apps/web`, el blog público en Next.js para Vercel, está en un spike en borrador, pendiente de su ADR.
 
 ## Estado
 
