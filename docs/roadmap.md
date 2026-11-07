@@ -50,7 +50,7 @@
 - [x] BLOG-057: Chequeo posterior al build del `<meta>` de CSP de autoCsp, `make admin-preview` que siempre reconstruye y prueba de la CSP en un navegador headless. ([#46](https://github.com/HuitziDomingo/personal-blog/pull/46))
 - [x] BLOG-058: Correr la prueba de la CSP del admin en un navegador headless (`check-csp-browser.mjs`) en el job admin del CI. ([#48](https://github.com/HuitziDomingo/personal-blog/pull/48))
 - [x] BLOG-051: API_BASE_URL del admin desde la configuración de build, no fijo en localhost (antes de BLOG-047). ([#41](https://github.com/HuitziDomingo/personal-blog/pull/41))
-- [ ] BLOG-062: Debounce de 150 ms en la vista previa del editor de Markdown, sin retrasar el valor del formulario.
+- [x] BLOG-062: Debounce de 150 ms en la vista previa del editor de Markdown, sin retrasar el valor del formulario. ([#55](https://github.com/HuitziDomingo/personal-blog/pull/55))
 
 ## Fase 4: Testing & CI/CD Pipeline
 
