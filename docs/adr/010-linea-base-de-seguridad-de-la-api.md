@@ -1,5 +1,5 @@
 # ADR-010: Línea Base de Seguridad de la API
-* Estado: Aprobado — complementado por ADR-011
+* Estado: Aprobado — complementado por ADR-011 y ADR-016
 * Fecha: 2026-11-02
 * Autor: León Nieves Huitzitzili Domingo
 * Complementa: ADR-005 (extiende el rate limiting a toda la API y define el resto de controles de seguridad)

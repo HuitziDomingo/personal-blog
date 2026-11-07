@@ -1,5 +1,5 @@
 # ADR-011: Ajustes a la Línea Base de Seguridad
-* Estado: Aprobado
+* Estado: Aprobado — complementado por ADR-016
 * Fecha: 2026-11-02
 * Autor: León Nieves Huitzitzili Domingo
 * Complementa: ADR-010 (agrega reglas a sus puntos 2, 3, 5, 6 y 7, sin reemplazar ninguna)

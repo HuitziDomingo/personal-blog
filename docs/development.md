@@ -93,7 +93,9 @@ Sin `INITIAL_ADMIN_EMAIL` e `INITIAL_ADMIN_PASSWORD`, la API registra un warning
 | `ALLOWED_ORIGINS` | No | Vacía | Orígenes permitidos, separados por comas. Son exactos y sin comodines. Vacía, ningún navegador puede cambiar estado. A estos orígenes la API les expone `Retry-After` |
 | `MAX_BODY_BYTES` | No | `1048576` (1 MB) | Tamaño máximo del cuerpo; lo que lo supera responde 413 |
 | `TRUSTED_PROXIES` | No | Vacía | IPs o rangos CIDR de confianza para leer `X-Forwarded-For`. Vacía, se usa la IP del socket. No acepta `0.0.0.0/0` ni `::/0` |
-| `RATE_LIMIT_GLOBAL_PER_MINUTE` / `_BURST` | No | `60` / `20` | Límite por IP en `/api/v1` |
+| `RATE_LIMIT_GLOBAL_PER_MINUTE` / `_BURST` | No | `60` / `20` | Límite por IP en `/api/v1` para peticiones sin un access token válido |
+| `RATE_LIMIT_USER_PER_MINUTE` / `_BURST` | No | `300` / `100` | Límite por usuario en `/api/v1` con un access token válido; sustituye al límite por IP (ADR-016) |
+| `RATE_LIMIT_PREFLIGHT_PER_MINUTE` / `_BURST` | No | `120` / `60` | Límite por IP de los preflight CORS (`OPTIONS` con `Access-Control-Request-Method`), que no gastan el global (ADR-016) |
 | `RATE_LIMIT_LOGIN_PER_MINUTE` / `_BURST` | No | `5` / `5` | Límite extra en `POST /api/v1/auth/login` |
 | `RATE_LIMIT_REFRESH_PER_MINUTE` / `_BURST` | No | `10` / `10` | Límite extra en `POST /api/v1/auth/refresh` |
 | `INITIAL_ADMIN_EMAIL` | No | | Email del administrador inicial |
@@ -197,7 +199,7 @@ make e2e E2E_ARGS="--headed"  # cualquier opción de playwright test
 
 1. Comprueba que `MONGO_URI` apunta al MongoDB local de docker compose (`127.0.0.1:27017` o `localhost:27017`); si no, no corre, porque el borrado de la base se hace dentro de ese contenedor.
 2. Genera una base temporal `e2e_<id>`, un admin de prueba con email `e2e-<id>@example.test` y contraseña aleatoria, y un `JWT_SECRET` aleatorio. De `.env` solo toma `MONGO_URI`: los procesos hijos no heredan el resto de la configuración ni los secretos, y lo que la corrida no fija usa los valores por defecto de la API.
-3. Compila la API y la levanta en un puerto libre contra esa base, con `ALLOWED_ORIGINS` igual al origen del admin. El rate limit global se sube para la corrida, porque el navegador y las comprobaciones de la API pública comparten la IP; los de login y refresh quedan por defecto (la suite hace 3 logins, dentro de la ráfaga de 5: con `--repeat-each` o reintentos, el sexto recibe 429).
+3. Compila la API y la levanta en un puerto libre contra esa base, con `ALLOWED_ORIGINS` igual al origen del admin. Todos los rate limits quedan con sus valores por defecto: con sesión, el admin usa el bucket por usuario (ADR-016). La suite hace 3 logins, dentro de la ráfaga de 5 por IP: con `--repeat-each` o reintentos, el sexto recibe 429.
 4. Levanta el admin con `ng serve` en otro puerto libre de `127.0.0.1`, apuntando a la API en `127.0.0.1`. Admin y API van en el mismo host porque la cookie es `SameSite=Strict`.
 5. Corre `playwright test` con las URLs y las credenciales de prueba por variables de entorno.
 6. Siempre, aunque algo falle o se interrumpa (Ctrl+C, `SIGTERM` o cerrar la terminal): para los procesos y borra la base temporal con `mongosh` dentro del contenedor, después de comprobar que existe ahí.
