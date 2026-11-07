@@ -19,7 +19,8 @@ exclude_regex = ["_test\\.go$"]
 stop_on_error = true
 
 # SIGINT dispara el graceful shutdown de cmd/api (shutdownTimeout = 8s). Air
-# espera a que el proceso salga y solo manda SIGKILL si pasan 10s.
+# espera hasta 5s (fijo en Air) a que salga antes de arrancar el binario nuevo;
+# si el viejo sigue drenando, lo mata con SIGKILL a los 10s.
 send_interrupt = true
 kill_delay = "10s"
 
