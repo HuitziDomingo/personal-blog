@@ -29,7 +29,7 @@ personal-blog/
 ## Estado
 
 - **API:** autenticación con cookies `HttpOnly` (login, refresh, logout y `/auth/me`), línea base de seguridad de ADR-010, y CRUD de posts: API pública de posts publicados y endpoints de admin para crear, editar, publicar y archivar.
-- **Admin:** proyecto Angular con sesión, guard de rutas e interceptores de credenciales y refresh, lista de posts en `/posts` con filtro por estado, paginación y archivar, y editor de posts (`/posts/new` y `/posts/:id`) con vista previa del Markdown sanitizada. Falta el layout.
+- **Admin:** proyecto Angular con sesión, guard de rutas e interceptores de credenciales y refresh, lista de posts en `/posts` con filtro por estado, paginación y archivar, editor de posts (`/posts/new` y `/posts/:id`) con vista previa del Markdown sanitizada, y layout con menú lateral u offcanvas, tema claro, oscuro o del sistema y color de acento.
 - **Web:** pendiente.
 - **Despliegue:** pendiente; nada está en producción.
 
