@@ -59,8 +59,9 @@ type visitor struct {
 	lastSeen time.Time
 }
 
-// keyedLimiter guarda un token bucket por clave: una IP o un usuario. Un solo mutex protege el mapa: crear
-// un bucket, marcar su uso y barrer los inactivos son operaciones compuestas.
+// keyedLimiter guarda un token bucket por clave: una IP o un usuario. Un solo
+// mutex protege el mapa: crear un bucket, marcar su uso y barrer los inactivos
+// son operaciones compuestas.
 type keyedLimiter struct {
 	limit   rate.Limit
 	burst   int
@@ -173,10 +174,16 @@ func newRateLimiter(limits RateLimits, verify accessVerifier, now func() time.Ti
 	}
 }
 
+// isCORSPreflight es un preflight que crossOrigin responde: con Origin. Sin
+// Origin no es de un navegador, crossOrigin lo deja pasar y gasta el global.
+func isCORSPreflight(request *http.Request) bool {
+	return isPreflight(request) && request.Header.Get("Origin") != ""
+}
+
 // preflight limita los preflight CORS de cualquier ruta con su propio bucket
 // por IP. Va antes de crossOrigin, que los responde sin llegar a handle.
 func (r *rateLimiter) preflight(c *gin.Context) {
-	if !isPreflight(c.Request) {
+	if !isCORSPreflight(c.Request) {
 		return
 	}
 
@@ -185,8 +192,9 @@ func (r *rateLimiter) preflight(c *gin.Context) {
 
 func (r *rateLimiter) handle(c *gin.Context) {
 	path := c.Request.URL.Path
-	// Un preflight ya pasó por su bucket; aquí solo llega uno sin Origin.
-	if !strings.HasPrefix(path, apiPathPrefix) || isPreflight(c.Request) {
+	// Un preflight CORS ya pasó por su bucket. crossOrigin lo responde y no
+	// llega aquí; la comprobación lo garantiza aunque cambie el orden.
+	if !strings.HasPrefix(path, apiPathPrefix) || isCORSPreflight(c.Request) {
 		return
 	}
 

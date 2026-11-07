@@ -54,15 +54,12 @@ func signed(t *testing.T, method jwt.SigningMethod, key any, claims jwt.MapClaim
 // prueba es que cada regla de ADR-011 que rechaza el token también le niega el
 // bucket de usuario.
 func TestInvalidAccessTokensNeverUseTheUserBucket(t *testing.T) {
-	clock := newFakeClock()
-	tokens, err := service.NewTokenService([]byte(bucketsSecret), nil, nil, clock.Now)
-	require.NoError(t, err)
+	secret := []byte(bucketsSecret)
+	hs256 := jwt.SigningMethodHS256
 
-	valid, err := tokens.IssueAccess(testUser)
-	require.NoError(t, err)
-
-	now := clock.Now()
-	claims := func(changes jwt.MapClaims) jwt.MapClaims {
+	// claims son los de un token válido en now, con los cambios indicados; un
+	// valor nil borra el claim.
+	claims := func(now time.Time, changes jwt.MapClaims) jwt.MapClaims {
 		base := jwt.MapClaims{
 			"sub":  testUser.ID,
 			"role": string(testUser.Role),
@@ -82,78 +79,98 @@ func TestInvalidAccessTokensNeverUseTheUserBucket(t *testing.T) {
 		return base
 	}
 
-	hs256 := jwt.SigningMethodHS256
-	secret := []byte(bucketsSecret)
-	_, err = tokens.ParseAccess(signed(t, hs256, secret, claims(nil)))
-	require.NoError(t, err, "the crafted claims are valid before each change")
+	tests := []struct {
+		name string
+		// token devuelve el token; wait es cuánto avanza el reloj después de
+		// emitirlo y antes de las peticiones.
+		token func(t *testing.T, tokens *service.TokenService, now time.Time) string
+		wait  time.Duration
+		valid bool
+	}{
+		{name: "valid token is the control", valid: true, token: func(t *testing.T, _ *service.TokenService, now time.Time) string {
+			return signed(t, hs256, secret, claims(now, nil))
+		}},
+		{name: "issued by TokenService is the control too", valid: true, token: func(t *testing.T, tokens *service.TokenService, _ time.Time) string {
+			token, err := tokens.IssueAccess(testUser)
+			require.NoError(t, err)
 
-	invalid := map[string]func() string{
-		"other audience": func() string {
-			return signed(t, hs256, secret, claims(jwt.MapClaims{"aud": []string{"huitzi.xyz/web"}}))
-		},
-		"other issuer": func() string { return signed(t, hs256, secret, claims(jwt.MapClaims{"iss": "evil.example"})) },
-		"without exp":  func() string { return signed(t, hs256, secret, claims(jwt.MapClaims{"exp": nil})) },
-		"issued later": func() string {
-			return signed(t, hs256, secret, claims(jwt.MapClaims{"iat": now.Add(time.Hour).Unix()}))
-		},
-		"other secret":    func() string { return signed(t, hs256, []byte("another-secret-that-is-32-bytes!!!"), claims(nil)) },
-		"alg none":        func() string { return signed(t, jwt.SigningMethodNone, jwt.UnsafeAllowNoneSignatureType, claims(nil)) },
-		"HS512":           func() string { return signed(t, jwt.SigningMethodHS512, secret, claims(nil)) },
-		"without subject": func() string { return signed(t, hs256, secret, claims(jwt.MapClaims{"sub": nil})) },
-		"garbage":         func() string { return "not-a-jwt" },
-		"empty":           func() string { return "" },
+			return token
+		}},
+		{name: "expired", wait: service.AccessTokenTTL + time.Second, token: func(t *testing.T, tokens *service.TokenService, _ time.Time) string {
+			token, err := tokens.IssueAccess(testUser)
+			require.NoError(t, err)
+
+			return token
+		}},
+		{name: "other audience", token: func(t *testing.T, _ *service.TokenService, now time.Time) string {
+			return signed(t, hs256, secret, claims(now, jwt.MapClaims{"aud": []string{"huitzi.xyz/web"}}))
+		}},
+		{name: "other issuer", token: func(t *testing.T, _ *service.TokenService, now time.Time) string {
+			return signed(t, hs256, secret, claims(now, jwt.MapClaims{"iss": "evil.example"}))
+		}},
+		{name: "without exp", token: func(t *testing.T, _ *service.TokenService, now time.Time) string {
+			return signed(t, hs256, secret, claims(now, jwt.MapClaims{"exp": nil}))
+		}},
+		{name: "issued later", token: func(t *testing.T, _ *service.TokenService, now time.Time) string {
+			return signed(t, hs256, secret, claims(now, jwt.MapClaims{"iat": now.Add(time.Hour).Unix()}))
+		}},
+		{name: "other secret", token: func(t *testing.T, _ *service.TokenService, now time.Time) string {
+			return signed(t, hs256, []byte("another-secret-that-is-32-bytes!!!"), claims(now, nil))
+		}},
+		{name: "alg none", token: func(t *testing.T, _ *service.TokenService, now time.Time) string {
+			return signed(t, jwt.SigningMethodNone, jwt.UnsafeAllowNoneSignatureType, claims(now, nil))
+		}},
+		{name: "HS512", token: func(t *testing.T, _ *service.TokenService, now time.Time) string {
+			return signed(t, jwt.SigningMethodHS512, secret, claims(now, nil))
+		}},
+		{name: "without subject", token: func(t *testing.T, _ *service.TokenService, now time.Time) string {
+			return signed(t, hs256, secret, claims(now, jwt.MapClaims{"sub": nil}))
+		}},
+		{name: "garbage", token: func(*testing.T, *service.TokenService, time.Time) string { return "not-a-jwt" }},
+		{name: "empty", token: func(*testing.T, *service.TokenService, time.Time) string { return "" }},
 	}
 
-	// Cada caso: ráfaga global de 1 y de usuario de 100. Con un token que diera
-	// el bucket de usuario, la segunda petición pasaría.
-	run := func(token string, wait time.Duration) (*rateLimiter, []int) {
-		limiter := newRateLimiter(RateLimits{
-			Global:    RateLimit{PerMinute: 1, Burst: 1},
-			Login:     RateLimit{PerMinute: 1, Burst: 1},
-			Refresh:   RateLimit{PerMinute: 1, Burst: 1},
-			Preflight: RateLimit{PerMinute: 1, Burst: 1},
-			User:      RateLimit{PerMinute: 60, Burst: 100},
-		}, tokens.ParseAccess, clock.Now)
-		router := gin.New()
-		router.Use(limiter.handle)
-		router.GET("/api/v1/posts", func(c *gin.Context) { c.Status(http.StatusOK) })
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Reloj y TokenService propios: ningún caso depende de otro.
+			clock := newFakeClock()
+			tokens, err := service.NewTokenService(secret, nil, nil, clock.Now)
+			require.NoError(t, err)
 
-		clock.advance(wait)
+			token := tt.token(t, tokens, clock.Now())
+			clock.advance(tt.wait)
 
-		codes := make([]int, 0, 3)
-		for range 3 {
-			codes = append(codes, send(router, http.MethodGet, "/api/v1/posts", "", withAccessCookie(token)).Code)
-		}
+			// Ráfaga global de 1 y de usuario de 100: con un token que diera
+			// el bucket de usuario, la segunda petición pasaría.
+			limiter := newRateLimiter(RateLimits{
+				Global:    RateLimit{PerMinute: 1, Burst: 1},
+				Login:     RateLimit{PerMinute: 1, Burst: 1},
+				Refresh:   RateLimit{PerMinute: 1, Burst: 1},
+				Preflight: RateLimit{PerMinute: 1, Burst: 1},
+				User:      RateLimit{PerMinute: 60, Burst: 100},
+			}, tokens.ParseAccess, clock.Now)
+			router := gin.New()
+			router.Use(limiter.handle)
+			router.GET("/api/v1/posts", func(c *gin.Context) { c.Status(http.StatusOK) })
 
-		return limiter, codes
-	}
+			codes := make([]int, 0, 3)
+			for range 3 {
+				codes = append(codes, send(router, http.MethodGet, "/api/v1/posts", "", withAccessCookie(token)).Code)
+			}
 
-	t.Run("valid token is the control", func(t *testing.T) {
-		limiter, codes := run(valid, 0)
+			if tt.valid {
+				assert.Equal(t, []int{http.StatusOK, http.StatusOK, http.StatusOK}, codes)
+				assert.Equal(t, 1, limiter.users.size())
+				assert.Zero(t, limiter.global.size())
 
-		assert.Equal(t, []int{http.StatusOK, http.StatusOK, http.StatusOK}, codes)
-		assert.Equal(t, 1, limiter.users.size())
-		assert.Zero(t, limiter.global.size())
-	})
-
-	for name, token := range invalid {
-		t.Run(name, func(t *testing.T) {
-			limiter, codes := run(token(), 0)
+				return
+			}
 
 			assert.Equal(t, []int{http.StatusOK, http.StatusTooManyRequests, http.StatusTooManyRequests}, codes)
 			assert.Zero(t, limiter.users.size(), "the user bucket is never created")
 			assert.Equal(t, 1, limiter.global.size())
 		})
 	}
-
-	// Va al final: adelanta el reloj compartido.
-	t.Run("expired", func(t *testing.T) {
-		limiter, codes := run(valid, service.AccessTokenTTL+time.Second)
-
-		assert.Equal(t, []int{http.StatusOK, http.StatusTooManyRequests, http.StatusTooManyRequests}, codes)
-		assert.Zero(t, limiter.users.size())
-		assert.Equal(t, 1, limiter.global.size())
-	})
 }
 
 func bucketsRouter(t *testing.T, limits RateLimits) *gin.Engine {
@@ -201,8 +218,8 @@ func TestAuthenticatedRequestsUseTheUserBucket(t *testing.T) {
 func TestPreflightDoesNotSpendTheGlobalBucket(t *testing.T) {
 	router := bucketsRouter(t, RateLimits{Global: RateLimit{PerMinute: 1, Burst: 1}})
 
-	// Origen permitido, ajeno y ausente: ninguno pasa por el bucket global.
-	for _, origin := range []string{testOrigin, badOrigin, ""} {
+	// Origen permitido y ajeno: ninguno pasa por el bucket global.
+	for _, origin := range []string{testOrigin, badOrigin} {
 		for range 10 {
 			response := send(router, http.MethodOptions, "/api/v1/admin/posts", "", preflightHeaders(origin))
 			require.NotEqual(t, http.StatusTooManyRequests, response.Code, "origin %q", origin)
@@ -237,4 +254,50 @@ func TestPreflightBucketLimits(t *testing.T) {
 	assert.Equal(t, http.StatusNoContent, recorder.Code, "each IP has its own preflight bucket")
 
 	assert.Equal(t, http.StatusOK, get(router, "/api/v1/posts").Code, "regular requests are not affected")
+}
+
+// Un OPTIONS sin Origin, o sin Access-Control-Request-Method, no es un
+// preflight CORS: crossOrigin no lo responde y gasta el bucket global, no el de
+// preflight.
+func TestOptionsThatAreNotCORSPreflightsSpendTheGlobalBucket(t *testing.T) {
+	notPreflights := map[string]map[string]string{
+		"without Origin":                        preflightHeaders(""),
+		"without Access-Control-Request-Method": {"Origin": testOrigin},
+	}
+
+	for name, headers := range notPreflights {
+		t.Run(name, func(t *testing.T) {
+			router := bucketsRouter(t, RateLimits{
+				Global:    RateLimit{PerMinute: 1, Burst: 1},
+				Preflight: RateLimit{PerMinute: 1, Burst: 1},
+			})
+
+			assert.NotEqual(t, http.StatusTooManyRequests, send(router, http.MethodOptions, "/api/v1/posts", "", headers).Code)
+			assert.Equal(t, http.StatusTooManyRequests, send(router, http.MethodOptions, "/api/v1/posts", "", headers).Code)
+			assert.Equal(t, http.StatusTooManyRequests, get(router, "/api/v1/posts").Code, "it was the global bucket")
+			assert.Equal(t, http.StatusNoContent, send(router, http.MethodOptions, "/api/v1/posts", "", preflightHeaders(testOrigin)).Code,
+				"the preflight bucket is untouched")
+		})
+	}
+}
+
+// ADR-016, punto 4: con sesión válida, login y refresh siguen limitados por IP,
+// aunque cada petición use otro usuario.
+func TestAuthLimitsStayPerIPWithAValidSession(t *testing.T) {
+	cfg := testRouterConfig()
+	cfg.RateLimits.Login = RateLimit{PerMinute: 5, Burst: 1}
+	cfg.RateLimits.Refresh = RateLimit{PerMinute: 10, Burst: 1}
+	router := newTestRouterWith(t, cfg)
+
+	login := func(token string) int {
+		return send(router, http.MethodPost, loginPath, loginBody, withAccessCookie(token)).Code
+	}
+	refresh := func(token string) int {
+		return send(router, http.MethodPost, refreshPath, "", withAccessCookie(token)).Code
+	}
+
+	assert.NotEqual(t, http.StatusTooManyRequests, login(testAccessToken))
+	assert.Equal(t, http.StatusTooManyRequests, login(editorAccessToken))
+	assert.NotEqual(t, http.StatusTooManyRequests, refresh(testAccessToken))
+	assert.Equal(t, http.StatusTooManyRequests, refresh(editorAccessToken))
 }
