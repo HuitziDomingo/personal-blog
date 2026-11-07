@@ -225,9 +225,15 @@ async function run() {
       }).observe(document, { subtree: true, attributes: true, attributeFilter: ['class'] });`,
     });
     await page.send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: 'dark' }] });
+    // Marca el documento actual para saber cuándo lo reemplazó la recarga: si
+    // no, waitForBoot podría responder con el documento viejo.
+    await evaluate(page, 'window.__beforeReload = true');
     await page.send('Page.reload');
-    await sleep(500);
-    const rebooted = await waitForBoot();
+    let reloaded = false;
+    for (const deadline = Date.now() + TIMEOUT_MS; Date.now() < deadline && !reloaded; await sleep(100)) {
+      reloaded = await evaluate(page, 'window.__beforeReload !== true').catch(() => false);
+    }
+    const rebooted = reloaded && (await waitForBoot());
     const themeBeforeBody = rebooted && (await evaluate(page, 'window.__themeBeforeBody === true'));
     page.close();
 
