@@ -3,14 +3,21 @@ import { Badge, Box, Heading, HStack, Stack, Text } from '@chakra-ui/react';
 import { notFound } from 'next/navigation';
 
 import { formatDate } from '@/components/format';
-import { getPublishedPost, REVALIDATE_SECONDS } from '@/lib/api';
+import { getPublishedPost } from '@/lib/api';
 import { renderMarkdown } from '@/lib/render-markdown';
 
-export const revalidate = REVALIDATE_SECONDS;
+// Next exige un literal en la configuración de segmento: debe coincidir con
+// REVALIDATE_SECONDS de lib/api.js.
+export const revalidate = 60;
 
-// Los slugs que no se generaron en el build se generan en la primera visita y
-// quedan en caché (ISR). Sin generateStaticParams, el build no llama a la API.
+// ISR en una ruta dinámica: generateStaticParams la vuelve estática. Con una
+// lista vacía el build no llama a la API, y cada slug se genera en su primera
+// visita y queda en caché (dynamicParams = true).
 export const dynamicParams = true;
+
+export async function generateStaticParams() {
+  return [];
+}
 
 /** @typedef {{ params: Promise<{ slug: string }> }} PageProps */
 
