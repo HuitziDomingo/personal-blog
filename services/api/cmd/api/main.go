@@ -101,7 +101,9 @@ func run(logger *slog.Logger) error {
 		RateLimits: handler.RateLimits{
 			Global:  handler.RateLimit(cfg.GlobalRateLimit),
 			Login:   handler.RateLimit(cfg.LoginRateLimit),
-			Refresh: handler.RateLimit(cfg.RefreshRateLimit),
+			Refresh:   handler.RateLimit(cfg.RefreshRateLimit),
+			Preflight: handler.RateLimit(cfg.PreflightRateLimit),
+			User:      handler.RateLimit(cfg.UserRateLimit),
 		},
 	}
 
