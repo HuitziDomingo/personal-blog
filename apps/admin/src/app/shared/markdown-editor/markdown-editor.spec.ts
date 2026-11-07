@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/angular';
 
-import { MarkdownEditor } from './markdown-editor';
+import { MarkdownEditor, PREVIEW_DEBOUNCE_MS } from './markdown-editor';
 
 describe('MarkdownEditor', () => {
   it('muestra el valor en el textarea y su vista previa', async () => {
@@ -48,5 +48,66 @@ describe('MarkdownEditor', () => {
     const textarea = screen.getByLabelText('Contenido');
     expect(textarea.getAttribute('aria-invalid')).toBe('true');
     expect(textarea.getAttribute('aria-describedby')).toBe('content-error');
+  });
+
+  describe('debounce de la vista previa', () => {
+    beforeEach(() => vi.useFakeTimers());
+    afterEach(() => vi.useRealTimers());
+
+    const preview = () => screen.getByRole('region', { name: 'Vista previa' });
+
+    it(`actualiza la vista previa ${PREVIEW_DEBOUNCE_MS} ms después de la última tecla`, async () => {
+      const { rerender, fixture } = await render(MarkdownEditor, { inputs: { value: '# Uno' } });
+      expect(preview().querySelector('h1')?.textContent).toBe('Uno');
+
+      await rerender({ inputs: { value: '# Dos' }, partialUpdate: true });
+      fixture.detectChanges();
+      await vi.advanceTimersByTimeAsync(PREVIEW_DEBOUNCE_MS - 1);
+      fixture.detectChanges();
+      expect(preview().querySelector('h1')?.textContent).toBe('Uno');
+
+      await vi.advanceTimersByTimeAsync(1);
+      fixture.detectChanges();
+      expect(preview().querySelector('h1')?.textContent).toBe('Dos');
+    });
+
+    it('cada tecla reinicia la espera y solo se renderiza el último valor', async () => {
+      const { rerender, fixture } = await render(MarkdownEditor, { inputs: { value: 'a' } });
+
+      for (const value of ['ab', 'abc', 'abcd']) {
+        await rerender({ inputs: { value }, partialUpdate: true });
+        fixture.detectChanges();
+        await vi.advanceTimersByTimeAsync(PREVIEW_DEBOUNCE_MS - 50);
+        fixture.detectChanges();
+        expect(preview().querySelector('.preview')?.textContent?.trim()).toBe('a');
+      }
+
+      await vi.advanceTimersByTimeAsync(PREVIEW_DEBOUNCE_MS);
+      fixture.detectChanges();
+      expect(preview().querySelector('.preview')?.textContent?.trim()).toBe('abcd');
+    });
+
+    it('el formulario recibe cada tecla sin esperar', async () => {
+      const valueChange = vi.fn();
+      await render(MarkdownEditor, { inputs: { value: '' }, on: { valueChange } });
+      const textarea = screen.getByLabelText('Contenido');
+
+      await fireEvent.input(textarea, { target: { value: 'h' } });
+      await fireEvent.input(textarea, { target: { value: 'ho' } });
+
+      expect(valueChange).toHaveBeenNthCalledWith(1, 'h');
+      expect(valueChange).toHaveBeenNthCalledWith(2, 'ho');
+    });
+
+    it('no deja timers pendientes al destruirse', async () => {
+      const { rerender, fixture } = await render(MarkdownEditor, { inputs: { value: 'a' } });
+      await rerender({ inputs: { value: 'b' }, partialUpdate: true });
+      fixture.detectChanges();
+      expect(vi.getTimerCount()).toBe(1);
+
+      fixture.destroy();
+
+      expect(vi.getTimerCount()).toBe(0);
+    });
   });
 });
