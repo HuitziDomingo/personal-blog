@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, effect, input, output, signal, untracked } from '@angular/core';
 
-import { renderMarkdown } from '../../core/markdown/render-markdown';
+import { renderMarkdown } from '@personal-blog/markdown';
 
 /**
  * Espera de la vista previa tras la última tecla. Convertir y sanitizar el
