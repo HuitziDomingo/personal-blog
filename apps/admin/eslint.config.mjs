@@ -49,5 +49,13 @@ export default defineConfig(
   {
     files: ['**/*.html'],
     extends: [angular.configs.templateRecommended, angular.configs.templateAccessibility],
+    rules: {
+      // <hlm-radio> pinta un <input type="radio"> dentro: un <label> que lo
+      // envuelve sí está asociado a un control.
+      '@angular-eslint/template/label-has-associated-control': [
+        'error',
+        { controlComponents: ['hlm-radio'] },
+      ],
+    },
   },
 );

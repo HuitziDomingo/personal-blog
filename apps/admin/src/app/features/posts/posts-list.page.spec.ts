@@ -7,7 +7,6 @@ import { Observable, of, Subject, throwError } from 'rxjs';
 import { PostPage, PostStatus, PostSummary } from '../../core/api/api-types';
 import { PostListQuery, PostsApi } from '../../core/api/posts-api';
 import { ApiError } from '../../core/http/api-error';
-import { SessionService } from '../../core/session/session.service';
 import { PAGE_SIZE, PostsListPage } from './posts-list.page';
 
 function summary(n: number, status: PostStatus = 'draft'): PostSummary {
@@ -64,18 +63,16 @@ class FakePostsApi {
 }
 
 async function renderList(api: FakePostsApi, inputs: { status?: string; offset?: string } = {}) {
-  const logout = vi.fn(() => of(undefined));
   const result = await render(PostsListPage, {
     inputs,
     providers: [
       provideRouter([]),
       { provide: PostsApi, useValue: api },
-      { provide: SessionService, useValue: { logout } },
     ],
   });
   const navigate = vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
 
-  return { ...result, navigate, logout };
+  return { ...result, navigate };
 }
 
 describe('PostsListPage', () => {
@@ -340,12 +337,4 @@ describe('PostsListPage', () => {
     expect(screen.getByRole('link', { name: 'Nuevo post' }).getAttribute('href')).toBe('/posts/new');
   });
 
-  it('cierra la sesión desde la cabecera', async () => {
-    const api = new FakePostsApi();
-    const { logout } = await renderList(api);
-
-    await fireEvent.click(screen.getByRole('button', { name: 'Cerrar sesión' }));
-
-    expect(logout).toHaveBeenCalledOnce();
-  });
 });
