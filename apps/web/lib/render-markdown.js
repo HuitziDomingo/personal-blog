@@ -68,8 +68,24 @@ export function isSafeUrl(value, attribute, origin = siteOrigin()) {
 
 const markdown = new Marked({ gfm: true, async: false });
 
-// Una instancia propia sobre jsdom: los hooks no afectan a nadie más.
+// Una instancia propia sobre jsdom: los hooks no afectan a nadie más. El cast
+// es necesario porque los tipos de jsdom y los del DOM no coinciden; la
+// compatibilidad real se comprueba justo debajo.
 const purify = createDOMPurify(/** @type {any} */ (new JSDOM('').window));
+
+// Si la ventana no le sirve (por ejemplo, tras subir jsdom de major),
+// DOMPurify devuelve el HTML sin sanitizar en vez de fallar. Aquí falla.
+if (!purify.isSupported) {
+  throw new Error('render-markdown: DOMPurify no es compatible con la ventana de jsdom');
+}
+
+/** Configuración que se pasa a sanitize: la misma que el admin. */
+export const SANITIZE_CONFIG = {
+  ALLOWED_TAGS,
+  ALLOWED_ATTR,
+  ALLOW_DATA_ATTR: false,
+  ALLOW_ARIA_ATTR: false,
+};
 
 purify.addHook('uponSanitizeAttribute', (_node, data) => {
   if ((data.attrName === 'href' || data.attrName === 'src') && !isSafeUrl(data.attrValue, data.attrName)) {
@@ -93,10 +109,7 @@ purify.addHook('afterSanitizeAttributes', (node) => {
 export function renderMarkdown(source) {
   const html = /** @type {string} */ (markdown.parse(source));
 
-  return purify.sanitize(html, {
-    ALLOWED_TAGS,
-    ALLOWED_ATTR: [...ALLOWED_ATTR, 'rel'],
-    ALLOW_DATA_ATTR: false,
-    ALLOW_ARIA_ATTR: false,
-  });
+  // rel no está permitido: lo pone el hook después del filtrado, como hace el
+  // admin con rel y target.
+  return purify.sanitize(html, SANITIZE_CONFIG);
 }

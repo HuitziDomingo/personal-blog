@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { ALLOWED_ATTR, ALLOWED_TAGS, isSafeUrl, renderMarkdown } from './render-markdown.js';
+import { isSafeUrl, renderMarkdown, SANITIZE_CONFIG } from './render-markdown.js';
 
 test('usa la misma allowlist que el admin', async () => {
   const { readFileSync } = await import('node:fs');
@@ -11,8 +11,17 @@ test('usa la misma allowlist que el admin', async () => {
   /** @param {string} name */
   const list = (name) =>
     [...(new RegExp(`export const ${name} = \\[([\\s\\S]*?)\\]`).exec(admin)?.[1] ?? '').matchAll(/'([^']+)'/g)].map(([, v]) => v);
-  assert.deepEqual(ALLOWED_TAGS, list('ALLOWED_TAGS'));
-  assert.deepEqual(ALLOWED_ATTR, list('ALLOWED_ATTR'));
+  // Se compara la configuración que de verdad se pasa a sanitize.
+  assert.deepEqual(SANITIZE_CONFIG.ALLOWED_TAGS, list('ALLOWED_TAGS'));
+  assert.deepEqual(SANITIZE_CONFIG.ALLOWED_ATTR, list('ALLOWED_ATTR'));
+  assert.equal(SANITIZE_CONFIG.ALLOW_DATA_ATTR, false);
+  assert.equal(SANITIZE_CONFIG.ALLOW_ARIA_ATTR, false);
+  assert.match(admin, /ALLOW_DATA_ATTR: false,\s*ALLOW_ARIA_ATTR: false/);
+});
+
+test('no deja pasar el rel que escribe el autor', () => {
+  assert.equal(renderMarkdown('<a rel="opener">x</a>'), '<p><a>x</a></p>\n');
+  assert.match(renderMarkdown('<a href="https://x.test" rel="opener">x</a>'), /rel="noopener noreferrer"/);
 });
 
 test('renderiza Markdown con GFM', () => {

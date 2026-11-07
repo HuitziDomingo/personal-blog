@@ -6,6 +6,18 @@
 /** @typedef {import('@personal-blog/api-types').components['schemas']['PostPage']} PostPage */
 /** @typedef {import('@personal-blog/api-types').components['schemas']['PostSummary']} PostSummary */
 
+/**
+ * Patrón y largo del esquema Slug del contrato (docs/api/openapi.yaml).
+ * encodeURIComponent no basta: deja pasar `.` y `..`, que cambian la ruta.
+ */
+const SLUG = /^[a-z0-9]+(-[a-z0-9]+)*$/;
+const SLUG_MAX_LENGTH = 80;
+
+/** @param {string} slug */
+export function isValidSlug(slug) {
+  return slug.length <= SLUG_MAX_LENGTH && SLUG.test(slug);
+}
+
 /** Segundos que Next sirve una página desde caché antes de regenerarla. */
 export const REVALIDATE_SECONDS = 60;
 
@@ -24,7 +36,7 @@ export async function listPublishedPosts({ limit = 20, offset = 0 } = {}) {
   url.searchParams.set('limit', String(limit));
   url.searchParams.set('offset', String(offset));
 
-  const response = await fetch(url, { next: { revalidate: REVALIDATE_SECONDS, tags: ['posts'] } });
+  const response = await fetch(url, { next: { revalidate: REVALIDATE_SECONDS } });
   if (!response.ok) {
     throw new Error(`GET ${url.pathname}: ${response.status}`);
   }
@@ -33,14 +45,18 @@ export async function listPublishedPosts({ limit = 20, offset = 0 } = {}) {
 
 /**
  * Un post publicado por su slug, o `null` si no existe o no está publicado.
- * El slug se codifica: no puede cambiar la ruta de la petición.
+ * Un slug que no cumple el contrato no llega a la API: así no puede cambiar
+ * la ruta de la petición ni gastar el cupo de la API.
  * @param {string} slug
  * @returns {Promise<Post | null>}
  */
 export async function getPublishedPost(slug) {
-  const url = new URL(`/api/v1/posts/${encodeURIComponent(slug)}`, apiBaseUrl());
+  if (!isValidSlug(slug)) {
+    return null;
+  }
+  const url = new URL(`/api/v1/posts/${slug}`, apiBaseUrl());
 
-  const response = await fetch(url, { next: { revalidate: REVALIDATE_SECONDS, tags: ['posts', `post:${slug}`] } });
+  const response = await fetch(url, { next: { revalidate: REVALIDATE_SECONDS } });
   if (response.status === 404 || response.status === 400) {
     return null;
   }
