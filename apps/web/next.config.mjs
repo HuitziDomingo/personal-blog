@@ -7,6 +7,8 @@ const nextConfig = {
   experimental: { optimizePackageImports: ['@chakra-ui/react'] },
   // jsdom (para DOMPurify en el servidor) no se empaqueta: se carga de node_modules.
   serverExternalPackages: ['jsdom'],
+  // Sin AGENTS.md generado por next dev dentro de apps/web.
+  agentRules: false,
 };
 
 export default nextConfig;

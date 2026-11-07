@@ -3,10 +3,12 @@ import { Badge, Heading, HStack, LinkBox, LinkOverlay, Stack, Text } from '@chak
 import NextLink from 'next/link';
 
 import { formatDate } from '@/components/format';
-import { listPublishedPosts, REVALIDATE_SECONDS } from '@/lib/api';
+import { listPublishedPosts } from '@/lib/api';
 
 // ISR: la lista se genera en el servidor y se regenera como mucho cada minuto.
-export const revalidate = REVALIDATE_SECONDS;
+// Next exige un literal en la configuración de segmento: debe coincidir con
+// REVALIDATE_SECONDS de lib/api.js.
+export const revalidate = 60;
 
 export default async function HomePage() {
   const page = await listPublishedPosts();
