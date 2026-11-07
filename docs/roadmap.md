@@ -10,7 +10,7 @@
 - [x] BLOG-006: Crear endpoint `GET /health`. ([#5](https://github.com/HuitziDomingo/personal-blog/pull/5))
 - [x] BLOG-007: Configurar `.github/workflows/ci.yml` con build, vet, golangci-lint y test (ADR-008). ([#5](https://github.com/HuitziDomingo/personal-blog/pull/5))
 - [x] BLOG-038: Escribir la guía de desarrollo en `docs/development.md`. ([#20](https://github.com/HuitziDomingo/personal-blog/pull/20))
-- [ ] BLOG-063: `make api-watch` con Air como herramienta de Go: recompila y reinicia la API al guardar, respetando el graceful shutdown.
+- [x] BLOG-063: `make api-watch` con Air como herramienta de Go: recompila y reinicia la API al guardar, respetando el graceful shutdown. ([#57](https://github.com/HuitziDomingo/personal-blog/pull/57))
 
 ## Fase 2: Backend API (Go/Gin) & Autenticación
 
