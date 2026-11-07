@@ -19,7 +19,8 @@ personal-blog/
 ├── apps/
 │   └── admin/            # Dashboard en Angular; web (Next.js) está pendiente
 ├── packages/
-│   └── api-types/        # Tipos TypeScript generados del contrato
+│   ├── api-types/        # Tipos TypeScript generados del contrato
+│   └── markdown/         # Render y sanitización de Markdown (admin y web)
 ├── e2e/                  # E2E con Playwright (make e2e)
 ├── services/
 │   └── api/              # API en Go + Gin
@@ -315,12 +316,6 @@ Estructura de `src/app/`:
   - `session/session.guards.ts`: `authGuard` para las rutas protegidas y `guestGuard` para `/login`.
   - `http/problem-messages.ts`: traduce los errores de la API al español, incluido el tiempo de `Retry-After` en un 429.
   - `http/api-error.ts`: `ApiError`, el error que devuelven los servicios de la API: `message` ya en español, más el `status` y el `detail` del problem+json para decidir qué hacer.
-  - `markdown/render-markdown.ts`: convierte Markdown con `marked` y sanitiza con DOMPurify (ADR-010, punto 4; ADR-012, punto 6).
-    - **Allowlist explícita:** `ALLOWED_TAGS` y `ALLOWED_ATTR`.
-    - **URLs:** un hook las valida con `new URL()`: absolutas solo `http(s)` o `mailto` (en links), relativas solo si resuelven al origen del admin, y anclas. DOMPurify deja pasar `data:` en `<img>`, y el navegador lee `/\host` como `//host`; los dos casos tienen test.
-    - **Links:** abren en otra pestaña con `rel="noopener noreferrer"`.
-    - **Uso:** el resultado se enlaza con `[innerHTML]`. `bypassSecurityTrust*` está prohibido por una regla `no-restricted-syntax` de ESLint.
-    - **Tests:** los de `render-markdown.spec.ts` fallan si se quita DOMPurify o el hook de URLs.
   - `api/posts-api.ts`: `PostsApi`, los endpoints de admin de posts tipados con `@personal-blog/api-types`. Codifica el ID en la URL, puntos incluidos, para que no cambie la ruta de la petición.
 - `features/`: una carpeta por pantalla, con carga diferida por ruta.
   - `posts/posts.routes.ts`: las rutas de posts, cargadas con `loadChildren` desde `app.routes.ts`. `/` redirige a `/posts`.
@@ -331,7 +326,7 @@ Estructura de `src/app/`:
     - **Al salir con cambios sin guardar:** `unsaved-changes.guard.ts` pregunta en un diálogo, y `beforeunload` cubre cerrar o recargar la pestaña.
   - `posts/posts-list.page.ts`: lista con filtro por estado y paginación de 20 en 20. El filtro y la página van en la URL (`?status=draft&offset=20`); un valor inválido se ignora. Archivar pide confirmación en un `alert-dialog`.
 - `shared/ui/`: componentes helm de Spartan, copiados al repo, y componentes propios.
-- `shared/markdown-editor/`: el editor de ADR-012, un textarea con la vista previa al lado. Su interfaz es solo `value` y `valueChange`, para poder cambiarlo por un WYSIWYG sin tocar el formulario.
+- `shared/markdown-editor/`: el editor de ADR-012, un textarea con la vista previa al lado. Su interfaz es solo `value` y `valueChange`, para poder cambiarlo por un WYSIWYG sin tocar el formulario. La vista previa usa `renderMarkdown` de `@personal-blog/markdown` (ver «Paquete `packages/markdown`»); el resultado se enlaza con `[innerHTML]`, y `bypassSecurityTrust*` está prohibido por una regla `no-restricted-syntax` de ESLint.
 
 #### Agregar un componente de Spartan
 
@@ -370,6 +365,24 @@ Hoy están `alert-dialog`, `badge`, `button`, `card`, `empty`, `field`, `input`,
 
 El admin no usa `provideSpartanHlm()`. Solo cambia el default de los overlays del CDK (`usePopover: false`) para que convivan con `<hlm-toaster>`, que el admin no tiene, y como importa `@angular/cdk/overlay` desde `app.config`, metería el overlay entero del CDK (unos 46 kB) en el bundle inicial. Tampoco sirve en las `providers` de una ruta: el CDK lo lee del injector raíz. Sin él, los diálogos se muestran en el top layer del navegador (`popover`). Si algún día entra `<hlm-toaster>`, hay que volver a ponerlo en `app.config` y aceptar ese tamaño.
 
+
+### Paquete `packages/markdown`
+
+`@personal-blog/markdown` es la única fuente de la allowlist, la política de URLs y el render de Markdown ([ADR-017](adr/017-arquitectura-de-la-web-publica-nextjs.md), punto 5). Convierte con `marked` y sanitiza con DOMPurify (ADR-010, punto 4; ADR-012, punto 6). Se publica como TypeScript sin compilar: cada app lo compila con lo suyo.
+
+- **Variantes:**
+  - `@personal-blog/markdown`, para el navegador: `renderMarkdown(source)` sanitiza con el DOM de la página y resuelve las URLs relativas contra `window.location`. La usa el admin.
+  - `@personal-blog/markdown/server`, para el servidor: `createServerRenderer({ siteUrl })` devuelve el mismo render, con DOMPurify sobre un DOM de jsdom; las URLs relativas se resuelven contra `siteUrl`. Crea el DOM una vez: guarda el render y reúsalo. La usará `apps/web`.
+  - Las dos comparten `src/renderer.ts`; solo cambian el DOM y la URL base.
+- **Allowlist explícita:** `ALLOWED_TAGS` y `ALLOWED_ATTR` en `src/policy.ts`.
+- **URLs (`isSafeUrl`):** un hook las valida con el parser de URLs WHATWG (`new URL()`). Las absolutas solo pueden ser `http(s)`, o `mailto` en links. Las relativas solo valen si resuelven al origen de la página, y las anclas valen en links. DOMPurify deja pasar `data:` en `<img>`, y el navegador lee `/\host` como `//host`; los dos casos tienen test.
+- **Links:** abren en otra pestaña con `rel="noopener noreferrer"`.
+- **Tests** (`pnpm --filter @personal-blog/markdown test`):
+  - `src/test/sanitization-suite.ts` tiene los casos que antes estaban en el admin. `browser.spec.ts` los corre sobre la variante de navegador (jsdom como DOM global) y `server.spec.ts` sobre la de servidor, en el entorno `node`, sin `window`.
+  - `equivalence.spec.ts` comprueba que, con el mismo origen, las dos variantes dan exactamente el mismo HTML en cada caso.
+  - Fallan si se quita DOMPurify o el hook de URLs.
+- **Lint y tipos:** `pnpm --filter @personal-blog/markdown lint` y `pnpm --filter @personal-blog/markdown typecheck`. Es TypeScript estricto (`strict`, `noUncheckedIndexedAccess` y `exactOptionalPropertyTypes`).
+- **CI:** mientras no exista el job `web`, el job `admin` corre el lint, los tipos y los tests del paquete, y su filtro incluye `packages/markdown/**`.
 
 ## Colección de Bruno
 
