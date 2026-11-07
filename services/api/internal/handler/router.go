@@ -32,6 +32,8 @@ type RouterConfig struct {
 	Sessions Sessions
 	// Posts implementa los posts; es obligatorio.
 	Posts Posts
+	// AccessLog registra cada petición; sin él, se usa gin.Logger().
+	AccessLog gin.HandlerFunc
 }
 
 // NewRouter crea el router HTTP con las rutas de la API. spec debe venir de
@@ -57,8 +59,13 @@ func NewRouter(pinger Pinger, spec *openapi3.T, cfg RouterConfig) (*gin.Engine, 
 		return nil, err
 	}
 
+	accessLog := cfg.AccessLog
+	if accessLog == nil {
+		accessLog = gin.Logger()
+	}
+
 	router.Use(
-		gin.Logger(),
+		accessLog,
 		gin.CustomRecovery(recovered),
 		securityHeaders,
 		crossOrigin(cfg.AllowedOrigins),

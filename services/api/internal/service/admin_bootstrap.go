@@ -47,6 +47,12 @@ func (b *AdminBootstrap) Run(ctx context.Context, email, password string) error 
 	}
 
 	if total > 0 {
+		// Con usuarios, las credenciales iniciales no hacen nada. Cambiar la
+		// contraseña aquí no cambia la del admin, y el login fallaría sin pista.
+		if email != "" || password != "" {
+			b.logger.WarnContext(ctx, "users already exist: INITIAL_ADMIN_EMAIL and INITIAL_ADMIN_PASSWORD are ignored and do not change any password; remove them from the environment")
+		}
+
 		return nil
 	}
 

@@ -16,6 +16,17 @@ const (
 
 	defaultPort         = "8080"
 	defaultMaxBodyBytes = 1 << 20 // 1 MB
+
+	// LogFormatText es el formato de log por defecto, legible en una terminal.
+	LogFormatText = "text"
+	// LogFormatJSON escribe una línea JSON por evento, con los campos que
+	// entiende Cloud Logging (severity y message).
+	LogFormatJSON = "json"
+
+	// GinModeDebug, GinModeRelease y GinModeTest son los valores de GIN_MODE.
+	GinModeDebug   = "debug"
+	GinModeRelease = "release"
+	GinModeTest    = "test"
 )
 
 // Config es la configuración de la API.
@@ -39,6 +50,14 @@ type Config struct {
 	// Opcionales: solo se usan para crear el administrador inicial.
 	InitialAdminEmail    string
 	InitialAdminPassword string
+
+	// LogFormat es LogFormatText o LogFormatJSON.
+	LogFormat string
+	// GinMode es el modo de Gin: el de GIN_MODE, o si falta, release con logs
+	// JSON y debug con logs de texto.
+	GinMode string
+	// GinModeExplicit indica si GinMode vino de GIN_MODE.
+	GinModeExplicit bool
 }
 
 // Load lee la configuración del entorno y devuelve un error si no es válida.
@@ -78,6 +97,16 @@ func Load() (Config, error) {
 		return Config{}, err
 	}
 
+	logFormat, err := loadLogFormat()
+	if err != nil {
+		return Config{}, err
+	}
+
+	ginMode, ginModeExplicit, err := loadGinMode(logFormat)
+	if err != nil {
+		return Config{}, err
+	}
+
 	var limits [3]RateLimit
 	for i, spec := range rateLimitSpecs {
 		if limits[i], err = loadRateLimit(spec); err != nil {
@@ -98,7 +127,41 @@ func Load() (Config, error) {
 		MaxBodyBytes:         maxBodyBytes,
 		InitialAdminEmail:    os.Getenv("INITIAL_ADMIN_EMAIL"),
 		InitialAdminPassword: os.Getenv("INITIAL_ADMIN_PASSWORD"),
+		LogFormat:            logFormat,
+		GinMode:              ginMode,
+		GinModeExplicit:      ginModeExplicit,
 	}, nil
+}
+
+func loadLogFormat() (string, error) {
+	switch format := os.Getenv("LOG_FORMAT"); format {
+	case "", LogFormatText:
+		return LogFormatText, nil
+	case LogFormatJSON:
+		return LogFormatJSON, nil
+	default:
+		return "", fmt.Errorf("invalid LOG_FORMAT %q: must be text or json", format)
+	}
+}
+
+// loadGinMode lee GIN_MODE. Sin variable, los logs JSON implican producción:
+// release, para que Gin no mezcle sus avisos de debug en texto con el JSON.
+// Gin también lee GIN_MODE al iniciarse y hace panic con un valor inválido
+// antes de llegar aquí; la validación sirve para los tests y por si eso cambia.
+func loadGinMode(logFormat string) (string, bool, error) {
+	mode := os.Getenv("GIN_MODE")
+	switch mode {
+	case GinModeDebug, GinModeRelease, GinModeTest:
+		return mode, true, nil
+	case "":
+		if logFormat == LogFormatJSON {
+			return GinModeRelease, false, nil
+		}
+
+		return GinModeDebug, false, nil
+	default:
+		return "", false, fmt.Errorf("invalid GIN_MODE %q: must be debug, release or test", mode)
+	}
 }
 
 // loadJWTSecret lee el secreto de firma. Es obligatorio porque la API siempre

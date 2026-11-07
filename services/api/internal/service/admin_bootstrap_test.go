@@ -120,9 +120,11 @@ func TestAdminBootstrapIgnoresCredentialsWhenUsersExist(t *testing.T) {
 		name     string
 		email    string
 		password string
+		warns    bool
 	}{
-		{name: "valid credentials", email: validEmail, password: validPassword},
-		{name: "invalid credentials", email: "nope", password: "short"},
+		{name: "valid credentials", email: validEmail, password: validPassword, warns: true},
+		{name: "invalid credentials", email: "nope", password: "short", warns: true},
+		{name: "only the password", password: validPassword, warns: true},
 		{name: "no credentials"},
 	}
 
@@ -134,7 +136,18 @@ func TestAdminBootstrapIgnoresCredentialsWhenUsersExist(t *testing.T) {
 
 			require.NoError(t, err)
 			assert.Empty(t, users.created)
-			assert.Empty(t, logs)
+			if !tt.warns {
+				assert.Empty(t, logs)
+
+				return
+			}
+			// Avisa que las variables no cambian ninguna contraseña, sin
+			// mostrar sus valores (runBootstrap ya comprueba la contraseña).
+			assert.Contains(t, logs, "level=WARN")
+			assert.Contains(t, logs, "do not change any password")
+			if tt.email != "" {
+				assert.NotContains(t, logs, tt.email)
+			}
 		})
 	}
 }

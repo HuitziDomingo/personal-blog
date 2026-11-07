@@ -13,8 +13,11 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/gin-gonic/gin"
+
 	"github.com/HuitziDomingo/personal-blog/services/api/internal/config"
 	"github.com/HuitziDomingo/personal-blog/services/api/internal/handler"
+	"github.com/HuitziDomingo/personal-blog/services/api/internal/logging"
 	"github.com/HuitziDomingo/personal-blog/services/api/internal/repository/mongodb"
 	"github.com/HuitziDomingo/personal-blog/services/api/internal/service"
 )
@@ -37,6 +40,14 @@ func run() error {
 	cfg, err := config.Load()
 	if err != nil {
 		return fmt.Errorf("load config: %w", err)
+	}
+
+	logger := logging.New(os.Stderr, logging.Format(cfg.LogFormat))
+	slog.SetDefault(logger)
+	handler.SetMode(cfg.GinMode)
+
+	for _, warning := range cfg.Warnings() {
+		logger.Warn(warning)
 	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
@@ -74,6 +85,7 @@ func run() error {
 		TrustedProxies: cfg.TrustedProxies,
 		Sessions:       sessions,
 		Posts:          service.NewPostService(mongodb.NewPostRepository(client), time.Now),
+		AccessLog:      accessLog(cfg, logger),
 		RateLimits: handler.RateLimits{
 			Global:  handler.RateLimit(cfg.GlobalRateLimit),
 			Login:   handler.RateLimit(cfg.LoginRateLimit),
@@ -110,6 +122,16 @@ func run() error {
 	slog.Info("api shutting down")
 
 	return shutdown(server, client)
+}
+
+// accessLog elige el access log: con logs JSON, el de slog con el formato de
+// Cloud Logging; con texto, el de Gin de siempre (nil).
+func accessLog(cfg config.Config, logger *slog.Logger) gin.HandlerFunc {
+	if cfg.LogFormat != config.LogFormatJSON {
+		return nil
+	}
+
+	return handler.AccessLog(logger)
 }
 
 // newSessions arma el login y la sesión sobre MongoDB.
