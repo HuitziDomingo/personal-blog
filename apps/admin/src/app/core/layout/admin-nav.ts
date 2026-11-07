@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
-import { RouterLink, RouterLinkActive } from '@angular/router';
+import { Router, RouterLink, RouterLinkActive } from '@angular/router';
 import { HlmButtonImports } from '@spartan-ng/helm/button';
 import { HlmLabelImports } from '@spartan-ng/helm/label';
 import { HlmRadioGroupImports } from '@spartan-ng/helm/radio-group';
@@ -103,6 +103,7 @@ import { ThemeService } from '../theme/theme.service';
 export class AdminNav {
   protected readonly theme = inject(ThemeService);
   private readonly session = inject(SessionService);
+  private readonly router = inject(Router);
 
   protected readonly links = [
     { path: '/posts', label: 'Posts' },
@@ -139,8 +140,19 @@ export class AdminNav {
     }
   }
 
-  protected logout(): void {
+  /**
+   * Primero sale de la pantalla actual y después cierra la sesión. Si el
+   * editor tiene cambios sin guardar y el usuario decide quedarse, el guard
+   * cancela la navegación y la sesión sigue abierta.
+   */
+  protected async logout(): Promise<void> {
     this.loggingOut.set(true);
+    // 'reload': desde /posts la navegación no se ignora (resolvería false).
+    const left = await this.router.navigateByUrl('/posts', { onSameUrlNavigation: 'reload' });
+    if (left === false) {
+      this.loggingOut.set(false);
+      return;
+    }
     this.session.logout().subscribe();
   }
 }

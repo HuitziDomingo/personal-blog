@@ -1,12 +1,11 @@
-import { Component, signal } from '@angular/core';
+import { Component } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter, Router } from '@angular/router';
-import { fireEvent, render, screen } from '@testing-library/angular';
-import { of } from 'rxjs';
+import { fireEvent, render, screen, waitFor } from '@testing-library/angular';
 
-import { User } from '../api/api-types';
 import { FakeMatchMedia, FakeStorage } from '../browser/browser-fakes';
 import { MATCH_MEDIA } from '../browser/match-media';
+import { FakeSession } from '../session/session-fakes';
 import { SessionService } from '../session/session.service';
 import { THEME_STORAGE } from '../theme/theme-storage';
 import { ThemeService } from '../theme/theme.service';
@@ -15,26 +14,14 @@ import { AdminNav } from './admin-nav';
 @Component({ template: '' })
 class EmptyPage {}
 
-/** Fake de SessionService (ADR-015): solo lo que usa el menú. */
-class FakeSession {
-  readonly user = signal<User | null>({ id: 'u1', email: 'leon@huitzi.xyz', role: 'admin' });
-  logoutCalls = 0;
-
-  logout() {
-    this.logoutCalls++;
-
-    return of(undefined);
-  }
-}
-
-async function renderNav(url = '/posts') {
+async function renderNav(url = '/posts', { canLeaveEditor = true } = {}) {
   const session = new FakeSession();
   const storage = new FakeStorage();
   const result = await render(AdminNav, {
     providers: [
       provideRouter([
         { path: 'posts', component: EmptyPage },
-        { path: 'posts/:id', component: EmptyPage },
+        { path: 'posts/:id', component: EmptyPage, canDeactivate: [() => canLeaveEditor] },
       ]),
       { provide: MATCH_MEDIA, useValue: new FakeMatchMedia().fn },
       { provide: THEME_STORAGE, useValue: storage },
@@ -81,8 +68,29 @@ describe('AdminNav', () => {
     const logout = screen.getByRole('button', { name: 'Cerrar sesión' });
     await fireEvent.click(logout);
 
-    expect(session.logoutCalls).toBe(1);
+    await waitFor(() => expect(session.logoutCalls).toBe(1));
     expect((logout as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it('desde el editor sale primero y después cierra la sesión', async () => {
+    const { session } = await renderNav('/posts/abc');
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Cerrar sesión' }));
+
+    await waitFor(() => expect(session.logoutCalls).toBe(1));
+    expect(TestBed.inject(Router).url).toBe('/posts');
+  });
+
+  it('si el editor no deja salir (cambios sin guardar), no cierra la sesión', async () => {
+    const { session, fixture } = await renderNav('/posts/abc', { canLeaveEditor: false });
+    const logout = screen.getByRole('button', { name: 'Cerrar sesión' }) as HTMLButtonElement;
+
+    await fireEvent.click(logout);
+    await waitFor(() => expect(logout.disabled).toBe(false));
+    fixture.detectChanges();
+
+    expect(session.logoutCalls).toBe(0);
+    expect(TestBed.inject(Router).url).toBe('/posts/abc');
   });
 
   it('ofrece el tema como un grupo de radios con nombre', async () => {

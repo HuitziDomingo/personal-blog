@@ -1,6 +1,15 @@
-import { ChangeDetectionStrategy, Component, effect, inject, viewChild } from '@angular/core';
+import {
+  afterNextRender,
+  ChangeDetectionStrategy,
+  Component,
+  effect,
+  ElementRef,
+  inject,
+  Injector,
+  viewChild,
+} from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { NavigationEnd, Router, RouterLink, RouterOutlet } from '@angular/router';
+import { NavigationStart, Router, RouterLink, RouterOutlet } from '@angular/router';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideMenu, lucideX } from '@ng-icons/lucide';
 import { HlmButtonImports } from '@spartan-ng/helm/button';
@@ -72,7 +81,7 @@ export const DESKTOP_QUERY = '(min-width: 64rem)';
           <app-admin-nav />
         </aside>
       }
-      <main id="contenido" tabindex="-1" class="min-w-0 flex-1 outline-none">
+      <main #main id="contenido" tabindex="-1" class="min-w-0 flex-1 outline-none">
         <router-outlet />
       </main>
     </div>
@@ -81,27 +90,43 @@ export const DESKTOP_QUERY = '(min-width: 64rem)';
 export class AdminShell {
   protected readonly isDesktop = injectMediaQuery(DESKTOP_QUERY);
   private readonly sheet = viewChild(HlmSheet);
+  private readonly main = viewChild.required<ElementRef<HTMLElement>>('main');
+  private readonly injector = inject(Injector);
 
   constructor() {
-    // El offcanvas se cierra al navegar (un link del menú, cerrar sesión) y
-    // desaparece al pasar a escritorio, donde el menú ya está a la vista.
+    // El offcanvas se cierra al empezar una navegación (un link del menú,
+    // cerrar sesión): si el editor pregunta por cambios sin guardar, su
+    // diálogo no queda debajo del menú.
     inject(Router)
       .events.pipe(
-        filter((event) => event instanceof NavigationEnd),
+        filter((event) => event instanceof NavigationStart),
         takeUntilDestroyed(),
       )
       .subscribe(() => this.sheet()?.close());
 
+    // Al pasar a escritorio el offcanvas desaparece con su botón, y el CDK no
+    // tiene dónde devolver el foco: si se pierde, va al contenido.
+    let wasDesktop = this.isDesktop();
     effect(() => {
-      if (this.isDesktop()) {
+      const desktop = this.isDesktop();
+      if (desktop && !wasDesktop) {
         this.sheet()?.close();
+        afterNextRender(() => this.rescueFocus(), { injector: this.injector });
       }
+      wasDesktop = desktop;
     });
   }
 
   /** El salto mueve el foco al contenido sin cambiar la URL (el router usaría el fragmento). */
   protected skipToContent(event: Event): void {
     event.preventDefault();
-    document.getElementById('contenido')?.focus();
+    this.main().nativeElement.focus();
+  }
+
+  private rescueFocus(): void {
+    const active = this.main().nativeElement.ownerDocument.activeElement;
+    if (!active || active === active.ownerDocument.body) {
+      this.main().nativeElement.focus();
+    }
   }
 }

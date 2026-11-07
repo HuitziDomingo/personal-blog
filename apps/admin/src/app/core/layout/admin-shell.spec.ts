@@ -1,30 +1,17 @@
-import { Component, signal } from '@angular/core';
+import { Component } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter, Router } from '@angular/router';
 import { fireEvent, render, screen, waitFor } from '@testing-library/angular';
-import { of } from 'rxjs';
 
-import { User } from '../api/api-types';
 import { FakeMatchMedia, FakeStorage } from '../browser/browser-fakes';
 import { MATCH_MEDIA } from '../browser/match-media';
+import { FakeSession } from '../session/session-fakes';
 import { SessionService } from '../session/session.service';
 import { THEME_STORAGE } from '../theme/theme-storage';
 import { AdminShell, DESKTOP_QUERY } from './admin-shell';
 
 @Component({ template: '<h1>Página</h1>' })
 class EmptyPage {}
-
-/** Fake de SessionService (ADR-015): solo lo que usa el menú. */
-class FakeSession {
-  readonly user = signal<User | null>({ id: 'u1', email: 'leon@huitzi.xyz', role: 'admin' });
-  logoutCalls = 0;
-
-  logout() {
-    this.logoutCalls++;
-
-    return of(undefined);
-  }
-}
 
 async function renderShell({ desktop = false } = {}) {
   const media = new FakeMatchMedia({ [DESKTOP_QUERY]: desktop });
@@ -79,15 +66,24 @@ describe('AdminShell', () => {
     expect(trigger.getAttribute('aria-expanded')).toBe('true');
   });
 
-  it('el foco entra al offcanvas y queda atrapado en él', async () => {
+  it('el foco entra al offcanvas al abrirlo', async () => {
     await renderShell();
     const { dialog } = await openMenu();
 
     await waitFor(() => expect(dialog.contains(document.activeElement)).toBe(true));
-    // El CDK pone anclas de foco antes y después del panel: al llegar a una,
-    // el foco vuelve dentro.
-    const anchors = document.querySelectorAll('.cdk-focus-trap-anchor');
-    expect(anchors.length).toBe(2);
+  });
+
+  it('el panel es modal y queda entre las anclas del FocusTrap del CDK', async () => {
+    await renderShell();
+    const { dialog } = await openMenu();
+
+    // jsdom no tiene layout y el CDK no ve elementos enfocables, así que aquí
+    // solo se comprueba que el trap está montado alrededor del panel. Que Tab
+    // no sale del panel se prueba en Chrome (descripción del PR).
+    const [start, end] = [...document.querySelectorAll<HTMLElement>('.cdk-focus-trap-anchor')];
+    expect(start.compareDocumentPosition(dialog) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(end.compareDocumentPosition(dialog) & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy();
+    expect(dialog.getAttribute('aria-modal')).toBe('true');
   });
 
   it('Esc cierra el offcanvas y el foco vuelve al botón', async () => {
@@ -130,6 +126,8 @@ describe('AdminShell', () => {
 
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     expect(screen.getByRole('complementary', { name: 'Menú' })).toBeTruthy();
+    // El botón que abrió el menú ya no existe: el foco va al contenido.
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('main')));
   });
 
   it('el enlace para saltar al contenido mueve el foco al main', async () => {

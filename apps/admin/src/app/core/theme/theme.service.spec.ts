@@ -129,6 +129,22 @@ describe('ThemeService', () => {
     expect(theme.accent()).toBe('rose');
   });
 
+  it('sigue los cambios hechos en otra pestaña, validados', () => {
+    const { theme, root } = setup();
+
+    window.dispatchEvent(new StorageEvent('storage', { key: 'admin-theme', newValue: 'dark' }));
+    window.dispatchEvent(new StorageEvent('storage', { key: 'admin-accent', newValue: 'amber' }));
+    TestBed.tick();
+    expect(theme.mode()).toBe('dark');
+    expect(root.getAttribute('data-accent')).toBe('amber');
+
+    window.dispatchEvent(new StorageEvent('storage', { key: 'admin-accent', newValue: 'x" onload="' }));
+    window.dispatchEvent(new StorageEvent('storage', { key: 'otra', newValue: 'dark' }));
+    TestBed.tick();
+    expect(theme.accent()).toBe('neutral');
+    expect(theme.mode()).toBe('dark');
+  });
+
   it('quita el listener del sistema al destruirse', () => {
     const { system } = setup();
     expect(system.listenerCount).toBe(1);
