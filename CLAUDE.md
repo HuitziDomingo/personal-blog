@@ -26,7 +26,8 @@ No inventes comandos. Cuando exista uno real, sustituye su TODO.
 - Tests de Go: `make api-test`
 - Tests de integración de Go: `make api-test-integration` (levanta MongoDB con docker compose)
 - Tests del admin: `make admin-test`
-- E2E: TODO
+- E2E: `make e2e` (base temporal, API y admin propios; limpia al terminar)
+- Borrar bases de E2E que quedaron de una corrida interrumpida: `make e2e-clean`
 - Lint y análisis de Go: `make api-lint`
 - Lint y análisis de front: TODO
 - Build de la API: `make api-build`

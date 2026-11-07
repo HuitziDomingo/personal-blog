@@ -55,6 +55,7 @@
 
 - [ ] BLOG-019: Implementar pruebas unitarias en Go para servicios y handlers (`testify` + mocks).
 - [ ] BLOG-020: Implementar pruebas unitarias de componentes/servicios en Angular (`Vitest`).
+- [ ] BLOG-061: E2E con Playwright del flujo crítico de ADR-006 (login, borrador, edición, publicación, API pública y archivo), más contraseña incorrecta y logout, con `make e2e` contra el stack local en una base temporal.
 - [x] BLOG-021: Job admin en ci.yml (ADR-014). ([#34](https://github.com/HuitziDomingo/personal-blog/pull/34))
 - [ ] BLOG-052: Job web en ci.yml con su filtro en el job changes, cuando exista `apps/web` (ADR-014).
 - [x] BLOG-049: Incluir Makefile y scripts de generación en el filtro del job api (va en el ADR de BLOG-021). ([#34](https://github.com/HuitziDomingo/personal-blog/pull/34))
