@@ -13,6 +13,10 @@ func setRequiredEnv(t *testing.T) {
 	t.Setenv("MONGO_URI", "mongodb://localhost:27017")
 	t.Setenv("MONGO_DB_NAME", "blog_test")
 	t.Setenv("JWT_SECRET", testJWTSecret)
+	// Que los tests no dependan de lo exportado en el shell (por ejemplo, tras
+	// cargar un .env).
+	t.Setenv("LOG_FORMAT", "")
+	t.Setenv("GIN_MODE", "")
 }
 
 const testJWTSecret = "0123456789abcdef0123456789abcdef"

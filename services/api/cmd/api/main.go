@@ -15,6 +15,7 @@ import (
 
 	"github.com/HuitziDomingo/personal-blog/services/api/internal/config"
 	"github.com/HuitziDomingo/personal-blog/services/api/internal/handler"
+	"github.com/HuitziDomingo/personal-blog/services/api/internal/logging"
 	"github.com/HuitziDomingo/personal-blog/services/api/internal/repository/mongodb"
 	"github.com/HuitziDomingo/personal-blog/services/api/internal/service"
 )
@@ -27,16 +28,37 @@ const (
 )
 
 func main() {
-	if err := run(); err != nil {
-		slog.Error("api stopped", "error", err)
+	logger := newLogger()
+	slog.SetDefault(logger)
+
+	if err := run(logger); err != nil {
+		logger.Error("api stopped", "error", err)
 		os.Exit(1)
 	}
 }
 
-func run() error {
+// newLogger crea el logger antes de cargar el resto de la configuración, para
+// que un error de arranque también salga en JSON en producción. Con un
+// LOG_FORMAT inválido usa JSON, y run devuelve el error de config.Load.
+func newLogger() *slog.Logger {
+	format, err := config.LoadLogFormat()
+	if err != nil {
+		format = config.LogFormatJSON
+	}
+
+	return logging.New(os.Stderr, logging.Format(format))
+}
+
+func run(logger *slog.Logger) error {
 	cfg, err := config.Load()
 	if err != nil {
 		return fmt.Errorf("load config: %w", err)
+	}
+
+	handler.SetMode(cfg.GinMode)
+
+	for _, warning := range cfg.Warnings() {
+		logger.Warn(warning)
 	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
@@ -74,6 +96,8 @@ func run() error {
 		TrustedProxies: cfg.TrustedProxies,
 		Sessions:       sessions,
 		Posts:          service.NewPostService(mongodb.NewPostRepository(client), time.Now),
+		Logger:         logger,
+		JSONLogs:       cfg.LogFormat == config.LogFormatJSON,
 		RateLimits: handler.RateLimits{
 			Global:  handler.RateLimit(cfg.GlobalRateLimit),
 			Login:   handler.RateLimit(cfg.LoginRateLimit),
@@ -92,6 +116,9 @@ func run() error {
 		ReadHeaderTimeout: readHeaderTimeout,
 		ReadTimeout:       readTimeout,
 		WriteTimeout:      writeTimeout,
+		// Los errores internos del servidor (handshakes, escrituras dobles)
+		// salen por slog como WARN, no como INFO.
+		ErrorLog: slog.NewLogLogger(logger.Handler(), slog.LevelWarn),
 	}
 
 	serveErr := make(chan error, 1)

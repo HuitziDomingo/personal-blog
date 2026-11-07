@@ -33,6 +33,7 @@
 - [x] BLOG-055: Implementar el service de posts (`internal/service`) con las reglas de negocio: slug, `PublishedAt`, archivado, tags y extracto. ([#43](https://github.com/HuitziDomingo/personal-blog/pull/43))
 - [x] BLOG-056: Implementar los endpoints públicos y de admin de posts, con su flujo de Bruno en `flows/posts/`. ([#44](https://github.com/HuitziDomingo/personal-blog/pull/44))
 - [x] BLOG-014: Crear colección de pruebas en Bruno, generada desde el contrato con el CLI de Bruno, con flujos manuales. ([#31](https://github.com/HuitziDomingo/personal-blog/pull/31))
+- [x] BLOG-060: Avisos al arrancar por configuración inútil (`ALLOWED_ORIGINS` vacía y otras), logs JSON para Cloud Logging con `LOG_FORMAT` y `GIN_MODE` según el entorno. ([#54](https://github.com/HuitziDomingo/personal-blog/pull/54))
 
 ## Fase 3: Dashboard de Administración (Angular + Spartan UI)
 
@@ -70,7 +71,7 @@
 
 ## Por definir
 
-- Falta una tarea que cree `apps/web`; todavía no tiene ID.
+- [ ] BLOG-059: Crear `apps/web` (Next.js). Spike en borrador en [#53](https://github.com/HuitziDomingo/personal-blog/pull/53); no se mergea hasta el ADR de `apps/web`.
 
 ## Fase futura (fuera del MVP)
 

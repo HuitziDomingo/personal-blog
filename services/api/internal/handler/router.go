@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"time"
 
@@ -32,6 +33,16 @@ type RouterConfig struct {
 	Sessions Sessions
 	// Posts implementa los posts; es obligatorio.
 	Posts Posts
+	// Logger recibe el access log cuando JSONLogs es true; con logs de texto
+	// se usa gin.Logger(), como siempre.
+	Logger   *slog.Logger
+	JSONLogs bool
+}
+
+// SetMode fija el modo de Gin (debug, release o test). Hay que llamarla antes
+// de NewRouter: gin.New() avisa del modo debug al crear el router.
+func SetMode(mode string) {
+	gin.SetMode(mode)
 }
 
 // NewRouter crea el router HTTP con las rutas de la API. spec debe venir de
@@ -57,9 +68,21 @@ func NewRouter(pinger Pinger, spec *openapi3.T, cfg RouterConfig) (*gin.Engine, 
 		return nil, err
 	}
 
+	accessLog := gin.Logger()
+	if cfg.JSONLogs {
+		if cfg.Logger == nil {
+			return nil, errors.New("router needs a logger for JSON access logs")
+		}
+
+		accessLog = AccessLog(cfg.Logger)
+	}
+
 	router.Use(
-		gin.Logger(),
-		gin.CustomRecovery(recovered),
+		accessLog,
+		// Sin writer: en modo debug, la recuperación de Gin vuelca las
+		// cabeceras de la petición, cookies de sesión incluidas, y en texto.
+		// recovered ya registra el panic con slog.
+		gin.CustomRecoveryWithWriter(nil, recovered),
 		securityHeaders,
 		crossOrigin(cfg.AllowedOrigins),
 		newRateLimiter(cfg.RateLimits, time.Now).handle,
