@@ -97,7 +97,7 @@ Sin `INITIAL_ADMIN_EMAIL` e `INITIAL_ADMIN_PASSWORD`, la API registra un warning
 | `RATE_LIMIT_REFRESH_PER_MINUTE` / `_BURST` | No | `10` / `10` | Límite extra en `POST /api/v1/auth/refresh` |
 | `INITIAL_ADMIN_EMAIL` | No | | Email del administrador inicial |
 | `INITIAL_ADMIN_PASSWORD` | No | | Contraseña del administrador inicial |
-| `LOG_FORMAT` | No | `text` | `text` (key=value, para la terminal) o `json` (una línea por evento con `severity`, `message` y `time`, los campos de Cloud Logging). En `json`, el access log también es JSON, con el grupo `httpRequest` que Cloud Logging muestra como petición HTTP |
+| `LOG_FORMAT` | No | `text` | `text` (key=value, para la terminal) o `json` (una línea por evento con `severity`, `message` y `time`, los campos de Cloud Logging). En `json`, el access log también es JSON, con el grupo `httpRequest` que Cloud Logging muestra como petición HTTP: solo la ruta (sin query), y severidad `ERROR` para 5xx, `WARNING` para 4xx salvo 401 y 404, e `INFO` para el resto. Un `LOG_FORMAT` inválido detiene la API con el error ya en JSON |
 | `GIN_MODE` | No | `debug` con `LOG_FORMAT=text`, `release` con `json` | Modo de Gin: `debug`, `release` o `test`. En `debug`, Gin lista las rutas al arrancar y avisa que corre en modo debug. Un valor inválido hace que Gin termine con panic al iniciarse, antes de leer la configuración |
 
 ### Avisos al arrancar
@@ -107,6 +107,7 @@ La API arranca con cualquier configuración válida, pero algunas la dejan inút
 | Aviso | Qué pasa |
 | --- | --- |
 | `ALLOWED_ORIGINS is empty` | Ningún navegador puede iniciar sesión ni cambiar estado: CORS y la verificación de `Origin` rechazan todo. El admin solo dice «no se pudo conectar» |
+| `ALLOWED_ORIGINS entry "…" never matches` | Un origen con mayúsculas o con el puerto por defecto (`https://Admin.huitzi.xyz`, `https://admin.huitzi.xyz:443`) nunca coincide con la cabecera `Origin` del navegador, que la API compara de forma exacta. El aviso dice cómo escribirlo |
 | `INITIAL_ADMIN_EMAIL is set but INITIAL_ADMIN_PASSWORD is empty` (o al revés) | No se crea el administrador inicial |
 | `users already exist: INITIAL_ADMIN_EMAIL and INITIAL_ADMIN_PASSWORD are ignored` | Ya hay usuarios: cambiar esas variables no cambia ninguna contraseña |
 | `no users and no initial admin` | No hay usuarios ni credenciales iniciales: nadie puede iniciar sesión |
