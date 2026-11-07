@@ -34,6 +34,19 @@ func testRouterConfig() RouterConfig {
 	}
 }
 
+// newTestRouterWith crea el router con una configuración propia.
+func newTestRouterWith(t *testing.T, cfg RouterConfig) *gin.Engine {
+	t.Helper()
+
+	spec, err := LoadSpec(t.Context())
+	require.NoError(t, err)
+
+	router, err := NewRouter(&fakePinger{}, spec, cfg)
+	require.NoError(t, err)
+
+	return router
+}
+
 func newTestRouter(t *testing.T, pinger Pinger) *gin.Engine {
 	t.Helper()
 

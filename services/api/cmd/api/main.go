@@ -13,8 +13,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/gin-gonic/gin"
-
 	"github.com/HuitziDomingo/personal-blog/services/api/internal/config"
 	"github.com/HuitziDomingo/personal-blog/services/api/internal/handler"
 	"github.com/HuitziDomingo/personal-blog/services/api/internal/logging"
@@ -30,20 +28,33 @@ const (
 )
 
 func main() {
-	if err := run(); err != nil {
-		slog.Error("api stopped", "error", err)
+	logger := newLogger()
+	slog.SetDefault(logger)
+
+	if err := run(logger); err != nil {
+		logger.Error("api stopped", "error", err)
 		os.Exit(1)
 	}
 }
 
-func run() error {
+// newLogger crea el logger antes de cargar el resto de la configuración, para
+// que un error de arranque también salga en JSON en producción. Con un
+// LOG_FORMAT inválido usa JSON, y run devuelve el error de config.Load.
+func newLogger() *slog.Logger {
+	format, err := config.LoadLogFormat()
+	if err != nil {
+		format = config.LogFormatJSON
+	}
+
+	return logging.New(os.Stderr, logging.Format(format))
+}
+
+func run(logger *slog.Logger) error {
 	cfg, err := config.Load()
 	if err != nil {
 		return fmt.Errorf("load config: %w", err)
 	}
 
-	logger := logging.New(os.Stderr, logging.Format(cfg.LogFormat))
-	slog.SetDefault(logger)
 	handler.SetMode(cfg.GinMode)
 
 	for _, warning := range cfg.Warnings() {
@@ -85,7 +96,8 @@ func run() error {
 		TrustedProxies: cfg.TrustedProxies,
 		Sessions:       sessions,
 		Posts:          service.NewPostService(mongodb.NewPostRepository(client), time.Now),
-		AccessLog:      accessLog(cfg, logger),
+		Logger:         logger,
+		JSONLogs:       cfg.LogFormat == config.LogFormatJSON,
 		RateLimits: handler.RateLimits{
 			Global:  handler.RateLimit(cfg.GlobalRateLimit),
 			Login:   handler.RateLimit(cfg.LoginRateLimit),
@@ -104,6 +116,9 @@ func run() error {
 		ReadHeaderTimeout: readHeaderTimeout,
 		ReadTimeout:       readTimeout,
 		WriteTimeout:      writeTimeout,
+		// Los errores internos del servidor (handshakes, escrituras dobles)
+		// salen por slog como WARN, no como INFO.
+		ErrorLog: slog.NewLogLogger(logger.Handler(), slog.LevelWarn),
 	}
 
 	serveErr := make(chan error, 1)
@@ -122,16 +137,6 @@ func run() error {
 	slog.Info("api shutting down")
 
 	return shutdown(server, client)
-}
-
-// accessLog elige el access log: con logs JSON, el de slog con el formato de
-// Cloud Logging; con texto, el de Gin de siempre (nil).
-func accessLog(cfg config.Config, logger *slog.Logger) gin.HandlerFunc {
-	if cfg.LogFormat != config.LogFormatJSON {
-		return nil
-	}
-
-	return handler.AccessLog(logger)
 }
 
 // newSessions arma el login y la sesión sobre MongoDB.

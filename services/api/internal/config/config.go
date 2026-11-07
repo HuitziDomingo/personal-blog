@@ -58,8 +58,6 @@ type Config struct {
 	// GinMode es el modo de Gin: el de GIN_MODE, o si falta, release con logs
 	// JSON y debug con logs de texto.
 	GinMode string
-	// GinModeExplicit indica si GinMode vino de GIN_MODE.
-	GinModeExplicit bool
 }
 
 // Load lee la configuración del entorno y devuelve un error si no es válida.
@@ -99,12 +97,12 @@ func Load() (Config, error) {
 		return Config{}, err
 	}
 
-	logFormat, err := loadLogFormat()
+	logFormat, err := LoadLogFormat()
 	if err != nil {
 		return Config{}, err
 	}
 
-	ginMode, ginModeExplicit, err := loadGinMode(logFormat)
+	ginMode, err := loadGinMode(logFormat)
 	if err != nil {
 		return Config{}, err
 	}
@@ -131,11 +129,13 @@ func Load() (Config, error) {
 		InitialAdminPassword: os.Getenv("INITIAL_ADMIN_PASSWORD"),
 		LogFormat:            logFormat,
 		GinMode:              ginMode,
-		GinModeExplicit:      ginModeExplicit,
 	}, nil
 }
 
-func loadLogFormat() (string, error) {
+// LoadLogFormat lee LOG_FORMAT. Es pública porque main crea el logger antes de
+// cargar el resto, para que también los errores de configuración salgan en el
+// formato pedido.
+func LoadLogFormat() (string, error) {
 	switch format := os.Getenv("LOG_FORMAT"); format {
 	case "", LogFormatText:
 		return LogFormatText, nil
@@ -150,19 +150,19 @@ func loadLogFormat() (string, error) {
 // release, para que Gin no mezcle sus avisos de debug en texto con el JSON.
 // Gin también lee GIN_MODE al iniciarse y hace panic con un valor inválido
 // antes de llegar aquí; la validación sirve para los tests y por si eso cambia.
-func loadGinMode(logFormat string) (string, bool, error) {
+func loadGinMode(logFormat string) (string, error) {
 	mode := os.Getenv("GIN_MODE")
 	switch mode {
 	case GinModeDebug, GinModeRelease, GinModeTest:
-		return mode, true, nil
+		return mode, nil
 	case "":
 		if logFormat == LogFormatJSON {
-			return GinModeRelease, false, nil
+			return GinModeRelease, nil
 		}
 
-		return GinModeDebug, false, nil
+		return GinModeDebug, nil
 	default:
-		return "", false, fmt.Errorf("invalid GIN_MODE %q: must be debug, release or test", mode)
+		return "", fmt.Errorf("invalid GIN_MODE %q: must be debug, release or test", mode)
 	}
 }
 

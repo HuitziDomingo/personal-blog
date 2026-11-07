@@ -1,6 +1,10 @@
 package config
 
-import "fmt"
+import (
+	"fmt"
+	"net/url"
+	"strings"
+)
 
 // minUsefulBodyBytes es el MAX_BODY_BYTES por debajo del cual un post largo ya
 // no cabe: el contrato no limita el largo del contenido, así que este tope es
@@ -15,6 +19,12 @@ func (c Config) Warnings() []string {
 
 	if len(c.AllowedOrigins) == 0 {
 		warnings = append(warnings, "ALLOWED_ORIGINS is empty: no browser can log in or change state, because CORS and the Origin check reject every origin; set it to the admin origin, e.g. http://localhost:4200")
+	}
+
+	for _, origin := range c.AllowedOrigins {
+		if canonical := canonicalOrigin(origin); canonical != origin {
+			warnings = append(warnings, fmt.Sprintf("ALLOWED_ORIGINS entry %q never matches: browsers send the Origin header as %q", origin, canonical))
+		}
 	}
 
 	switch {
@@ -37,4 +47,29 @@ func (c Config) Warnings() []string {
 	}
 
 	return warnings
+}
+
+// canonicalOrigin es el origen como lo envía un navegador en la cabecera
+// Origin: esquema y host en minúsculas, y sin el puerto por defecto. La API
+// compara los orígenes de forma exacta, así que cualquier otra forma no
+// coincide nunca.
+func canonicalOrigin(origin string) string {
+	parsed, err := url.Parse(origin)
+	if err != nil {
+		return origin
+	}
+
+	scheme := strings.ToLower(parsed.Scheme)
+	host := strings.ToLower(parsed.Hostname())
+	port := parsed.Port()
+
+	if (scheme == "https" && port == "443") || (scheme == "http" && port == "80") {
+		port = ""
+	}
+
+	if port != "" {
+		host += ":" + port
+	}
+
+	return scheme + "://" + host
 }

@@ -33,6 +33,34 @@ func TestWarningsWhenAllowedOriginsIsEmpty(t *testing.T) {
 	assert.Contains(t, warnings[0], "no browser can log in or change state")
 }
 
+func TestWarningsWhenAnAllowedOriginNeverMatches(t *testing.T) {
+	cfg := usefulConfig()
+	cfg.AllowedOrigins = []string{"https://Admin.huitzi.xyz", "https://admin.huitzi.xyz:443", "http://localhost:80", "https://admin.huitzi.xyz", "http://localhost:4200"}
+
+	warnings := cfg.Warnings()
+
+	require.Len(t, warnings, 3)
+	assert.Contains(t, warnings[0], `"https://Admin.huitzi.xyz" never matches`)
+	assert.Contains(t, warnings[0], `"https://admin.huitzi.xyz"`)
+	assert.Contains(t, warnings[1], `"https://admin.huitzi.xyz:443" never matches`)
+	assert.Contains(t, warnings[2], `"http://localhost"`)
+}
+
+func TestWarningsAccumulate(t *testing.T) {
+	cfg := usefulConfig()
+	cfg.AllowedOrigins = nil
+	cfg.MaxBodyBytes = 1
+	cfg.LogFormat = LogFormatJSON
+	cfg.GinMode = GinModeRelease
+
+	warnings := cfg.Warnings()
+
+	require.Len(t, warnings, 3)
+	assert.Contains(t, warnings[0], "ALLOWED_ORIGINS is empty")
+	assert.Contains(t, warnings[1], "MAX_BODY_BYTES")
+	assert.Contains(t, warnings[2], "TRUSTED_PROXIES")
+}
+
 func TestWarningsWhenOnlyHalfOfTheInitialAdminIsSet(t *testing.T) {
 	const email = "admin@huitzi.xyz"
 	const password = "correct-horse-battery"
@@ -130,12 +158,10 @@ func TestLoadLogFormat(t *testing.T) {
 
 func TestLoadGinModeDefaultsFromTheLogFormat(t *testing.T) {
 	setRequiredEnv(t)
-	t.Setenv("GIN_MODE", "")
 
 	cfg, err := Load()
 	require.NoError(t, err)
 	assert.Equal(t, GinModeDebug, cfg.GinMode)
-	assert.False(t, cfg.GinModeExplicit)
 
 	t.Setenv("LOG_FORMAT", "json")
 	cfg, err = Load()
@@ -146,7 +172,6 @@ func TestLoadGinModeDefaultsFromTheLogFormat(t *testing.T) {
 	cfg, err = Load()
 	require.NoError(t, err)
 	assert.Equal(t, GinModeDebug, cfg.GinMode)
-	assert.True(t, cfg.GinModeExplicit)
 
 	t.Setenv("GIN_MODE", "prod")
 	_, err = Load()
