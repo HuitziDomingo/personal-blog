@@ -91,16 +91,17 @@ async function stop(child) {
   }
   const exited = new Promise((resolve) => child.once('exit', resolve));
   try {
+    // Al grupo, si el proceso lo encabeza (detached); si no, solo a él.
     process.kill(-child.pid, 'SIGTERM');
   } catch {
-    return;
+    child.kill('SIGTERM');
   }
   await Promise.race([exited, sleep(5000)]);
   if (child.exitCode === null && child.signalCode === null) {
     try {
       process.kill(-child.pid, 'SIGKILL');
     } catch {
-      // Ya terminó.
+      child.kill('SIGKILL');
     }
   }
 }
@@ -133,13 +134,19 @@ const admin = {
 };
 const children = [];
 let tempDir;
-let cleaned = false;
+let cleaning = null;
 
-async function cleanup() {
-  if (cleaned) {
-    return;
-  }
-  cleaned = true;
+/**
+ * Limpia una sola vez. Devuelve siempre la misma promesa: si un SIGINT ya la
+ * empezó, el finally de main espera a que termine en vez de salir antes de
+ * borrar la base.
+ */
+function cleanup() {
+  cleaning ??= doCleanup();
+  return cleaning;
+}
+
+async function doCleanup() {
   await Promise.all(children.map(stop));
   try {
     dropDatabase(dbName);
@@ -189,6 +196,12 @@ async function main() {
     INITIAL_ADMIN_PASSWORD: admin.password,
     LOG_FORMAT: 'text',
     GIN_MODE: 'release',
+    // Toda la corrida sale de 127.0.0.1: el navegador y las comprobaciones de
+    // la API pública comparten el cupo global, y los preflight de CORS también
+    // cuentan. Con la ráfaga de 20 por defecto, el flujo recibe 429. El límite
+    // del login queda con sus valores por defecto.
+    RATE_LIMIT_GLOBAL_PER_MINUTE: '600',
+    RATE_LIMIT_GLOBAL_BURST: '200',
   };
   const api = start('api', apiBinary, [], { cwd: API_DIR, env: apiEnv });
   children.push(api);
@@ -207,8 +220,8 @@ async function main() {
   log('admin listo');
 
   // Las credenciales del admin de prueba van por el entorno, no por la línea
-  // de comandos.
-  const playwright = spawnSync('pnpm', ['exec', 'playwright', 'test', ...process.argv.slice(2)], {
+  // de comandos. spawn y no spawnSync: así un Ctrl+C se atiende enseguida.
+  const playwright = spawn('pnpm', ['exec', 'playwright', 'test', ...process.argv.slice(2)], {
     cwd: E2E_DIR,
     stdio: 'inherit',
     env: {
@@ -219,7 +232,9 @@ async function main() {
       E2E_ADMIN_PASSWORD: admin.password,
     },
   });
-  return playwright.status ?? 1;
+  children.push(playwright);
+  const [exitCode] = await new Promise((resolve) => playwright.once('exit', (...args) => resolve(args)));
+  return exitCode ?? 1;
 }
 
 let code = 1;
