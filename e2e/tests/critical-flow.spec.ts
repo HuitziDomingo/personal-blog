@@ -35,8 +35,14 @@ test('login, borrador, edición, publicación, API pública y archivo', async ({
     await content.fill('# Hola\n\nSegunda versión, **editada**.');
     // La vista previa refleja el cambio.
     await expect(page.getByRole('region', { name: 'Vista previa' }).locator('strong')).toHaveText('editada');
+    // El aviso «Borrador guardado.» ya está en pantalla desde el primer
+    // guardado: se espera la respuesta del PUT, no solo el texto.
+    const saved = page.waitForResponse((response) => response.request().method() === 'PUT' && response.ok());
     await page.getByRole('button', { name: 'Guardar borrador' }).click();
+    const draft = (await (await saved).json()) as Post;
 
+    expect(draft.status).toBe('draft');
+    expect(draft.content).toBe('# Hola\n\nSegunda versión, **editada**.');
     await expect(status).toHaveText('Borrador guardado.');
   });
 

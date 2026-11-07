@@ -161,17 +161,22 @@ make e2e                      # todo, headless
 make e2e E2E_ARGS="--headed"  # cualquier opción de playwright test
 ```
 
-`make e2e` levanta MongoDB (`make db-up`), descarga Chromium la primera vez (`playwright install chromium`, unos 100 MB en `~/Library/Caches/ms-playwright`) y corre `e2e/scripts/run.mjs`, que:
+`make e2e` levanta MongoDB (`make db-up`), descarga los navegadores de Playwright la primera vez (`playwright install chromium`: Chromium, Chrome Headless Shell y ffmpeg, unos 570 MB en `~/Library/Caches/ms-playwright`) y corre `e2e/scripts/run.mjs`, que:
 
-1. Genera una base temporal `e2e_<id>`, un admin de prueba con email `e2e-<id>@example.test` y contraseña aleatoria, y un `JWT_SECRET` aleatorio. Nunca usa el admin ni el secreto de tu `.env`; de `.env` solo toma la conexión a MongoDB.
-2. Compila la API y la levanta en un puerto libre de `127.0.0.1`, contra esa base, con `ALLOWED_ORIGINS` igual al origen del admin. El rate limit global se sube para la corrida, porque el navegador y las comprobaciones de la API pública comparten la IP (el del login queda por defecto).
-3. Levanta el admin con `ng serve` en otro puerto libre de `127.0.0.1`, apuntando a esa API. Admin y API van en el mismo host porque la cookie es `SameSite=Strict`.
-4. Corre `playwright test` con las URLs y las credenciales de prueba por variables de entorno.
-5. Siempre, aunque algo falle o se interrumpa con Ctrl+C: para los procesos y borra la base temporal con `mongosh` dentro del contenedor.
+1. Comprueba que `MONGO_URI` apunta al MongoDB local de docker compose (`127.0.0.1:27017` o `localhost:27017`); si no, no corre, porque el borrado de la base se hace dentro de ese contenedor.
+2. Genera una base temporal `e2e_<id>`, un admin de prueba con email `e2e-<id>@example.test` y contraseña aleatoria, y un `JWT_SECRET` aleatorio. De `.env` solo toma `MONGO_URI`: los procesos hijos no heredan el resto de la configuración ni los secretos, y lo que la corrida no fija usa los valores por defecto de la API.
+3. Compila la API y la levanta en un puerto libre contra esa base, con `ALLOWED_ORIGINS` igual al origen del admin. El rate limit global se sube para la corrida, porque el navegador y las comprobaciones de la API pública comparten la IP; los de login y refresh quedan por defecto (la suite hace 3 logins, dentro de la ráfaga de 5: con `--repeat-each` o reintentos, el sexto recibe 429).
+4. Levanta el admin con `ng serve` en otro puerto libre de `127.0.0.1`, apuntando a la API en `127.0.0.1`. Admin y API van en el mismo host porque la cookie es `SameSite=Strict`.
+5. Corre `playwright test` con las URLs y las credenciales de prueba por variables de entorno.
+6. Siempre, aunque algo falle o se interrumpa (Ctrl+C, `SIGTERM` o cerrar la terminal): para los procesos y borra la base temporal con `mongosh` dentro del contenedor, después de comprobar que existe ahí.
 
-Los logs de la API y del admin quedan en `e2e/test-results/{api,admin}.log`, y el reporte de Playwright en `e2e/playwright-report/` (los dos ignorados por git). Si una corrida muere sin limpiar (por ejemplo, con `kill -9`), `make e2e-clean` borra las bases `e2e_*`.
+Los logs de la API y del admin quedan en `e2e/test-results/{api,admin}.log`, y el reporte de Playwright en `e2e/playwright-report/` (los dos ignorados por git). El trace de un test fallido guarda lo que se escribió en los campos, incluida la contraseña de prueba (efímera).
 
-Desde un worktree de git, `docker compose` usaría otro proyecto (con otro MongoDB): exporta `COMPOSE_PROJECT_NAME=personal-blog` y carga el `.env` del checkout principal.
+Si una corrida muere sin limpiar (por ejemplo, con `kill -9`), `make e2e-clean` borra las bases `e2e_*`, incluida la de una corrida que esté en curso. Los procesos de esa corrida siguen vivos: páralos con `pkill -f 'personal-blog-e2e-.*/api'` y `pkill -f 'ng serve --host 127.0.0.1'`.
+
+Los specs son TypeScript y Playwright no verifica sus tipos: `pnpm --filter @personal-blog/e2e typecheck`.
+
+Desde un worktree de git, `make e2e` necesita su propio `.env` (cópialo o enlázalo del checkout principal). `docker-compose.yml` declara `name: personal-blog`, así que usa el mismo MongoDB.
 
 No corre en el CI todavía.
 
