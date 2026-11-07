@@ -1,6 +1,13 @@
-import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, effect, input, output, signal, untracked } from '@angular/core';
 
 import { renderMarkdown } from '../../core/markdown/render-markdown';
+
+/**
+ * Espera de la vista previa tras la última tecla. Convertir y sanitizar el
+ * Markdown entero en cada tecla es caro en posts largos; el valor del
+ * formulario no espera nunca.
+ */
+export const PREVIEW_DEBOUNCE_MS = 150;
 
 /**
  * Editor de Markdown de ADR-012: un textarea y la vista previa lado a lado (una
@@ -10,7 +17,8 @@ import { renderMarkdown } from '../../core/markdown/render-markdown';
  *
  * La vista previa pasa por `renderMarkdown` (marked + DOMPurify con allowlist)
  * y se enlaza con [innerHTML], que vuelve a sanitizar Angular. Nunca
- * `bypassSecurityTrust*`.
+ * `bypassSecurityTrust*`. Se recalcula PREVIEW_DEBOUNCE_MS después de la última
+ * tecla; el primer valor se muestra de inmediato.
  */
 @Component({
   selector: 'app-markdown-editor',
@@ -73,5 +81,23 @@ export class MarkdownEditor {
   readonly disabled = input(false);
   readonly describedBy = input<string>();
 
-  protected readonly html = computed(() => renderMarkdown(this.value()));
+  /** Texto que muestra la vista previa: `value` con el debounce aplicado. */
+  private readonly previewSource = signal<string | undefined>(undefined);
+  protected readonly html = computed(() => renderMarkdown(this.previewSource() ?? ''));
+
+  constructor() {
+    effect((onCleanup) => {
+      const value = this.value();
+
+      // El primer valor (el contenido inicial) no espera.
+      if (untracked(this.previewSource) === undefined) {
+        this.previewSource.set(value);
+        return;
+      }
+
+      // Cada tecla reprograma el timer: solo se renderiza el último valor.
+      const timer = setTimeout(() => this.previewSource.set(value), PREVIEW_DEBOUNCE_MS);
+      onCleanup(() => clearTimeout(timer));
+    });
+  }
 }

@@ -8,6 +8,7 @@ import { firstValueFrom, Observable, of, Subject, throwError } from 'rxjs';
 import { Post, PostWrite } from '../../core/api/api-types';
 import { PostsApi } from '../../core/api/posts-api';
 import { ApiError } from '../../core/http/api-error';
+import { PREVIEW_DEBOUNCE_MS } from '../../shared/markdown-editor/markdown-editor';
 import { PostEditorPage } from './post-editor.page';
 import { unsavedChangesGuard } from './unsaved-changes.guard';
 
@@ -304,9 +305,37 @@ describe('PostEditorPage', () => {
       expect((screen.getByLabelText('Título') as HTMLInputElement).value).toBe('Hola mundo');
       expect((screen.getByLabelText('Etiquetas') as HTMLInputElement).value).toBe('go');
       expect((screen.getByLabelText('Contenido') as HTMLTextAreaElement).value).toBe('# Hola');
+      // La vista previa del contenido cargado no espera el debounce.
+      expect(screen.getByRole('region', { name: 'Vista previa' }).querySelector('h1')?.textContent).toBe('Hola');
       expect((screen.getByLabelText('Palabras clave') as HTMLInputElement).value).toBe('a, b');
       expect(screen.getByText('Borrador')).toBeTruthy();
       expect(screen.getByText('Si lo dejas vacío, se conserva el actual.')).toBeTruthy();
+    });
+
+    it('el formulario tiene cada tecla al instante; solo la vista previa espera', async () => {
+      const api = new FakePostsApi();
+      api.post = stored();
+      const { fixture, page } = await renderEditor(api, 'p1');
+      vi.useFakeTimers();
+      try {
+        const preview = () => screen.getByRole('region', { name: 'Vista previa' }).querySelector('h1')?.textContent;
+
+        await type('Contenido', '# Recién escrito');
+        fixture.detectChanges();
+
+        // Sin avanzar los timers: el formulario ya cambió y se guarda lo
+        // último, aunque la vista previa siga con el valor anterior.
+        expect(page.hasUnsavedChanges()).toBe(true);
+        expect(preview()).toBe('Hola');
+        await fireEvent.click(screen.getByRole('button', { name: 'Guardar borrador' }));
+        expect(api.updated.at(-1)?.body.content).toBe('# Recién escrito');
+
+        await vi.advanceTimersByTimeAsync(PREVIEW_DEBOUNCE_MS);
+        fixture.detectChanges();
+        expect(preview()).toBe('Recién escrito');
+      } finally {
+        vi.useRealTimers();
+      }
     });
 
     it('un post que no existe muestra el error y vuelve a la lista', async () => {
