@@ -84,13 +84,31 @@
 
 /*
  * Paletas de acento (BLOG-017). Cada una redefine el color primario de Spartan
- * en claro y en oscuro; `neutral` es el tema de arriba, sin reglas propias.
+ * en claro y en oscuro. `neutral` repite los valores de :root y :root.dark: su
+ * muestra en el menú tiene que verse neutra aunque <html> tenga otro acento.
  * ThemeService y el script de index.html ponen data-accent en <html>, y las
  * muestras del menú lo ponen en su propio elemento para pintarse con su paleta.
  * Van después de :root.dark: `.dark[data-accent]` empata con él en
  * especificidad y gana por orden. scripts/check-theme-contrast.mjs comprueba
  * el contraste WCAG AA de todas dentro de make admin-test.
  */
+[data-accent='neutral'] {
+  --primary: oklch(0.205 0 0);
+  --primary-foreground: oklch(0.985 0 0);
+  --ring: oklch(0.708 0 0);
+  --sidebar-primary: oklch(0.205 0 0);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+}
+
+.dark[data-accent='neutral'],
+.dark [data-accent='neutral'] {
+  --primary: oklch(0.922 0 0);
+  --primary-foreground: oklch(0.205 0 0);
+  --ring: oklch(0.556 0 0);
+  --sidebar-primary: oklch(0.985 0 0);
+  --sidebar-primary-foreground: oklch(0.205 0 0);
+}
+
 [data-accent='blue'] {
   --primary: oklch(0.488 0.243 264.376);
   --primary-foreground: oklch(0.985 0 0);

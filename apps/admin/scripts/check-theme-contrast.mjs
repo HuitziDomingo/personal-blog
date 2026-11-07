@@ -4,8 +4,15 @@
 //
 // Lee las variables de :root, :root.dark y de los bloques [data-accent='…'], y
 // las combina en el orden en que las aplica la cascada. Convierte los colores
-// oklch a sRGB (recortando al gamut, como una pantalla sRGB) y calcula la
-// relación de contraste.
+// oklch a sRGB y calcula la relación de contraste. Los colores fuera de sRGB se
+// recortan por canal, no con el mapeo de gamut de CSS Color 4 que usa el
+// navegador: la diferencia es de centésimas, así que un valor pegado al umbral
+// merece margen.
+//
+// El texto sobre el glass (barra superior y offcanvas) se mide con
+// foreground, sidebar-foreground y sidebar-accent-foreground. muted-foreground
+// no cumple sobre el glass en el peor caso, así que el shell y el menú no lo
+// usan; theme-glass-text.test.mjs lo comprueba.
 //
 // Uso: node scripts/check-theme-contrast.mjs [ruta de styles.css]
 import { readFileSync } from 'node:fs';
@@ -83,6 +90,12 @@ function blocks(css) {
   }));
 }
 
+/** Variables declaradas en los bloques con exactamente ese selector. */
+export function variablesOf(css, selector) {
+  const found = blocks(css).filter((block) => block.selectors.includes(selector));
+  return Object.assign({}, ...found.map((block) => block.vars));
+}
+
 /**
  * Variables efectivas en `<html>` para cada modo y acento, en el orden de la
  * cascada: `[data-accent]` (0,1,0) le gana a `:root` por ir después, pero no a
@@ -105,9 +118,9 @@ export function themes(css) {
   ];
 
   const result = [];
-  for (const accent of ['neutral', ...accents]) {
-    const light = accent === 'neutral' ? {} : find(`[data-accent='${accent}']`);
-    const dark = accent === 'neutral' ? {} : find(`.dark[data-accent='${accent}']`);
+  for (const accent of accents) {
+    const light = find(`[data-accent='${accent}']`);
+    const dark = find(`.dark[data-accent='${accent}']`);
     result.push({ accent, mode: 'light', vars: { ...find(':root'), ...light } });
     result.push({ accent, mode: 'dark', vars: { ...find(':root'), ...light, ...find(':root.dark'), ...dark } });
   }
@@ -138,6 +151,8 @@ export function checks({ vars }) {
     { pair: 'Acento sobre el fondo (primary / background)', ratio: contrast(primary, background), min: NON_TEXT },
     { pair: 'Acento sobre el menú (sidebar-primary / sidebar)', ratio: contrast(color('--sidebar-primary'), color('--sidebar')), min: NON_TEXT },
     { pair: 'Texto sobre el glass, peor caso', ratio: worstOnGlass(foreground), min: TEXT },
+    { pair: 'Texto del menú sobre el glass, peor caso', ratio: worstOnGlass(color('--sidebar-foreground')), min: TEXT },
+    { pair: 'Link activo (sidebar-accent-foreground / sidebar-accent)', ratio: contrast(color('--sidebar-accent-foreground'), color('--sidebar-accent')), min: TEXT },
     { pair: 'Acento sobre el glass, peor caso', ratio: worstOnGlass(primary), min: NON_TEXT },
   ];
 }

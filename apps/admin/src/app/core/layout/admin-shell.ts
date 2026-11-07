@@ -45,7 +45,7 @@ export const DESKTOP_QUERY = '(min-width: 64rem)';
           </button>
           <hlm-sheet-content
             *hlmSheetPortal="let ctx"
-            class="bg-background/80 supports-backdrop-filter:backdrop-blur-md w-72 overflow-y-auto p-4"
+            class="bg-background/80 supports-backdrop-filter:backdrop-blur-md overflow-y-auto p-4"
             [showCloseButton]="false"
           >
             <div class="flex items-center justify-between">
@@ -59,7 +59,7 @@ export const DESKTOP_QUERY = '(min-width: 64rem)';
         </hlm-sheet>
       }
       <a routerLink="/posts" class="focus-visible:ring-ring/50 rounded-md font-semibold outline-none focus-visible:ring-3">
-        huitzi.xyz <span class="text-muted-foreground font-normal">· Admin</span>
+        huitzi.xyz <span class="font-normal">· Admin</span>
       </a>
     </header>
 

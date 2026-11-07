@@ -38,7 +38,9 @@ import { ThemeService } from '../theme/theme.service';
     </nav>
 
     <section aria-labelledby="perfil-titulo" class="flex flex-col gap-4 border-t pt-4">
-      <h2 id="perfil-titulo" class="text-muted-foreground px-3 text-xs font-semibold tracking-wide uppercase">
+      <!-- Sin text-muted-foreground: el menú también va sobre el glass del
+           offcanvas, donde no cumple AA (scripts/check-theme-contrast.mjs). -->
+      <h2 id="perfil-titulo" class="px-3 text-xs font-semibold tracking-wide uppercase">
         Perfil
       </h2>
 
@@ -53,7 +55,7 @@ import { ThemeService } from '../theme/theme.service';
         <h3 class="text-sm font-semibold">Apariencia</h3>
 
         <div class="flex flex-col gap-2">
-          <span id="tema-titulo" class="text-muted-foreground text-xs font-medium">Tema</span>
+          <span id="tema-titulo" class="text-xs font-semibold">Tema</span>
           <hlm-radio-group
             name="tema"
             aria-labelledby="tema-titulo"
@@ -71,7 +73,7 @@ import { ThemeService } from '../theme/theme.service';
         </div>
 
         <div class="flex flex-col gap-2">
-          <span id="acento-titulo" class="text-muted-foreground text-xs font-medium">Color de acento</span>
+          <span id="acento-titulo" class="text-xs font-semibold">Color de acento</span>
           <hlm-radio-group
             name="acento"
             aria-labelledby="acento-titulo"

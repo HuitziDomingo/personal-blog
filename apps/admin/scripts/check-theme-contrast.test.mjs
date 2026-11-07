@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 
 import { ACCENTS } from '../src/app/core/theme/theme.ts';
-import { checks, composite, contrast, oklchToLinearSrgb, themes } from './check-theme-contrast.mjs';
+import { checks, composite, contrast, oklchToLinearSrgb, themes, variablesOf } from './check-theme-contrast.mjs';
 
 const STYLES = readFileSync(new URL('../src/styles.css', import.meta.url), 'utf8');
 
@@ -25,7 +25,20 @@ test('mezcla con opacidad en sRGB codificado, como el navegador', () => {
 
 test('las paletas de styles.css son las de theme.ts', () => {
   const { accents } = themes(STYLES);
-  assert.deepEqual(['neutral', ...accents].sort(), [...ACCENTS].sort());
+  assert.deepEqual([...accents].sort(), [...ACCENTS].sort());
+});
+
+test('la paleta neutral repite el tema de :root, para que su muestra se vea neutra', () => {
+  const neutral = themes(STYLES).themes.filter((theme) => theme.accent === 'neutral');
+  const root = variablesOf(STYLES, ':root');
+  const base = { light: root, dark: { ...root, ...variablesOf(STYLES, ':root.dark') } };
+  for (const mode of ['light', 'dark']) {
+    const expected = base[mode];
+    const actual = neutral.find((theme) => theme.mode === mode).vars;
+    for (const name of ['--primary', '--primary-foreground', '--ring', '--sidebar-primary', '--sidebar-primary-foreground']) {
+      assert.equal(actual[name], expected[name], `${mode} ${name}`);
+    }
+  }
 });
 
 test('cada paleta cumple WCAG AA en claro y en oscuro', () => {
