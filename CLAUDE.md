@@ -23,6 +23,7 @@ No inventes comandos. Cuando exista uno real, sustituye su TODO.
 - Ver logs de MongoDB local: `make db-logs`
 - Borrar los datos de MongoDB local: `make db-reset` (pide confirmación)
 - Levantar la API: `make api-run`
+- Levantar la API con recarga al guardar: `make api-watch`
 - Tests de Go: `make api-test`
 - Tests de integración de Go: `make api-test-integration` (levanta MongoDB con docker compose)
 - Tests del admin: `make admin-test`
