@@ -37,6 +37,9 @@ jobs:
             admin:
               - "apps/admin/**"
               - "packages/api-types/**"
+              # El admin usa packages/markdown; el job también corre sus
+              # comprobaciones mientras no exista el job web (ADR-017).
+              - "packages/markdown/**"
               - "package.json"
               - "pnpm-lock.yaml"
               - "pnpm-workspace.yaml"
@@ -135,6 +138,12 @@ jobs:
       # (ADR-014).
       - name: lint
         run: pnpm --filter @personal-blog/admin lint
+
+      - name: markdown
+        run: |
+          pnpm --filter @personal-blog/markdown lint
+          pnpm --filter @personal-blog/markdown typecheck
+          pnpm --filter @personal-blog/markdown test
 
       - name: test
         run: pnpm --filter @personal-blog/admin test
