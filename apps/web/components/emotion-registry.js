@@ -13,8 +13,9 @@ import { useState } from 'react';
  * en línea: el registro junta los estilos de cada render y Next los inserta en
  * <head> con useServerInsertedHTML.
  *
- * Es el punto donde una CSP con nonces tendría que poner el nonce a cada
- * <style> (pendiente para el ADR).
+ * Una CSP con nonces tendría que pasar el nonce aquí (createCache({ nonce })),
+ * pero los nonces exigen renderizado dinámico y desactivan ISR: es una de las
+ * decisiones del ADR de apps/web.
  *
  * @param {{ children: import('react').ReactNode }} props
  */
@@ -28,7 +29,9 @@ export function EmotionRegistry({ children }) {
     const insert = cache.insert;
     /** @type {typeof cache.insert} */
     cache.insert = (selector, serialized, sheet, shouldCache) => {
-      if (cache.inserted[serialized.name] === undefined) {
+      // Solo en el servidor: en el cliente useServerInsertedHTML no vacía la
+      // lista y crecería sin fin.
+      if (typeof window === 'undefined' && cache.inserted[serialized.name] === undefined) {
         inserted.push(serialized.name);
       }
       return insert(selector, serialized, sheet, shouldCache);

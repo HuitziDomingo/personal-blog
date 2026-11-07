@@ -177,8 +177,8 @@ make web-test       # node --test de lib/*.test.mjs
 
 - **API:** `lib/api.js` llama a la API pública de posts (`GET /api/v1/posts` y `GET /api/v1/posts/{slug}`) con `fetch` nativo desde el servidor. Next la cachea con `revalidate` (ISR, 60 s). La URL sale de `API_BASE_URL` (por defecto `http://localhost:8080`); con `make web-dev WEB_API_BASE_URL=<origen>` usa otra. Como las peticiones salen del servidor de Next y no del navegador, no hace falta agregar `localhost:3000` a `ALLOWED_ORIGINS`.
 - **Páginas:**
-  - `/`: los posts publicados; estática, regenerada como mucho cada minuto.
-  - `/posts/[slug]`: el post; `generateStaticParams` devuelve una lista vacía, así que el build no llama a la API y cada slug se genera en su primera visita y queda en caché. Un slug que no existe da 404.
+  - `/`: los posts publicados; estática, regenerada como mucho cada minuto. Se prerenderiza en el build, así que `pnpm --filter @personal-blog/web build` necesita la API accesible: sin ella, el build falla.
+  - `/posts/[slug]`: el post; `generateStaticParams` devuelve una lista vacía, así que el build no llama a la API y cada slug se genera en su primera visita y queda en caché. Un slug que no existe da 404, y uno que no cumple el patrón `Slug` del contrato da 404 sin llamar a la API.
 - **Tipos:** `pnpm typecheck` (`tsc -p jsconfig.json`) verifica los JSDoc y los tipos del contrato importados de `@personal-blog/api-types` (ADR-007). `maxNodeModuleJsDepth: 0` evita que `tsc` analice el JavaScript de las dependencias.
 - **Markdown:** `lib/render-markdown.js` usa la misma allowlist que el admin, duplicada (con un TODO) hasta que el ADR decida si se comparte en `packages/`. DOMPurify corre en el servidor sobre `jsdom`. Un test compara las listas con las de `apps/admin`.
 - **Lo que falta antes de producción** (va en el ADR): CSP, tema propio y modo oscuro, job `web` en el CI (BLOG-052) y despliegue en Vercel.
