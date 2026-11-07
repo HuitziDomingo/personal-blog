@@ -44,8 +44,8 @@ export default async function PostPage({ params }) {
           {post.title}
         </Heading>
         {post.publishedAt && (
-          <Text as="time" dateTime={post.publishedAt} color="fg.muted">
-            {formatDate(post.publishedAt)}
+          <Text asChild color="fg.muted">
+            <time dateTime={post.publishedAt}>{formatDate(post.publishedAt)}</time>
           </Text>
         )}
         {post.tags.length > 0 && (
