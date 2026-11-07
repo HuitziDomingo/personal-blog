@@ -8,7 +8,7 @@ import { test } from 'node:test';
 import { ACCENTS, THEME_STORAGE_KEYS } from '../src/app/core/theme/theme.ts';
 
 const html = readFileSync(new URL('../src/index.html', import.meta.url), 'utf8');
-const scripts = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(([, body]) => body);
+const scripts = [...html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script\b[^>]*>/gi)].map(([, body]) => body);
 
 function run({ stored = {}, systemDark = false, storageThrows = false } = {}) {
   const classes = new Set();

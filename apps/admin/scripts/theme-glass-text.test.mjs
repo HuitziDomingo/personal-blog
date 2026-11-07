@@ -9,7 +9,8 @@ const GLASS_FILES = ['../src/app/core/layout/admin-shell.ts', '../src/app/core/l
 
 test('el shell y el menú no usan texto secundario sobre el glass', () => {
   for (const file of GLASS_FILES) {
-    const source = readFileSync(new URL(file, import.meta.url), 'utf8').replace(/<!--[\s\S]*?-->/g, '');
-    assert.doesNotMatch(source, /text-muted-foreground/, file);
+    // Busca la clase en atributos class="…", no en comentarios que la mencionen.
+    const source = readFileSync(new URL(file, import.meta.url), 'utf8');
+    assert.doesNotMatch(source, /\bclass="[^"]*\btext-muted-foreground\b/, file);
   }
 });
