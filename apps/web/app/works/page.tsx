@@ -6,7 +6,7 @@ import { works } from '@/lib/site';
 
 export const metadata = pageMetadata({
   title: 'Trabajos',
-  description: 'Proyectos en los que he trabajado: Debred, YouTube, Dalyza y Aum Internacional.',
+  description: 'Mis trabajos y proyectos.',
   path: '/works',
 });
 

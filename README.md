@@ -9,7 +9,8 @@ Monorepo según el [ADR-001](docs/adr/001-stack-y-monorepo.md):
 ```text
 personal-blog/
 ├── apps/
-│   └── admin/          # Dashboard: Angular + Spartan UI + Tailwind CSS
+│   ├── admin/          # Dashboard: Angular + Spartan UI + Tailwind CSS
+│   └── web/            # Sitio público: Next.js + Chakra UI (portafolio y blog)
 ├── packages/
 │   ├── api-types/      # Tipos TypeScript generados del contrato
 │   └── markdown/       # Render y sanitización de Markdown (admin y web)
@@ -20,6 +21,7 @@ personal-blog/
 │   ├── adr/            # Decisiones de arquitectura
 │   ├── api/            # Contrato OpenAPI y colección de Bruno
 │   ├── development.md  # Guía de desarrollo
+│   ├── web/            # Posts de la web anterior, listos para el admin
 │   └── roadmap.md      # Backlog
 ├── scripts/            # Scripts de generación
 ├── docker-compose.yml  # MongoDB local

@@ -21,21 +21,22 @@ const LATEST_POSTS = 3;
 export const metadata = {
   ...pageMetadata({ title: profile.shortName, description: profile.greeting, path: '/' }),
   // La portada no usa la plantilla «%s · Huitzitzili León».
-  title: { absolute: `${profile.shortName} · Desarrollador full-stack y Tech Lead` },
+  title: { absolute: profile.name },
 };
 
-function AboutParagraph({ text }: { text: string }) {
+/** Texto de lib/site.ts con el link a Debred donde dice `{debred}`. */
+function WithDebredLink({ text }: { text: string }) {
   const [before, after] = text.split('{debred}');
   if (after === undefined) {
-    return <Text>{text}</Text>;
+    return text;
   }
 
   return (
-    <Text>
+    <>
       {before}
       <ExternalLink href={debredUrl}>Debred</ExternalLink>
       {after}
-    </Text>
+    </>
   );
 }
 
@@ -77,7 +78,9 @@ export default async function HomePage() {
         <SectionHeading id="acerca">Acerca de mí</SectionHeading>
         <Stack gap="4" lineHeight="1.75">
           {about.map((text) => (
-            <AboutParagraph key={text} text={text} />
+            <Text key={text}>
+              <WithDebredLink text={text} />
+            </Text>
           ))}
         </Stack>
         <Flex justify="center" mt="6">
@@ -107,7 +110,7 @@ export default async function HomePage() {
                 <Box as="span" color="brand.accent" me="2">
                   {entry.period}
                 </Box>
-                {entry.title}
+                <WithDebredLink text={entry.title} />
               </Text>
               {entry.description && (
                 <Text color="fg.muted" mt="1" lineHeight="1.7">

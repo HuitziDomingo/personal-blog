@@ -8,6 +8,9 @@ export interface FeedChannel {
 
 function escapeXml(value: string): string {
   return value
+    // Caracteres de control que XML 1.0 no admite ni escapados.
+    // eslint-disable-next-line no-control-regex -- es justo lo que se busca
+    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\uFFFE\uFFFF]/g, '')
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')

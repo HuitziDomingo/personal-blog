@@ -9,7 +9,9 @@ import youtube from '@/assets/img/works/youtube.webp';
 /**
  * Contenido del sitio, migrado de next-chakraUI (commit d627669; inventario en
  * Obsidian, «Web actual - inventario para migrar»). Solo se corrigieron
- * ortografía y puntuación; no hay texto nuevo.
+ * ortografía y puntuación. Texto nuevo, pendiente de que León lo confirme:
+ * los `alt` de las imágenes y `siteDescription` (venía del spike de apps/web,
+ * no de la web anterior).
  */
 export const profile = {
   name: 'Huitzitzili Domingo León Nieves',
@@ -44,7 +46,7 @@ export const socialLinks: readonly ExternalLink[] = [
   },
 ];
 
-/** Párrafos de «Acerca de mí»; `{debred}` marca dónde va el link a Debred. */
+/** Párrafos de «Acerca de mí». En este archivo, `{debred}` marca dónde va el link a Debred. */
 export const about: readonly string[] = [
   'Soy desarrollador full-stack con más de 5 años de experiencia, especializado en Node.js. Mi trayectoria incluye liderazgo técnico y un enfoque apasionado tanto en frontend como en backend.',
   'Mi experiencia más significativa fue cofundar y desarrollar {debred}, una agencia freelance donde coordiné proyectos de extremo a extremo.',
@@ -61,7 +63,7 @@ export interface BioEntry {
 
 export const bio: readonly BioEntry[] = [
   { period: '1993', title: 'Nacimiento en CDMX, México.' },
-  { period: '2014 - Actualidad', title: 'Trabajo freelance en Debred como frontend developer.' },
+  { period: '2014 - Actualidad', title: 'Trabajo freelance en {debred} como frontend developer.' },
   {
     period: '2018-Ago',
     title: 'Frontend Developer en Prossa',
@@ -195,6 +197,7 @@ export function findWork(id: string): Work | undefined {
 
 /** Video destacado de la sección de posts de la web anterior. */
 export const featuredVideo = {
+  heading: 'Curso de React Native',
   title: 'Mi canal de YouTube',
   href: 'https://www.youtube.com/watch?v=ftxucvCPvys',
 } as const;

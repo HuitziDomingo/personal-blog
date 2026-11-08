@@ -21,7 +21,7 @@ yarn init -y
 
 ## Scripts de arranque
 
-Ahora agregaremos los siguientes scripts a nuestro archivo `package.json`. Esto sirve para desarrollar y compilar nuestro backend.
+Ahora agregaremos los siguientes scripts para configurar nuestro archivo `package.json`. Esto sirve para desarrollar y compilar nuestro backend.
 
 ```json
 "scripts": {
@@ -118,7 +118,7 @@ import app from "./app"
 app.listen(process.env.PORT || 4000, () => console.log('Hola EXPRESS corriendo en el puerto: 4000' ))
 ```
 
-Ahora arrancamos el proyecto con el siguiente comando. Si todo sale bien, habrás levantado tu servidor en Express.
+Ahora arrancamos el proyecto con el siguiente código. Si todo sale bien, habrás levantado tu servidor en Express.
 
 ```sh
 yarn dev

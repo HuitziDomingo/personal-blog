@@ -17,15 +17,13 @@ export function SiteFooter() {
                 <ExternalLink href={link.href}>{link.network}</ExternalLink>
               </li>
             ))}
-            <li>
-              <Link asChild color="brand.link" fontSize="sm">
-                <NextLink href="/feed.xml">
-                  <RssIcon style={{ display: 'inline', marginInlineEnd: '0.25em' }} />
-                  RSS
-                </NextLink>
-              </Link>
-            </li>
           </HStack>
+          <Link asChild color="brand.link" fontSize="sm" w="fit-content">
+            <NextLink href="/feed.xml">
+              <RssIcon style={{ display: 'inline', marginInlineEnd: '0.25em' }} />
+              RSS del blog
+            </NextLink>
+          </Link>
           <Flex justify="space-between" wrap="wrap" gap="2">
             <Text color="fg.muted" fontSize="sm">
               © {new Date().getFullYear()} {profile.name}

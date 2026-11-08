@@ -1,9 +1,10 @@
 'use client';
 
-import { Box, Container, HStack, IconButton, Link, Menu, Portal } from '@chakra-ui/react';
+import { Box, Container, HStack, IconButton, Link } from '@chakra-ui/react';
 import Image from 'next/image';
 import NextLink from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useEffect, useState } from 'react';
 
 import logo from '@/assets/img/logo.png';
 import { profile } from '@/lib/site';
@@ -22,6 +23,24 @@ function isActive(pathname: string, href: string): boolean {
 
 export function SiteHeader() {
   const pathname = usePathname();
+  // Menú móvil como disclosure: los links siguen dentro del <nav>.
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setOpen(false);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+
+    return () => {
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [open]);
 
   return (
     <Box
@@ -88,31 +107,58 @@ export function SiteHeader() {
           </HStack>
 
           <Box display={{ base: 'block', md: 'none' }}>
-            <Menu.Root positioning={{ placement: 'bottom-end' }}>
-              <Menu.Trigger asChild>
-                <IconButton variant="ghost" size="sm" aria-label="Menú de navegación">
-                  <MenuIcon />
-                </IconButton>
-              </Menu.Trigger>
-              <Portal>
-                <Menu.Positioner>
-                  <Menu.Content minW="12rem">
-                    <Menu.Item value="/" asChild>
-                      <NextLink href="/" aria-current={pathname === '/' ? 'page' : undefined}>
-                        Inicio
+            <IconButton
+              variant="ghost"
+              size="sm"
+              aria-label="Menú de navegación"
+              aria-expanded={open}
+              aria-controls="menu-movil"
+              onClick={() => {
+                setOpen((value) => !value);
+              }}
+            >
+              <MenuIcon />
+            </IconButton>
+            <Box
+              as="ul"
+              id="menu-movil"
+              hidden={!open}
+              listStyleType="none"
+              position="absolute"
+              insetX="0"
+              top="16"
+              bg="bg"
+              borderBottomWidth="1px"
+              px="4"
+              py="2"
+              shadow="md"
+            >
+              {[{ href: '/', label: 'Inicio' }, ...NAV].map(({ href, label }) => {
+                const active = href === '/' ? pathname === '/' : isActive(pathname, href);
+
+                return (
+                  <li key={href}>
+                    <Link
+                      asChild
+                      display="block"
+                      py="3"
+                      fontWeight="medium"
+                      color={active ? 'brand.accent' : 'fg'}
+                    >
+                      <NextLink
+                        href={href}
+                        aria-current={active ? 'page' : undefined}
+                        onClick={() => {
+                          setOpen(false);
+                        }}
+                      >
+                        {label}
                       </NextLink>
-                    </Menu.Item>
-                    {NAV.map(({ href, label }) => (
-                      <Menu.Item key={href} value={href} asChild>
-                        <NextLink href={href} aria-current={isActive(pathname, href) ? 'page' : undefined}>
-                          {label}
-                        </NextLink>
-                      </Menu.Item>
-                    ))}
-                  </Menu.Content>
-                </Menu.Positioner>
-              </Portal>
-            </Menu.Root>
+                    </Link>
+                  </li>
+                );
+              })}
+            </Box>
           </Box>
         </Box>
 

@@ -39,7 +39,7 @@ export default async function BlogPage() {
       )}
 
       <Box as="section" aria-labelledby="en-video">
-        <SectionHeading id="en-video">En video</SectionHeading>
+        <SectionHeading id="en-video">{featuredVideo.heading}</SectionHeading>
         <LinkBox
           as="article"
           display="flex"

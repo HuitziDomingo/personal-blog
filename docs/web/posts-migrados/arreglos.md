@@ -6,7 +6,7 @@ En este post revisaremos varios de sus métodos de uso. Sin más introducción, 
 
 ## Método `.push()`
 
-Agrega un nuevo elemento al final del arreglo y retorna la nueva longitud del mismo.
+Agrega un nuevo elemento al final del arreglo y retorna una nueva longitud en el mismo.
 
 ```ts
 export function arrayPush() {
@@ -83,7 +83,7 @@ export function arrayUnShift() {
 
 ## Método `.map()`
 
-Nos ayuda a recorrer arreglos, e incluso arreglos con objetos, accediendo directamente a sus propiedades.
+Nos ayuda a recorrer arreglos, e incluso arreglos con objetos, accediendo directamente a sus propiedades del mismo.
 
 ```ts
 export function arrayMap() {

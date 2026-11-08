@@ -8,7 +8,7 @@ export function WorkCard({ work, priority = false }: { work: Work; priority?: bo
   const cover = work.sections[0]?.image;
 
   return (
-    <LinkBox as="article" role="group" borderRadius="xl" overflow="hidden" borderWidth="1px" bg="brand.surface">
+    <LinkBox as="article" className="group" borderRadius="xl" overflow="hidden" borderWidth="1px" bg="brand.surface">
       {cover && (
         <Image
           src={cover.src}

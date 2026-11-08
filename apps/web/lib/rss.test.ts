@@ -38,6 +38,12 @@ describe('buildRss', () => {
     expect(xml).toContain('<description>&quot;x&quot; &apos;y&apos;</description>');
   });
 
+  it('drops control characters that XML does not allow', () => {
+    const xml = buildRss(channel, [post({ title: 'A\u0007B', excerpt: 'C\u001FD' })]);
+    expect(xml).toContain('<title>AB</title>');
+    expect(xml).toContain('<description>CD</description>');
+  });
+
   it('skips posts that are not published', () => {
     const xml = buildRss(channel, [post({ status: 'draft', publishedAt: null })]);
     expect(xml).not.toContain('<item>');

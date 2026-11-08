@@ -1,7 +1,10 @@
 import { Button, Heading, Separator, Stack, Text } from '@chakra-ui/react';
+import type { Metadata } from 'next';
 import NextLink from 'next/link';
 
 import { glassTeal, palette } from '@/lib/brand';
+
+export const metadata: Metadata = { title: 'No encontrado', robots: { index: false } };
 
 export default function NotFound() {
   return (

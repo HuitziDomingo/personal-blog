@@ -9,7 +9,7 @@ Los 2 artículos de `next-chakraUI` (commit `d627669`), pasados de JSX a Markdow
 
 ## Qué cambió respecto al original
 
-- **Texto:** solo ortografía y puntuación (acentos, «rebisaremos», «INGRDIENTES», «Configruracion», «siquientes», «libreias», «nusestro», «siguient», «nuetra basa», «entusisasma», «escriremos»). El código va idéntico, incluidos sus comentarios.
+- **Texto:** solo ortografía y puntuación (acentos, «rebisaremos», «INGRDIENTES», «Configruracion», «siquientes», «libreias», «nusestro», «siguient», «nuetra basa», «entusisasma», «escriremos»). El código va idéntico, incluidos sus comentarios, salvo espacios sobrantes al inicio o al final de una línea.
 - **Formato:** cada método o paso es un `##`; los badges pasan a `código` en línea; los bloques de código llevan su lenguaje.
 - **Imágenes:** con `alt` descriptivo (antes faltaba o decía «Debred»). La portada de los dos artículos es la misma imagen, como en la web anterior.
 - **Fecha de publicación:** la web anterior no la tenía; al publicarlos en el admin tendrán la fecha de ese día.
