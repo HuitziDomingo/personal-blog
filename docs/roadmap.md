@@ -49,8 +49,8 @@
 - [x] BLOG-065: Paquete `packages/markdown` (ADR-017) con la allowlist, `isSafeUrl` y `renderMarkdown`, variantes de navegador y de servidor (jsdom) con los mismos tests, y el admin migrado. ([#58](https://github.com/HuitziDomingo/personal-blog/pull/58))
 - [x] BLOG-068: Paginación de la lista de posts del admin centrada y anclada al final de la página, igual en móvil y escritorio. ([#62](https://github.com/HuitziDomingo/personal-blog/pull/62))
 - [x] BLOG-069: Fijar `@types/node` en 24.x (el runtime de `.nvmrc`) en e2e, admin y `packages/markdown`. ([#63](https://github.com/HuitziDomingo/personal-blog/pull/63))
-- [x] BLOG-066: Política de links del paquete de Markdown: en la web solo los externos abren en otra pestaña; el admin sigue abriendo todos. ([#60](https://github.com/HuitziDomingo/personal-blog/pull/60))
-- [x] BLOG-067: `ng serve` (y con él `make admin-dev` y `make e2e`) no resolvía los imports sin extensión de `packages/markdown` al pre-empaquetar dependencias. ([#61](https://github.com/HuitziDomingo/personal-blog/pull/61))
+- [x] BLOG-066: Política de links del paquete de Markdown: en la web solo los externos abren en otra pestaña; el admin sigue abriendo todos. ([#53](https://github.com/HuitziDomingo/personal-blog/pull/53))
+- [x] BLOG-067: `ng serve` (y con él `make admin-dev` y `make e2e`) no resolvía los imports sin extensión de `packages/markdown` al pre-empaquetar dependencias. ([#53](https://github.com/HuitziDomingo/personal-blog/pull/53))
 - [x] BLOG-036: Sanitizar el Markdown de los posts al renderizar en `apps/web` y `apps/admin`, con allowlist (ADR-010). ([#58](https://github.com/HuitziDomingo/personal-blog/pull/58), [#53](https://github.com/HuitziDomingo/personal-blog/pull/53))
 - [x] BLOG-046: CSP y cabeceras del admin en Vercel (ADR-012). ([#45](https://github.com/HuitziDomingo/personal-blog/pull/45))
 - [ ] BLOG-047: Configurar admin.huitzi.xyz en Vercel y DNS en DreamHost. El build command de Vercel debe ser el script `build` del paquete (`pnpm --filter @personal-blog/admin build`), que corre el chequeo de la URL de la API, no `ng build` directo.
