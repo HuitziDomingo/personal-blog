@@ -41,6 +41,7 @@ export interface ApiDeps {
 
 export interface PostsApi {
   listPublished(page?: { limit?: number; offset?: number }): Promise<PostPage>;
+  publishedSummaries(): Promise<PostSummary[]>;
   publishedSlugs(): Promise<string[]>;
   getPublished(slug: string): Promise<Post | null>;
 }
@@ -101,19 +102,24 @@ export function createPostsApi(deps: ApiDeps): PostsApi {
   }
 
   /**
-   * Todos los slugs publicados, el más reciente primero. Con la caché de Next
-   * cuesta como mucho una pasada por minuto, sin importar cuántos slugs se
-   * visiten.
+   * Todos los posts publicados, sin contenido, el más reciente primero. Con la
+   * caché de Next cuesta como mucho una pasada por minuto, sin importar cuántas
+   * páginas la pidan (posts, sitemap).
    */
-  async function publishedSlugs(): Promise<string[]> {
-    const slugs: string[] = [];
+  async function publishedSummaries(): Promise<PostSummary[]> {
+    const posts: PostSummary[] = [];
     for (let offset = 0; ; offset += MAX_LIMIT) {
       const page = await listPublished({ limit: MAX_LIMIT, offset });
-      slugs.push(...page.items.map((post) => post.slug));
-      if (page.items.length < MAX_LIMIT || slugs.length >= page.total) {
-        return slugs;
+      posts.push(...page.items);
+      if (page.items.length < MAX_LIMIT || posts.length >= page.total) {
+        return posts;
       }
     }
+  }
+
+  /** Los slugs de publishedSummaries(), con las mismas peticiones. */
+  async function publishedSlugs(): Promise<string[]> {
+    return (await publishedSummaries()).map((post) => post.slug);
   }
 
   /**
@@ -132,7 +138,7 @@ export function createPostsApi(deps: ApiDeps): PostsApi {
     return get<Post>(`/api/v1/posts/${slug}`);
   }
 
-  return { listPublished, publishedSlugs, getPublished };
+  return { listPublished, publishedSummaries, publishedSlugs, getPublished };
 }
 
 /** El cliente de la app, con fetch y la configuración del entorno. */
