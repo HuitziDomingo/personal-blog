@@ -1,5 +1,5 @@
 # ADR-006: Correcciones a ADR-002 y ADR-003
-* Estado: Aprobado
+* Estado: Aprobado — complementado por ADR-019
 * Fecha: 2026-11-01
 * Autor: León Nieves Huitzitzili Domingo
 * Reemplaza: ADR-002 (ubicación de los DTOs y driver de MongoDB) y ADR-003 (flujo E2E crítico)

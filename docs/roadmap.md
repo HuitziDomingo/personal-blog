@@ -85,6 +85,7 @@
 ## Fase futura (fuera del MVP)
 
 - [x] BLOG-071: Servidor MCP de solo lectura por stdio (ADR-019): `internal/mcp` y `cmd/mcp`, con búsqueda por texto en `service`. ([#65](https://github.com/HuitziDomingo/personal-blog/pull/65))
+- [x] BLOG-074: Línea Estado de ADR-002 y ADR-006: complementados por ADR-019. ([#68](https://github.com/HuitziDomingo/personal-blog/pull/68))
 - [ ] BLOG-023: Definir `domain/comment.go` e implementar comentarios.
 - [ ] BLOG-024: Crear vista de moderación de comentarios.
 - [ ] BLOG-025: Agregar `AIModeration` a la moderación de comentarios.
