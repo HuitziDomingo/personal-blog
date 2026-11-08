@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import { ALLOWED_ATTR, ALLOWED_TAGS } from '../policy';
-import type { MarkdownRenderer } from '../renderer';
+import { ALLOWED_ATTR, ALLOWED_TAGS } from '../policy.ts';
+import type { MarkdownRenderer } from '../renderer.ts';
 
 /** Parsea HTML en un contenedor del DOM que tenga cada entorno. */
 export type HtmlParser = (html: string) => Element;

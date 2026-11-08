@@ -1,8 +1,8 @@
-import { createRenderer, type MarkdownRenderer } from './renderer';
-import type { NewTabPolicy } from './policy';
+import { createRenderer, type MarkdownRenderer } from './renderer.ts';
+import type { NewTabPolicy } from './policy.ts';
 
-export { ALLOWED_ATTR, ALLOWED_TAGS, isExternalLink, isSafeUrl, type NewTabPolicy, type UrlAttribute } from './policy';
-export type { MarkdownRenderer } from './renderer';
+export { ALLOWED_ATTR, ALLOWED_TAGS, isExternalLink, isSafeUrl, type NewTabPolicy, type UrlAttribute } from './policy.ts';
+export type { MarkdownRenderer } from './renderer.ts';
 
 export interface BrowserRendererOptions {
   /** Qué links abren en otra pestaña; ver `NewTabPolicy`. */

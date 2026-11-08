@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest';
 
-import { isSafeUrl } from './policy';
+import { isSafeUrl } from './policy.ts';
 
 const base = 'https://huitzi.xyz/posts/hola';
 

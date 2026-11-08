@@ -1,7 +1,7 @@
 import createDOMPurify, { type WindowLike } from 'dompurify';
 import { Marked } from 'marked';
 
-import { ALLOWED_ATTR, ALLOWED_TAGS, isExternalLink, isSafeUrl, type NewTabPolicy } from './policy';
+import { ALLOWED_ATTR, ALLOWED_TAGS, isExternalLink, isSafeUrl, type NewTabPolicy } from './policy.ts';
 
 /** Convierte Markdown en HTML sanitizado. */
 export type MarkdownRenderer = (source: string) => string;

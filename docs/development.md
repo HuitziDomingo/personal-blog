@@ -428,7 +428,7 @@ El admin no usa `provideSpartanHlm()`. Solo cambia el default de los overlays de
 
 ### Paquete `packages/markdown`
 
-`@personal-blog/markdown` es la única fuente de la allowlist, la política de URLs y el render de Markdown ([ADR-017](adr/017-arquitectura-de-la-web-publica-nextjs.md), punto 5). Convierte con `marked` y sanitiza con DOMPurify (ADR-010, punto 4; ADR-012, punto 6). Se publica como TypeScript sin compilar: cada app lo compila con lo suyo.
+`@personal-blog/markdown` es la única fuente de la allowlist, la política de URLs y el render de Markdown ([ADR-017](adr/017-arquitectura-de-la-web-publica-nextjs.md), punto 5). Convierte con `marked` y sanitiza con DOMPurify (ADR-010, punto 4; ADR-012, punto 6). Se publica como TypeScript sin compilar: cada app lo compila con lo suyo. Por eso sus imports relativos llevan la extensión `.ts` (`./policy.ts`): el pre-empaquetado de Vite en `ng serve` y Turbopack en Next no infieren la extensión dentro de un paquete. El paquete activa `allowImportingTsExtensions`, y el admin `rewriteRelativeImportExtensions`, porque su compilación emite JavaScript.
 
 - **Variantes:**
   - `@personal-blog/markdown`, para el navegador: `renderMarkdown(source)` sanitiza con el DOM de la página y resuelve las URLs relativas contra `window.location`. La usa el admin. `createBrowserRenderer({ newTab })` crea otro con otra política de links.
