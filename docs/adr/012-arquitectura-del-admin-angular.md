@@ -1,5 +1,5 @@
 # ADR-012: Arquitectura del Dashboard de Administración (Angular)
-* Estado: Aprobado
+* Estado: Aprobado — punto del editor (textarea con vista previa) reemplazado por ADR-018
 * Fecha: 2026-11-02
 * Autor: León Nieves Huitzitzili Domingo
 * Complementa: ADR-001 (detalla `apps/admin`), ADR-005 y ADR-010/011 (flujo de sesión, CSP y sanitización del lado del admin)
