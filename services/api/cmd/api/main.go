@@ -99,9 +99,11 @@ func run(logger *slog.Logger) error {
 		Logger:         logger,
 		JSONLogs:       cfg.LogFormat == config.LogFormatJSON,
 		RateLimits: handler.RateLimits{
-			Global:  handler.RateLimit(cfg.GlobalRateLimit),
-			Login:   handler.RateLimit(cfg.LoginRateLimit),
-			Refresh: handler.RateLimit(cfg.RefreshRateLimit),
+			Global:    handler.RateLimit(cfg.GlobalRateLimit),
+			Login:     handler.RateLimit(cfg.LoginRateLimit),
+			Refresh:   handler.RateLimit(cfg.RefreshRateLimit),
+			Preflight: handler.RateLimit(cfg.PreflightRateLimit),
+			User:      handler.RateLimit(cfg.UserRateLimit),
 		},
 	}
 

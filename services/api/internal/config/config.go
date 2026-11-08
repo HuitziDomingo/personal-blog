@@ -48,6 +48,9 @@ type Config struct {
 	GlobalRateLimit  RateLimit
 	LoginRateLimit   RateLimit
 	RefreshRateLimit RateLimit
+	// PreflightRateLimit y UserRateLimit son los buckets de ADR-016.
+	PreflightRateLimit RateLimit
+	UserRateLimit      RateLimit
 
 	// Opcionales: solo se usan para crear el administrador inicial.
 	InitialAdminEmail    string
@@ -107,7 +110,7 @@ func Load() (Config, error) {
 		return Config{}, err
 	}
 
-	var limits [3]RateLimit
+	var limits [len(rateLimitSpecs)]RateLimit
 	for i, spec := range rateLimitSpecs {
 		if limits[i], err = loadRateLimit(spec); err != nil {
 			return Config{}, err
@@ -119,6 +122,8 @@ func Load() (Config, error) {
 		GlobalRateLimit:      limits[0],
 		LoginRateLimit:       limits[1],
 		RefreshRateLimit:     limits[2],
+		PreflightRateLimit:   limits[3],
+		UserRateLimit:        limits[4],
 		Port:                 port,
 		MongoURI:             mongoURI,
 		MongoDBName:          mongoDBName,
@@ -243,8 +248,8 @@ func loadMaxBodyBytes() (int64, error) {
 	return maxBytes, nil
 }
 
-// RateLimit es un límite por IP: PerMinute peticiones por minuto, con ráfagas de
-// hasta Burst.
+// RateLimit es un límite por IP o por usuario: PerMinute peticiones por
+// minuto, con ráfagas de hasta Burst.
 type RateLimit struct {
 	PerMinute int
 	Burst     int
@@ -255,11 +260,14 @@ type rateLimitSpec struct {
 	defaults RateLimit
 }
 
-// rateLimitSpecs son los valores por defecto de ADR-010: global, login y refresh.
-var rateLimitSpecs = [3]rateLimitSpec{
+// rateLimitSpecs son los valores por defecto de ADR-010 (global, login y
+// refresh) y de ADR-016 (preflight y usuario autenticado).
+var rateLimitSpecs = [...]rateLimitSpec{
 	{name: "GLOBAL", defaults: RateLimit{PerMinute: 60, Burst: 20}},
 	{name: "LOGIN", defaults: RateLimit{PerMinute: 5, Burst: 5}},
 	{name: "REFRESH", defaults: RateLimit{PerMinute: 10, Burst: 10}},
+	{name: "PREFLIGHT", defaults: RateLimit{PerMinute: 120, Burst: 60}},
+	{name: "USER", defaults: RateLimit{PerMinute: 300, Burst: 100}},
 }
 
 func loadRateLimit(spec rateLimitSpec) (RateLimit, error) {

@@ -48,8 +48,9 @@ func SetMode(mode string) {
 // NewRouter crea el router HTTP con las rutas de la API. spec debe venir de
 // LoadSpec: el validador hace panic si no puede construir su router.
 //
-// Orden de la cadena: logger → recovery → cabeceras → CORS/Origin → rate limit
-// → límite de cuerpo → lectura de la sesión → validador del contrato → handlers.
+// Orden de la cadena: logger → recovery → cabeceras → límite de preflight →
+// CORS/Origin → rate limit → límite de cuerpo → lectura de la sesión →
+// validador del contrato → handlers.
 func NewRouter(pinger Pinger, spec *openapi3.T, cfg RouterConfig) (*gin.Engine, error) {
 	if cfg.Sessions == nil {
 		return nil, errors.New("router needs sessions")
@@ -57,6 +58,10 @@ func NewRouter(pinger Pinger, spec *openapi3.T, cfg RouterConfig) (*gin.Engine, 
 
 	if cfg.Posts == nil {
 		return nil, errors.New("router needs posts")
+	}
+
+	if err := cfg.RateLimits.validate(); err != nil {
+		return nil, fmt.Errorf("router rate limits: %w", err)
 	}
 
 	router := gin.New()
@@ -77,6 +82,7 @@ func NewRouter(pinger Pinger, spec *openapi3.T, cfg RouterConfig) (*gin.Engine, 
 		accessLog = AccessLog(cfg.Logger)
 	}
 
+	limiter := newRateLimiter(cfg.RateLimits, cfg.Sessions.Authenticate, time.Now)
 	router.Use(
 		accessLog,
 		// Sin writer: en modo debug, la recuperación de Gin vuelca las
@@ -84,8 +90,9 @@ func NewRouter(pinger Pinger, spec *openapi3.T, cfg RouterConfig) (*gin.Engine, 
 		// recovered ya registra el panic con slog.
 		gin.CustomRecoveryWithWriter(nil, recovered),
 		securityHeaders,
+		limiter.preflight,
 		crossOrigin(cfg.AllowedOrigins),
-		newRateLimiter(cfg.RateLimits, time.Now).handle,
+		limiter.handle,
 		limitBody(cfg.MaxBodyBytes),
 	)
 	router.NoRoute(routeNotFound)

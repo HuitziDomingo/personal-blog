@@ -250,12 +250,7 @@ async function main() {
       INITIAL_ADMIN_PASSWORD: admin.password,
       LOG_FORMAT: 'text',
       GIN_MODE: 'release',
-      // Toda la corrida sale de 127.0.0.1: el navegador y las comprobaciones de
-      // la API pública comparten el cupo global, y los preflight de CORS
-      // también cuentan. Con la ráfaga de 20 por defecto, el flujo recibe 429.
-      // Los límites de login y refresh quedan con sus valores por defecto.
-      RATE_LIMIT_GLOBAL_PER_MINUTE: '600',
-      RATE_LIMIT_GLOBAL_BURST: '200',
+      // Sin RATE_LIMIT_*: la corrida usa los límites por defecto (ADR-016).
     }),
   });
   children.push(api);

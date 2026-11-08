@@ -28,9 +28,9 @@ func (c *fakeClock) advance(d time.Duration) { c.now = c.now.Add(d) }
 
 func newFakeClock() *fakeClock { return &fakeClock{now: time.Date(2026, 11, 2, 12, 0, 0, 0, time.UTC)} }
 
-func TestIPLimiterBurstThenRefill(t *testing.T) {
+func TestKeyedLimiterBurstThenRefill(t *testing.T) {
 	clock := newFakeClock()
-	limiter := newIPLimiter(RateLimit{PerMinute: 60, Burst: 2}, clock.Now)
+	limiter := newKeyedLimiter(RateLimit{PerMinute: 60, Burst: 2}, clock.Now)
 
 	for range 2 {
 		ok, _ := limiter.allow(realClient)
@@ -49,9 +49,9 @@ func TestIPLimiterBurstThenRefill(t *testing.T) {
 	assert.True(t, ok, "one token refills per second at 60 per minute")
 }
 
-func TestIPLimiterRejectionDoesNotSpendTokens(t *testing.T) {
+func TestKeyedLimiterRejectionDoesNotSpendTokens(t *testing.T) {
 	clock := newFakeClock()
-	limiter := newIPLimiter(RateLimit{PerMinute: 60, Burst: 1}, clock.Now)
+	limiter := newKeyedLimiter(RateLimit{PerMinute: 60, Burst: 1}, clock.Now)
 
 	ok, _ := limiter.allow(realClient)
 	require.True(t, ok)
@@ -66,9 +66,9 @@ func TestIPLimiterRejectionDoesNotSpendTokens(t *testing.T) {
 	assert.True(t, ok)
 }
 
-func TestIPLimiterForgetsIdleClients(t *testing.T) {
+func TestKeyedLimiterForgetsIdleClients(t *testing.T) {
 	clock := newFakeClock()
-	limiter := newIPLimiter(RateLimit{PerMinute: 60, Burst: 20}, clock.Now)
+	limiter := newKeyedLimiter(RateLimit{PerMinute: 60, Burst: 20}, clock.Now)
 
 	limiter.allow("198.51.100.1")
 	limiter.allow("198.51.100.2")
@@ -85,9 +85,9 @@ func TestIPLimiterForgetsIdleClients(t *testing.T) {
 	assert.Equal(t, 2, limiter.size(), "198.51.100.1 is forgotten")
 }
 
-func TestIPLimiterKeepsClientsUntilTheirBucketRefills(t *testing.T) {
+func TestKeyedLimiterKeepsClientsUntilTheirBucketRefills(t *testing.T) {
 	clock := newFakeClock()
-	limiter := newIPLimiter(RateLimit{PerMinute: 1, Burst: 10}, clock.Now)
+	limiter := newKeyedLimiter(RateLimit{PerMinute: 1, Burst: 10}, clock.Now)
 
 	limiter.allow(realClient)
 	clock.advance(minIdleTTL + time.Minute)
@@ -96,8 +96,8 @@ func TestIPLimiterKeepsClientsUntilTheirBucketRefills(t *testing.T) {
 	assert.Equal(t, 2, limiter.size(), "forgetting it before 10 minutes would refill its bucket early")
 }
 
-func TestIPLimiterIsSafeForConcurrentUse(t *testing.T) {
-	limiter := newIPLimiter(RateLimit{PerMinute: 1, Burst: 10}, time.Now)
+func TestKeyedLimiterIsSafeForConcurrentUse(t *testing.T) {
+	limiter := newKeyedLimiter(RateLimit{PerMinute: 1, Burst: 10}, time.Now)
 
 	var allowed atomic.Int32
 	var requests sync.WaitGroup
@@ -193,6 +193,26 @@ func TestRefreshRateLimit(t *testing.T) {
 	assert.Equal(t, "6", response.Header().Get("Retry-After"))
 }
 
+func TestUnsetRateLimitsFailRouterCreation(t *testing.T) {
+	spec, err := LoadSpec(t.Context())
+	require.NoError(t, err)
+
+	for name, unset := range map[string]func(*RateLimits){
+		"user":      func(l *RateLimits) { l.User = RateLimit{} },
+		"preflight": func(l *RateLimits) { l.Preflight.Burst = 0 },
+		"global":    func(l *RateLimits) { l.Global.PerMinute = -1 },
+	} {
+		t.Run(name, func(t *testing.T) {
+			cfg := testRouterConfig()
+			unset(&cfg.RateLimits)
+
+			_, err := NewRouter(&fakePinger{}, spec, cfg)
+
+			require.ErrorContains(t, err, name+" rate limit must be positive")
+		})
+	}
+}
+
 func TestInvalidTrustedProxiesFailRouterCreation(t *testing.T) {
 	cfg := testRouterConfig()
 	cfg.TrustedProxies = []string{"not-an-ip"}
@@ -212,10 +232,12 @@ func ipRouter(configure func(*gin.Engine) error) (*gin.Engine, error) {
 	}
 
 	router.Use(newRateLimiter(RateLimits{
-		Global:  RateLimit{PerMinute: 1, Burst: 1},
-		Login:   RateLimit{PerMinute: 1, Burst: 1},
-		Refresh: RateLimit{PerMinute: 1, Burst: 1},
-	}, time.Now).handle)
+		Global:    RateLimit{PerMinute: 1, Burst: 1},
+		Login:     RateLimit{PerMinute: 1, Burst: 1},
+		Refresh:   RateLimit{PerMinute: 1, Burst: 1},
+		Preflight: RateLimit{PerMinute: 1, Burst: 1},
+		User:      RateLimit{PerMinute: 1, Burst: 1},
+	}, rejectAllTokens, time.Now).handle)
 	router.GET("/api/v1/posts", func(c *gin.Context) { c.Status(http.StatusOK) })
 
 	return router, nil

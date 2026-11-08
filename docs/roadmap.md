@@ -34,6 +34,7 @@
 - [x] BLOG-055: Implementar el service de posts (`internal/service`) con las reglas de negocio: slug, `PublishedAt`, archivado, tags y extracto. ([#43](https://github.com/HuitziDomingo/personal-blog/pull/43))
 - [x] BLOG-056: Implementar los endpoints públicos y de admin de posts, con su flujo de Bruno en `flows/posts/`. ([#44](https://github.com/HuitziDomingo/personal-blog/pull/44))
 - [x] BLOG-014: Crear colección de pruebas en Bruno, generada desde el contrato con el CLI de Bruno, con flujos manuales. ([#31](https://github.com/HuitziDomingo/personal-blog/pull/31))
+- [x] BLOG-064: Rate limit por usuario autenticado y bucket propio para el preflight CORS (ADR-016), con los límites por defecto en los E2E. ([#59](https://github.com/HuitziDomingo/personal-blog/pull/59))
 - [x] BLOG-060: Avisos al arrancar por configuración inútil (`ALLOWED_ORIGINS` vacía y otras), logs JSON para Cloud Logging con `LOG_FORMAT` y `GIN_MODE` según el entorno. ([#54](https://github.com/HuitziDomingo/personal-blog/pull/54))
 
 ## Fase 3: Dashboard de Administración (Angular + Spartan UI)
