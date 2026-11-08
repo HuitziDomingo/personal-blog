@@ -54,3 +54,28 @@ export function isSafeUrl(value: string, attribute: UrlAttribute, baseUrl: strin
   }
   return attribute === 'href' && url.protocol === 'mailto:';
 }
+
+/**
+ * Qué links abren en otra pestaña:
+ * - `all`: todos (admin: un clic no debe sacar al autor del editor con cambios
+ *   sin guardar).
+ * - `external`: solo los que salen del sitio (web). Los internos se abren en la
+ *   misma pestaña.
+ */
+export type NewTabPolicy = 'all' | 'external';
+
+/**
+ * Un link es externo si resuelve a `http:` o `https:` con otro origen que
+ * `baseUrl`. Las rutas relativas, las anclas y los links absolutos al mismo
+ * origen son internos; `mailto:` no navega, así que tampoco cuenta.
+ */
+export function isExternalLink(href: string, baseUrl: string): boolean {
+  let url: URL;
+  try {
+    url = new URL(href.trim(), baseUrl);
+  } catch {
+    return false;
+  }
+
+  return (url.protocol === 'https:' || url.protocol === 'http:') && url.origin !== new URL(baseUrl).origin;
+}

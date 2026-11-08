@@ -11,7 +11,7 @@ it('corre sin window global, como en un servidor', () => {
 
 const parser = new JSDOM('').window.document;
 
-describeSanitization('servidor', createServerRenderer({ siteUrl: 'https://huitzi.xyz' }), (html) => {
+describeSanitization('servidor', createServerRenderer({ siteUrl: 'https://huitzi.xyz', newTab: 'all' }), (html) => {
   const container = parser.createElement('div');
   container.innerHTML = html;
   return container;

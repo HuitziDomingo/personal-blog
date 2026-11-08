@@ -1,7 +1,7 @@
 import createDOMPurify, { type WindowLike } from 'dompurify';
 import { Marked } from 'marked';
 
-import { ALLOWED_ATTR, ALLOWED_TAGS, isSafeUrl } from './policy';
+import { ALLOWED_ATTR, ALLOWED_TAGS, isExternalLink, isSafeUrl, type NewTabPolicy } from './policy';
 
 /** Convierte Markdown en HTML sanitizado. */
 export type MarkdownRenderer = (source: string) => string;
@@ -11,9 +11,9 @@ export type MarkdownRenderer = (source: string) => string;
  * variantes comparten todo lo demás, así que solo pueden diferir en el DOM.
  *
  * `baseUrl` se lee en cada llamada: en el navegador es la URL de la página en
- * ese momento.
+ * ese momento. `newTab` decide qué links abren en otra pestaña.
  */
-export function createRenderer(window: WindowLike, baseUrl: () => string): MarkdownRenderer {
+export function createRenderer(window: WindowLike, baseUrl: () => string, newTab: NewTabPolicy): MarkdownRenderer {
   const markdown = new Marked({ gfm: true, async: false });
 
   // Instancia propia: los hooks de DOMPurify son globales a cada instancia, y así
@@ -30,10 +30,11 @@ export function createRenderer(window: WindowLike, baseUrl: () => string): Markd
     }
   });
 
-  // Los links abren otra pestaña: en el admin, un clic no debe sacar al autor
-  // del editor con cambios sin guardar.
+  // target y rel no están en la allowlist: solo los pone este hook, y siempre
+  // juntos, para que la página abierta no pueda usar window.opener.
   purify.addHook('afterSanitizeAttributes', (node) => {
-    if (node.tagName === 'A' && node.hasAttribute('href')) {
+    const href = node.tagName === 'A' ? node.getAttribute('href') : null;
+    if (href !== null && (newTab === 'all' || isExternalLink(href, baseUrl()))) {
       node.setAttribute('target', '_blank');
       node.setAttribute('rel', 'noopener noreferrer');
     }

@@ -431,13 +431,13 @@ El admin no usa `provideSpartanHlm()`. Solo cambia el default de los overlays de
 `@personal-blog/markdown` es la única fuente de la allowlist, la política de URLs y el render de Markdown ([ADR-017](adr/017-arquitectura-de-la-web-publica-nextjs.md), punto 5). Convierte con `marked` y sanitiza con DOMPurify (ADR-010, punto 4; ADR-012, punto 6). Se publica como TypeScript sin compilar: cada app lo compila con lo suyo.
 
 - **Variantes:**
-  - `@personal-blog/markdown`, para el navegador: `renderMarkdown(source)` sanitiza con el DOM de la página y resuelve las URLs relativas contra `window.location`. La usa el admin.
-  - `@personal-blog/markdown/server`, para el servidor: `createServerRenderer({ siteUrl })` devuelve el mismo render, con DOMPurify sobre un DOM de jsdom; las URLs relativas se resuelven contra `siteUrl`. Crea el DOM una vez: guarda el render y reúsalo. Un `siteUrl` inválido lanza al crearlo. La usará `apps/web`, que nunca debe importar la raíz del paquete en el servidor: la raíz lee `window` al cargarse.
+  - `@personal-blog/markdown`, para el navegador: `renderMarkdown(source)` sanitiza con el DOM de la página y resuelve las URLs relativas contra `window.location`. La usa el admin. `createBrowserRenderer({ newTab })` crea otro con otra política de links.
+  - `@personal-blog/markdown/server`, para el servidor: `createServerRenderer({ siteUrl, newTab })` devuelve el mismo render, con DOMPurify sobre un DOM de jsdom; las URLs relativas se resuelven contra `siteUrl`. Crea el DOM una vez: guarda el render y reúsalo. Un `siteUrl` inválido lanza al crearlo. La usará `apps/web`, que nunca debe importar la raíz del paquete en el servidor: la raíz lee `window` al cargarse.
   - Si el DOM no sirve a DOMPurify, crear el render lanza un error en lugar de devolver HTML sin sanitizar.
   - Las dos comparten `src/renderer.ts`; solo cambian el DOM y la URL base.
 - **Allowlist explícita:** `ALLOWED_TAGS` y `ALLOWED_ATTR` en `src/policy.ts`.
 - **URLs (`isSafeUrl`):** un hook las valida con el parser de URLs WHATWG (`new URL()`). Las absolutas solo pueden ser `http(s)`, o `mailto` en links. Las relativas solo valen si resuelven al origen de la página, y las anclas valen en links. DOMPurify deja pasar `data:` en `<img>`, y el navegador lee `/\host` como `//host`; los dos casos tienen test.
-- **Links:** abren en otra pestaña con `rel="noopener noreferrer"`.
+- **Links (`newTab`):** con `all` (el admin) todos abren en otra pestaña; con `external` (la web) solo los que resuelven a `http(s)` de otro origen (`isExternalLink`). Los relativos, las anclas, los del mismo origen y `mailto:` abren en la misma. Los que abren en otra pestaña llevan siempre `rel="noopener noreferrer"`; `target` y `rel` escritos en el Markdown se descartan.
 - **Tests** (`pnpm --filter @personal-blog/markdown test`):
   - `src/test/sanitization-suite.ts` tiene los casos que antes estaban en el admin. `browser.spec.ts` los corre sobre la variante de navegador (jsdom como DOM global) y `server.spec.ts` sobre la de servidor, en el entorno `node`, sin `window`.
   - `equivalence.spec.ts` comprueba que, con el mismo origen, las dos variantes dan exactamente el mismo HTML en cada caso.
