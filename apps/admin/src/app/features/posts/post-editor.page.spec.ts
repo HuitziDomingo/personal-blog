@@ -7,6 +7,7 @@ import { firstValueFrom, Observable, of, Subject, throwError } from 'rxjs';
 
 import { Post, PostWrite } from '../../core/api/api-types';
 import { PostsApi } from '../../core/api/posts-api';
+import { ASSISTANT_ENABLED, MetadataSuggestion, WritingAssistant } from '../../core/assistant/writing-assistant';
 import { ApiError } from '../../core/http/api-error';
 import { MarkdownEditor } from '../../shared/markdown-editor/markdown-editor';
 import { FakeMarkdownEditor } from '../../shared/markdown-editor/markdown-editor-fake';
@@ -116,10 +117,10 @@ class FakePostsApi {
   }
 }
 
-async function renderEditor(api: FakePostsApi, id: string) {
+async function renderEditor(api: FakePostsApi, id: string, extraProviders: unknown[] = []) {
   const result = await render(PostEditorPage, {
     inputs: { id },
-    providers: [provideRouter([]), { provide: PostsApi, useValue: api }],
+    providers: [provideRouter([]), { provide: PostsApi, useValue: api }, ...(extraProviders as [])],
   });
   const navigate = vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
   await result.fixture.whenStable();
@@ -509,6 +510,27 @@ describe('PostEditorPage', () => {
       const dirty = new Event('beforeunload', { cancelable: true });
       window.dispatchEvent(dirty);
       expect(dirty.defaultPrevented).toBe(true);
+    });
+  });
+
+  describe('asistente', () => {
+    it('no aparece con el flag apagado (producción)', async () => {
+      await renderEditor(new FakePostsApi(), 'new', [{ provide: ASSISTANT_ENABLED, useValue: false }]);
+
+      expect(screen.queryByRole('heading', { name: 'Asistente' })).toBeNull();
+    });
+
+    it('aplicar título, extracto y tags rellena el formulario', async () => {
+      const metadata: MetadataSuggestion = { title: 'Título sugerido', excerpt: 'Extracto sugerido', tags: ['ia', 'go'] };
+      const assistant: Partial<WritingAssistant> = { suggestMetadata: () => of(metadata) };
+      await renderEditor(new FakePostsApi(), 'new', [{ provide: WritingAssistant, useValue: assistant }]);
+
+      await fireEvent.click(screen.getByRole('button', { name: 'Sugerir título, extracto y tags' }));
+      await fireEvent.click(await screen.findByRole('button', { name: 'Aplicar' }));
+
+      expect((screen.getByLabelText('Título', { exact: true }) as HTMLInputElement).value).toBe('Título sugerido');
+      expect((screen.getByLabelText('Extracto') as HTMLTextAreaElement).value).toBe('Extracto sugerido');
+      expect((screen.getByLabelText('Etiquetas') as HTMLInputElement).value).toBe('ia, go');
     });
   });
 });

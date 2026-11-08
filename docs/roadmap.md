@@ -101,6 +101,7 @@
 
 - [x] BLOG-071: Servidor MCP de solo lectura por stdio (ADR-019): `internal/mcp` y `cmd/mcp`, con búsqueda por texto en `service`. ([#65](https://github.com/HuitziDomingo/personal-blog/pull/65))
 - [x] BLOG-074: Línea Estado de ADR-002 y ADR-006: complementados por ADR-019. ([#68](https://github.com/HuitziDomingo/personal-blog/pull/68))
+- [ ] BLOG-072: Interfaz del asistente de IA en el editor del admin (solo frontend): puerto `WritingAssistant` con implementación falsa, detrás de un flag apagado en producción.
 - [x] BLOG-079: ADR-021: asistente de escritura con IA (v1) como workflow sobre un puerto de proveedor, con Gemini en su plan gratuito. ([#71](https://github.com/HuitziDomingo/personal-blog/pull/71))
 - [x] BLOG-080: Backend del asistente de escritura (ADR-021): mejorar la redacción y sugerir metadatos, con puerto en `domain`/`service`, adaptador de Gemini y fake, bucket propio por usuario y `ASSISTANT_ENABLED`. ([#75](https://github.com/HuitziDomingo/personal-blog/pull/75))
 - [ ] BLOG-081: Adaptador HTTP de `WritingAssistant` en el admin, contra las operaciones del asistente de la API (ADR-021).
