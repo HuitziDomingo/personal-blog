@@ -340,7 +340,7 @@ Estructura de `src/app/`:
     - **Slug:** queda de solo lectura, con la explicación, si el post ya se publicó alguna vez o no es un borrador. Un 409 de slug duplicado o bloqueado se muestra en el campo.
     - **Acciones según el estado:** borrador → guardar o publicar; publicado → guardar cambios o despublicar; archivado → restaurar como borrador o publicar. También se puede archivar con confirmación.
     - **Al salir con cambios sin guardar:** `unsaved-changes.guard.ts` pregunta en un diálogo, y `beforeunload` cubre cerrar o recargar la pestaña.
-  - `posts/posts-list.page.ts`: lista con filtro por estado y paginación de 20 en 20. El filtro y la página van en la URL (`?status=draft&offset=20`); un valor inválido se ignora. Archivar pide confirmación en un `alert-dialog`.
+  - `posts/posts-list.page.ts`: lista con filtro por estado y paginación de 20 en 20. La paginación queda centrada y al final de la página aunque haya pocos posts: `<main>` es una columna flex, la página crece con `flex-1` y la paginación usa `mt-auto`. El filtro y la página van en la URL (`?status=draft&offset=20`); un valor inválido se ignora. Archivar pide confirmación en un `alert-dialog`.
 - `shared/ui/`: componentes helm de Spartan, copiados al repo, y componentes propios.
 - `shared/markdown-editor/`: el editor de ADR-012, un textarea con la vista previa al lado. Su interfaz es solo `value` y `valueChange`, para poder cambiarlo por un WYSIWYG sin tocar el formulario. La vista previa usa `renderMarkdown` de `@personal-blog/markdown` (ver «Paquete `packages/markdown`»); el resultado se enlaza con `[innerHTML]`, y `bypassSecurityTrust*` está prohibido por una regla `no-restricted-syntax` de ESLint.
 

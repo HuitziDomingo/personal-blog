@@ -81,7 +81,7 @@ export const DESKTOP_QUERY = '(min-width: 64rem)';
           <app-admin-nav />
         </aside>
       }
-      <main #main id="contenido" tabindex="-1" class="min-w-0 flex-1 outline-none">
+      <main #main id="contenido" tabindex="-1" class="flex min-w-0 flex-1 flex-col outline-none">
         <router-outlet />
       </main>
     </div>
