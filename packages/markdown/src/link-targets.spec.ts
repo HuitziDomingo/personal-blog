@@ -50,7 +50,10 @@ describe.each([
 });
 
 it('el admin (newTab: all) sigue abriendo todos en otra pestaña', () => {
-  for (const pair of Object.values(targets(renderMarkdown(SOURCE)))) {
+  const pairs = Object.values(targets(renderMarkdown(SOURCE)));
+
+  expect(pairs).toHaveLength(10);
+  for (const pair of pairs) {
     expect(pair).toEqual(NEW_TAB);
   }
 });
@@ -58,11 +61,11 @@ it('el admin (newTab: all) sigue abriendo todos en otra pestaña', () => {
 describe('isExternalLink', () => {
   const base = 'https://huitzi.xyz/posts/hola';
 
-  it.each(['https://otro.example', 'http://huitzi.xyz', 'https://huitzi.xyz:8443/x', '//otro.example/x'])('%s es externo', (href) => {
+  it.each(['https://otro.example', 'http://huitzi.xyz', 'https://huitzi.xyz:8443/x', '//otro.example/x', ' https://otro.example ', 'http:otro.example'])('%s es externo', (href) => {
     expect(isExternalLink(href, base)).toBe(true);
   });
 
-  it.each(['/x', 'x', '#a', 'https://huitzi.xyz/y', 'mailto:a@b.c', 'http://[::1'])('%s no es externo', (href) => {
+  it.each(['/x', 'x', '#a', 'https://huitzi.xyz/y', 'HTTPS://HUITZI.XYZ/y', 'https://huitzi.xyz:443/y', '//huitzi.xyz/y', 'mailto:a@b.c', 'javascript:alert(1)', 'http://[::1'])('%s no es externo', (href) => {
     expect(isExternalLink(href, base)).toBe(false);
   });
 });
