@@ -46,7 +46,7 @@
   - [x] Parte A: lista de posts con filtro por estado, paginación y archivar. ([#50](https://github.com/HuitziDomingo/personal-blog/pull/50))
   - [x] Parte B: crear y editar posts con el editor Markdown. ([#51](https://github.com/HuitziDomingo/personal-blog/pull/51))
 - [x] BLOG-065: Paquete `packages/markdown` (ADR-017) con la allowlist, `isSafeUrl` y `renderMarkdown`, variantes de navegador y de servidor (jsdom) con los mismos tests, y el admin migrado. ([#58](https://github.com/HuitziDomingo/personal-blog/pull/58))
-- [ ] BLOG-068: Paginación de la lista de posts del admin centrada y anclada al final de la página, igual en móvil y escritorio.
+- [x] BLOG-068: Paginación de la lista de posts del admin centrada y anclada al final de la página, igual en móvil y escritorio. ([#62](https://github.com/HuitziDomingo/personal-blog/pull/62))
 - [ ] BLOG-036: Sanitizar el Markdown de los posts al renderizar en `apps/web` y `apps/admin`, con allowlist (ADR-010).
 - [x] BLOG-046: CSP y cabeceras del admin en Vercel (ADR-012). ([#45](https://github.com/HuitziDomingo/personal-blog/pull/45))
 - [ ] BLOG-047: Configurar admin.huitzi.xyz en Vercel y DNS en DreamHost. El build command de Vercel debe ser el script `build` del paquete (`pnpm --filter @personal-blog/admin build`), que corre el chequeo de la URL de la API, no `ng build` directo.
