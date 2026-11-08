@@ -151,7 +151,9 @@ type ListState =
             </div>
           </nav>
         } @else {
-          <section hlmEmpty aria-labelledby="empty-title">
+          <!-- flex-none: hlmEmpty trae flex-1, y con la página en flex-1 se estiraría
+               hasta el fondo; el estado vacío sigue justo bajo el filtro. -->
+          <section hlmEmpty class="flex-none" aria-labelledby="empty-title">
             <div hlmEmptyHeader>
               <h2 hlmEmptyTitle id="empty-title">{{ emptyTitle() }}</h2>
               <p hlmEmptyDescription>{{ emptyDescription() }}</p>
@@ -166,9 +168,8 @@ type ListState =
       }
     }
 
-    <!-- hidden: el diálogo se pinta en un portal de CDK; su host (y el overlay
-         vacío que contiene) no deben ser ítems flex que sumen gap tras la
-         paginación. -->
+    <!-- hidden: el diálogo se pinta en un portal de CDK, y su host, como ítem
+         flex, sumaría un gap tras la paginación. -->
     <hlm-alert-dialog class="hidden" [state]="archiveTarget() ? 'open' : 'closed'" (closed)="cancelArchive()">
       <hlm-alert-dialog-content *hlmAlertDialogPortal>
         <hlm-alert-dialog-header>
