@@ -294,7 +294,7 @@ El código generado nunca se edita a mano.
 
 ### Web (`apps/web`)
 
-El sitio público ([ADR-017](adr/017-arquitectura-de-la-web-publica-nextjs.md)): Next.js 16 con App Router, TypeScript estricto y Chakra UI v3.
+El sitio público ([ADR-017](adr/017-arquitectura-de-la-web-publica-nextjs.md)): portafolio y blog en Next.js 16 con App Router, TypeScript estricto y Chakra UI v3.
 
 ```sh
 make web-dev        # next dev en http://localhost:3000, contra la API de make api-run
@@ -305,15 +305,24 @@ make web-typecheck  # tsc --noEmit
 make web-test       # Vitest de lib/
 ```
 
+- **Rutas:**
+  - `/`: portada (presentación, acerca de mí, biografía, últimos 3 posts y redes).
+  - `/works` y `/works/[id]`: trabajos, estáticos, con el contenido de `lib/site.ts`. Un id que no está ahí da 404.
+  - `/blog` y `/blog/[slug]`: lista de posts y cada post. `/posts` y `/posts/[slug]` redirigen (308) a `/blog`.
+  - `/sitemap.xml`, `/robots.txt` y `/feed.xml` (RSS de los últimos 20 publicados), con ISR de 60 s. `/og.png` es la imagen Open Graph por defecto, generada en el build.
+- **Contenido** (`lib/site.ts`): textos, trabajos y redes de la web anterior. Las imágenes van en `assets/img/` (importadas con `next/image`) y las de los posts en `public/img/blog/`. Los 2 artículos de la web anterior están en `docs/web/posts-migrados/`, listos para crearlos desde el admin.
+- **Tema** (`components/theme/system.ts` y `lib/brand.ts`): colores de la marca con contraste AA (lo comprueba `lib/brand.test.ts`). El modo claro, oscuro o sistema lo aplica un script inline en `<head>` (`lib/color-mode.ts`) antes de pintar; la CSP de ADR-017 lo permite sin nonces.
+- **SEO** (`lib/seo.ts`): cada página pide su metadata con `pageMetadata` (canónica, Open Graph, Twitter y el RSS). La imagen de un post es la primera imagen de su Markdown, si tiene; si no, `/og.png`. `SITE_URL` decide las URLs absolutas.
 - **Datos** (`lib/api.ts`): `fetch` nativo hacia la API pública de posts, con la caché de Next (`revalidate: 60`). Solo el servidor de Next llama a la API, así que no hace falta `localhost:3000` en `ALLOWED_ORIGINS`.
 - **Variables:**
   - `API_BASE_URL`: obligatoria en producción. Sin ella, el build falla en lugar de publicar un sitio vacío. En `next dev` usa `http://localhost:8080` por defecto.
   - `WEB_SKIP_API=1`: construye sin API, solo para el CI (en Vercel, con `VERCEL` definida, el build falla). Las páginas salen vacías y los posts se generan en su primera visita.
-  - `SITE_URL` (por defecto `https://huitzi.xyz`): decide qué links son internos.
+  - `SITE_URL` (por defecto `https://huitzi.xyz`): decide qué links son internos y las URLs absolutas de canónicas, Open Graph, sitemap y RSS. En local, `SITE_URL=http://localhost:3000`.
+  - `VERCEL_ENV`: si existe y no es `production`, `robots.txt` bloquea a los buscadores (previews).
   - `WEB_PRERENDER_LIMIT` (por defecto `10`): posts que el build pregenera (ADR-020). Debe quedar por debajo de la ráfaga anónima de la API (20) menos las listas; un valor que no sea un entero no negativo hace fallar el build.
 - **ISR:**
-  - `/` se regenera como mucho cada 60 s.
-  - `/posts/[slug]` pregenera los N posts más recientes (`WEB_PRERENDER_LIMIT`, por defecto 10; ADR-020). El resto se genera en su primera visita y queda en caché.
+  - `/`, `/blog`, el sitemap y el RSS se regeneran como mucho cada 60 s, y comparten las peticiones a la API con la caché de Next.
+  - `/blog/[slug]` pregenera los N posts más recientes (`WEB_PRERENDER_LIMIT`, por defecto 10; ADR-020). El resto se genera en su primera visita y queda en caché.
   - Un post recién publicado tarda hasta un minuto en aparecer en `/`. Mientras la caché esté vieja, la primera visita sirve la versión anterior y dispara la regeneración.
 - **Riesgos de ADR-017 y cómo se resuelven:**
   - **429 en el build:** el build hace como mucho 1 lista de inicio + 1 lista de slugs por cada 100 publicados + N posts. Next reutiliza las respuestas cacheadas entre páginas, y en local fueron 3 peticiones con un post publicado. Con N = 10 y hasta unos 800 publicados queda por debajo de la ráfaga anónima de 20; si N + 2 la supera, el build lo avisa en el log. Si aun así llega un 429 durante `next build`, espera el `Retry-After` (máximo 10 s, para caber en el límite de 60 s por página de Next) y reintenta hasta 3 veces. Con varios workers, la lista puede pedirse más de una vez; el peor caso estimado con N = 10 es de unas 17 peticiones.
@@ -324,8 +333,8 @@ make web-test       # Vitest de lib/
 - **CSP y cabeceras** (`lib/security-headers.ts`, aplicadas en `next.config.ts`): las de ADR-017, punto 4. En `next dev` se añade `'unsafe-eval'` (React Refresh) y se quita `upgrade-insecure-requests`.
 - **Paquetes del monorepo:** `transpilePackages` compila `@personal-blog/markdown` y `serverExternalPackages` deja jsdom fuera del bundle.
 - **CI:** job `web` (ADR-017, punto 7), con lint, typecheck, tests y build con `WEB_SKIP_API=1`.
-- **Probar de punta a punta en local:** `make api-run`, `make admin-dev`, `make web-build` y `make web-start`. Publica un post en el admin y abre `http://localhost:3000`. Si no aparece, recarga pasados 60 s.
-- **Pendiente:** tema propio y modo oscuro, y el despliegue en Vercel.
+- **Probar de punta a punta en local:** `make api-run`, `make admin-dev`, `make web-build` y `make web-start`. Publica un post en el admin y abre `http://localhost:3000/blog`. Si no aparece, recarga pasados 60 s.
+- **Pendiente:** el despliegue en Vercel.
 
 ### Admin (`apps/admin`)
 
