@@ -45,8 +45,6 @@ api-flows:
 		cd docs/api/bruno && "$(CURDIR)/node_modules/.bin/bru" run flows -r --env local \
 		--env-var "adminEmail=$$INITIAL_ADMIN_EMAIL" --env-var "adminPassword=$$INITIAL_ADMIN_PASSWORD"
 
-# Con ADMIN_API_BASE_URL=<origen> apunta el admin a otra API; sin ella usa el
-# define de development en angular.json.
 # Web pública (ADR-017) contra la API local; con WEB_API_BASE_URL=<origen> usa
 # otra. web-build y web-start reproducen el ISR de producción en local.
 web-dev:
@@ -67,6 +65,8 @@ web-build:
 web-start:
 	API_BASE_URL=$(or $(WEB_API_BASE_URL),http://localhost:8080) pnpm --filter @personal-blog/web start
 
+# Con ADMIN_API_BASE_URL=<origen> apunta el admin a otra API; sin ella usa el
+# define de development en angular.json.
 admin-dev:
 	pnpm --filter @personal-blog/admin start $(if $(ADMIN_API_BASE_URL),--define "ADMIN_API_BASE_URL='$(ADMIN_API_BASE_URL)'")
 

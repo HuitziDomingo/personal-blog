@@ -15,6 +15,10 @@ describe('apiBaseUrl', () => {
     expect(() => apiBaseUrl({ NODE_ENV: 'production' })).toThrow('API_BASE_URL is required');
   });
 
+  it('WEB_SKIP_API=1 nunca vale en Vercel', () => {
+    expect(() => apiBaseUrl({ WEB_SKIP_API: '1', VERCEL: '1', NODE_ENV: 'production' })).toThrow('only for CI');
+  });
+
   it('WEB_SKIP_API=1 construye sin API, aunque haya URL', () => {
     expect(apiBaseUrl({ WEB_SKIP_API: '1', API_BASE_URL: 'https://api.huitzi.xyz', NODE_ENV: 'production' })).toBeNull();
   });

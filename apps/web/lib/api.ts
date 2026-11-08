@@ -9,9 +9,12 @@ export type PostSummary = components['schemas']['PostSummary'];
 
 /** Máximo de `limit` en el contrato. */
 const MAX_LIMIT = 100;
-/** Reintentos de un 429 durante el build, y espera máxima por intento. */
+/**
+ * Reintentos de un 429 durante el build, y espera máxima por intento: 3 × 10 s
+ * caben en el staticPageGenerationTimeout de Next (60 s).
+ */
 const BUILD_RETRIES = 3;
-const MAX_RETRY_WAIT_MS = 60_000;
+const MAX_RETRY_WAIT_MS = 10_000;
 
 /**
  * La API no respondió como se esperaba (429, 5xx, red). Nunca se convierte en

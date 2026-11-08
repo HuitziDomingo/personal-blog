@@ -131,12 +131,12 @@ describe('429 durante el build', () => {
     expect(api.sleeps).toEqual([7000, 1000]);
   });
 
-  it('se rinde tras 3 reintentos, y nunca espera más de 60 s', async () => {
+  it('se rinde tras 3 reintentos, y nunca espera más de 10 s', async () => {
     const api = new FakeApi();
     api.forced.set('/api/v1/posts', [429, 429, 429, 429].map((code) => status(code, { 'Retry-After': '3600' })));
 
     await expect(createPostsApi(api.deps({ isBuild: true })).listPublished()).rejects.toMatchObject({ status: 429 });
-    expect(api.sleeps).toEqual([60_000, 60_000, 60_000]);
+    expect(api.sleeps).toEqual([10_000, 10_000, 10_000]);
   });
 
   it('fuera del build no espera: lanza y Next conserva la página anterior', async () => {

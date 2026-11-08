@@ -30,7 +30,7 @@ No inventes comandos. Cuando exista uno real, sustituye su TODO.
 - E2E: `make e2e` (base temporal, API y admin propios; limpia al terminar)
 - Borrar bases de E2E que quedaron de una corrida interrumpida: `make e2e-clean`
 - Lint y análisis de Go: `make api-lint`
-- Lint y análisis de front: TODO
+- Lint y análisis de front: `make admin-lint` y `make web-lint`
 - Build de la API: `make api-build`
 - Build del servidor MCP (stdio, solo lectura): `make mcp-build`
 - Build de la imagen Docker de la API: `make api-docker-build`

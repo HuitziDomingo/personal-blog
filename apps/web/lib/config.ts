@@ -5,7 +5,8 @@ export const REVALIDATE_SECONDS = 60;
  * Posts que el build pregenera, los más recientes. El resto se genera en su
  * primera visita. Acota las peticiones del build a la API: 1 lista de inicio +
  * 1 lista de slugs + PRERENDER_LIMIT posts, por debajo de la ráfaga anónima de
- * 20 por IP (ADR-010 y ADR-016).
+ * 20 por IP (ADR-010). Con varios workers la lista puede pedirse más de una
+ * vez; el reintento ante un 429 cubre ese caso.
  */
 export const PRERENDER_LIMIT = 10;
 
@@ -18,6 +19,10 @@ export type Env = Readonly<Record<string, string | undefined>>;
  */
 export function apiBaseUrl(env: Env = process.env): string | null {
   if (env['WEB_SKIP_API'] === '1') {
+    // En Vercel publicaría un sitio vacío y cachearía 404 en cada post.
+    if (env['VERCEL']) {
+      throw new Error('WEB_SKIP_API is only for CI builds, never on Vercel');
+    }
     return null;
   }
 
