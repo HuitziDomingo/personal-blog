@@ -1,31 +1,55 @@
 import { createServerRenderer, type MarkdownRenderer } from '@personal-blog/markdown/server';
+import { JSDOM } from 'jsdom';
 
 import { siteUrl } from './config';
 
 let renderer: MarkdownRenderer | undefined;
+let dom: JSDOM | undefined;
 
-/**
- * Markdown de un post a HTML sanitizado, en el servidor (ADR-017, punto 5).
- * Solo los links a otros sitios abren en otra pestaña. El DOM de jsdom se crea
- * una vez, en el primer uso.
- */
-export function renderPostMarkdown(source: string): string {
-  renderer ??= createServerRenderer({ siteUrl: siteUrl(), newTab: 'external' });
-
-  return lazyImages(renderer(source));
+export interface RenderedPost {
+  /** HTML sanitizado, listo para el navegador. */
+  html: string;
+  /** La primera imagen del post (suele ser la portada), tal como quedó tras sanitizar. */
+  cover: { src: string; alt: string } | null;
 }
 
 /**
- * La primera imagen del post, que suele ser la portada y el elemento más
- * grande de la página, se pide con prioridad alta; las demás, en diferido.
- * Se aplica al HTML ya
- * sanitizado y solo añade dos atributos fijos, así que no abre nada que la
- * allowlist haya cerrado.
+ * Markdown de un post a HTML sanitizado, en el servidor (ADR-017, punto 5).
+ * Solo los links a otros sitios abren en otra pestaña. Los DOM de jsdom se
+ * crean una vez, en el primer uso.
  */
-export function lazyImages(html: string): string {
-  let seen = 0;
+export function renderPost(source: string): RenderedPost {
+  renderer ??= createServerRenderer({ siteUrl: siteUrl(), newTab: 'external' });
 
-  return html.replace(/<img\b/g, (tag) =>
-    seen++ === 0 ? `${tag} fetchpriority="high"` : `${tag} loading="lazy" decoding="async"`,
-  );
+  return prepareImages(renderer(source));
+}
+
+/**
+ * Sobre el HTML ya sanitizado: la primera imagen se pide con prioridad alta y
+ * las demás en diferido, y se devuelve la primera para Open Graph. Trabaja
+ * sobre el DOM con setAttribute/getAttribute, nunca con texto: un `title` o un
+ * `alt` que contenga `<img` sigue siendo el valor de un atributo.
+ */
+export function prepareImages(html: string): RenderedPost {
+  dom ??= new JSDOM('');
+  const template = dom.window.document.createElement('template');
+  template.innerHTML = html;
+
+  const images = [...template.content.querySelectorAll('img')];
+  images.forEach((img, index) => {
+    if (index === 0) {
+      img.setAttribute('fetchpriority', 'high');
+    } else {
+      img.setAttribute('loading', 'lazy');
+      img.setAttribute('decoding', 'async');
+    }
+  });
+
+  const first = images[0];
+  const src = first?.getAttribute('src');
+
+  return {
+    html: template.innerHTML,
+    cover: first && src ? { src, alt: first.getAttribute('alt') ?? '' } : null,
+  };
 }

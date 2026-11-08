@@ -11,9 +11,9 @@ import { TagList } from '@/components/tag-list';
 import { postsApi } from '@/lib/api';
 import { prerenderLimit, siteUrl } from '@/lib/config';
 import { formatDate } from '@/lib/format';
-import { renderPostMarkdown } from '@/lib/markdown';
+import { renderPost } from '@/lib/markdown';
 import { formatReadingTime, readingMinutes } from '@/lib/reading-time';
-import { firstImage, pageMetadata } from '@/lib/seo';
+import { coverImage, pageMetadata } from '@/lib/seo';
 import { siteDescription } from '@/lib/site';
 
 // ISR (ADR-017): Next exige un literal; debe coincidir con REVALIDATE_SECONDS.
@@ -40,7 +40,7 @@ const loadPost = cache(async (slug: string) => {
 
   // El único HTML de usuario de la página, sanitizado en el servidor con la
   // allowlist de packages/markdown (ADR-010, punto 4; ADR-017, punto 5).
-  return { post, html: renderPostMarkdown(post.content) };
+  return { post, ...renderPost(post.content) };
 });
 
 /** Pregenera solo los N posts más recientes (ADR-020); ver prerenderLimit. */
@@ -55,8 +55,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   if (!loaded) {
     return {};
   }
-  const { post, html } = loaded;
-  const image = firstImage(html, siteUrl());
+  const { post, cover } = loaded;
+  const image = coverImage(cover, siteUrl());
 
   return pageMetadata({
     title: post.seo?.title ?? post.title,

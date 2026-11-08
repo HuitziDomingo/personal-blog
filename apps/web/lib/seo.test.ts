@@ -1,28 +1,26 @@
 import { describe, expect, it } from 'vitest';
 
-import { DEFAULT_OG_IMAGE, firstImage, pageMetadata, robotsConfig, RSS_ALTERNATE, sitemapEntries } from './seo';
+import { coverImage, DEFAULT_OG_IMAGE, pageMetadata, robotsConfig, RSS_ALTERNATE, sitemapEntries } from './seo';
 
 const SITE = 'https://huitzi.xyz';
 
-describe('firstImage', () => {
-  it('returns null without images', () => {
-    expect(firstImage('<p>Hola</p>', SITE)).toBeNull();
+describe('coverImage', () => {
+  it('returns null without a cover', () => {
+    expect(coverImage(null, SITE)).toBeNull();
   });
 
-  it('resolves a site-relative image against the site URL', () => {
-    expect(firstImage('<p><img src="/img/blog/a.webp" alt="Portada"></p>', SITE)).toEqual({
+  it('resolves a site-relative cover against the site URL', () => {
+    expect(coverImage({ src: '/img/blog/a.webp', alt: 'Portada' }, SITE)).toEqual({
       url: 'https://huitzi.xyz/img/blog/a.webp',
       alt: 'Portada',
     });
   });
 
-  it('keeps absolute URLs and takes only the first image', () => {
-    const html = '<img alt="Uno &amp; dos" src="https://cdn.example.com/a.png?x=1&amp;y=2"><img src="/b.png">';
-    expect(firstImage(html, SITE)).toEqual({ url: 'https://cdn.example.com/a.png?x=1&y=2', alt: 'Uno & dos' });
-  });
-
-  it('accepts an image without alt', () => {
-    expect(firstImage('<img src="/a.png">', SITE)).toEqual({ url: 'https://huitzi.xyz/a.png', alt: '' });
+  it('keeps absolute URLs', () => {
+    expect(coverImage({ src: 'https://cdn.example.com/a.png?x=1&y=2', alt: '' }, SITE)).toEqual({
+      url: 'https://cdn.example.com/a.png?x=1&y=2',
+      alt: '',
+    });
   });
 });
 

@@ -64,35 +64,21 @@ export function pageMetadata(seo: PageSeo): Metadata {
 }
 
 /**
- * La primera imagen del HTML ya sanitizado de un post, como URL absoluta, o
- * null. Se lee del HTML sanitizado, no del Markdown: así solo cuenta una URL
- * que la allowlist de packages/markdown aceptó.
+ * La portada de un post (la primera imagen de su HTML ya sanitizado, ver
+ * prepareImages) como imagen Open Graph con URL absoluta, o null.
  */
-export function firstImage(html: string, siteUrl: string): { url: string; alt: string } | null {
-  const tag = /<img\b[^>]*>/i.exec(html)?.[0];
-  if (!tag) {
+export function coverImage(
+  cover: { src: string; alt: string } | null,
+  siteUrl: string,
+): { url: string; alt: string } | null {
+  if (!cover) {
     return null;
   }
-  const src = /\ssrc="([^"]+)"/i.exec(tag)?.[1];
-  if (!src) {
-    return null;
-  }
-  const alt = /\salt="([^"]*)"/i.exec(tag)?.[1] ?? '';
-
   try {
-    return { url: new URL(decodeEntities(src), siteUrl).toString(), alt: decodeEntities(alt) };
+    return { url: new URL(cover.src, siteUrl).toString(), alt: cover.alt };
   } catch {
     return null;
   }
-}
-
-function decodeEntities(value: string): string {
-  return value
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&amp;/g, '&');
 }
 
 export interface SitemapEntry {
