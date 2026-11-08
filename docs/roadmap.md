@@ -81,7 +81,7 @@
 
 ## Fase futura (fuera del MVP)
 
-- [ ] BLOG-072: Interfaz del asistente de IA en el editor del admin (solo frontend): puerto `WritingAssistant` con implementación falsa, detrás de un flag apagado en producción.
+- [x] BLOG-072: Interfaz del asistente de IA en el editor del admin (solo frontend): puerto `WritingAssistant` con implementación falsa, detrás de un flag apagado en producción. ([#66](https://github.com/HuitziDomingo/personal-blog/pull/66))
 - [ ] BLOG-023: Definir `domain/comment.go` e implementar comentarios.
 - [ ] BLOG-024: Crear vista de moderación de comentarios.
 - [ ] BLOG-025: Agregar `AIModeration` a la moderación de comentarios.
