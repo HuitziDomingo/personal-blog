@@ -10,6 +10,7 @@ import { SkipLink } from '@/components/skip-link';
 import { palette } from '@/lib/brand';
 import { colorModeScript } from '@/lib/color-mode';
 import { siteUrl } from '@/lib/config';
+import { RSS_ALTERNATE } from '@/lib/seo';
 import { profile, siteDescription } from '@/lib/site';
 
 // Fuente de títulos de la marca; next/font la descarga en el build y la sirve
@@ -28,7 +29,7 @@ export const metadata: Metadata = {
   applicationName: profile.shortName,
   authors: [{ name: profile.name }],
   creator: profile.name,
-  alternates: { types: { 'application/rss+xml': [{ url: '/feed.xml', title: `Blog de ${profile.shortName}` }] } },
+  alternates: { types: RSS_ALTERNATE },
 };
 
 export const viewport: Viewport = {

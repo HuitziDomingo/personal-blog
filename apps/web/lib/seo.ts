@@ -2,6 +2,12 @@ import type { Metadata } from 'next';
 
 import { profile } from './site';
 
+/**
+ * Feed RSS. Va en `alternates` de cada página porque Next no fusiona
+ * `alternates` entre layout y página: la canónica de la página lo borraría.
+ */
+export const RSS_ALTERNATE = { 'application/rss+xml': [{ url: '/feed.xml', title: `Blog de ${profile.shortName}` }] };
+
 /** Imagen Open Graph por defecto (app/og.png/route.tsx), 1200 × 630. */
 export const DEFAULT_OG_IMAGE = { url: '/og.png', width: 1200, height: 630, alt: profile.name } as const;
 
@@ -30,7 +36,7 @@ export function pageMetadata(seo: PageSeo): Metadata {
   return {
     title: seo.title,
     description: seo.description,
-    alternates: { canonical: seo.path },
+    alternates: { canonical: seo.path, types: RSS_ALTERNATE },
     openGraph: {
       title: seo.title,
       description: seo.description,

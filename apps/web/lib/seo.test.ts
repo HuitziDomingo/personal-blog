@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { DEFAULT_OG_IMAGE, firstImage, pageMetadata, robotsConfig, sitemapEntries } from './seo';
+import { DEFAULT_OG_IMAGE, firstImage, pageMetadata, robotsConfig, RSS_ALTERNATE, sitemapEntries } from './seo';
 
 const SITE = 'https://huitzi.xyz';
 
@@ -30,6 +30,7 @@ describe('pageMetadata', () => {
   it('sets canonical, Open Graph and Twitter with the default image', () => {
     const meta = pageMetadata({ title: 'Blog', description: 'Posts', path: '/blog' });
     expect(meta.alternates?.canonical).toBe('/blog');
+    expect(meta.alternates?.types).toEqual(RSS_ALTERNATE);
     expect(meta.openGraph).toMatchObject({ url: '/blog', type: 'website', images: [DEFAULT_OG_IMAGE] });
     expect(meta.twitter).toMatchObject({ card: 'summary_large_image', images: [DEFAULT_OG_IMAGE.url] });
   });

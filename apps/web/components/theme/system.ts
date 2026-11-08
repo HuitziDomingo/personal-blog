@@ -4,8 +4,12 @@ import { palette } from '@/lib/brand';
 
 const { light, dark } = palette;
 
+/**
+ * Los tokens de Chakra traen `_light` y `_dark`; un `base` solo pierde frente
+ * a su `_light`. `base` cubre además la página antes de que haya clase.
+ */
 function mode(lightValue: string, darkValue: string) {
-  return { value: { base: lightValue, _dark: darkValue } };
+  return { value: { base: lightValue, _light: lightValue, _dark: darkValue } };
 }
 
 const config = defineConfig({
