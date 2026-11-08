@@ -164,6 +164,19 @@ describe('publishedSlugs', () => {
   });
 });
 
+describe('publishedSummaries', () => {
+  it('devuelve los resúmenes con las mismas peticiones que publishedSlugs', async () => {
+    const api = new FakeApi();
+    api.published = Array.from({ length: 150 }, (_, i) => `post-${String(i)}`);
+
+    const posts = await createPostsApi(api.deps()).publishedSummaries();
+
+    expect(posts.map((post) => post.slug)).toEqual(api.published);
+    expect(posts[0]).toMatchObject({ title: 'post-0', updatedAt: '2026-11-01T00:00:00Z' });
+    expect(api.calls).toEqual(['/api/v1/posts?limit=100&offset=0', '/api/v1/posts?limit=100&offset=100']);
+  });
+});
+
 describe('sin API (WEB_SKIP_API=1, build del CI)', () => {
   it('no llama a nada y devuelve listas vacías', async () => {
     const api = new FakeApi();
@@ -171,6 +184,7 @@ describe('sin API (WEB_SKIP_API=1, build del CI)', () => {
 
     expect((await posts.listPublished()).items).toEqual([]);
     expect(await posts.publishedSlugs()).toEqual([]);
+    expect(await posts.publishedSummaries()).toEqual([]);
     expect(await posts.getPublished('hola-mundo')).toBeNull();
     expect(api.calls).toEqual([]);
   });

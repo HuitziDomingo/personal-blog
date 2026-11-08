@@ -15,6 +15,14 @@ const nextConfig: NextConfig = {
   experimental: { optimizePackageImports: ['@chakra-ui/react'] },
   // Sin AGENTS.md generado por next dev dentro de apps/web.
   agentRules: false,
+  // AVIF primero y WebP de respaldo para next/image.
+  images: { formats: ['image/avif', 'image/webp'] },
+  // /posts era la sección de artículos de la web anterior; el blog vive en /blog.
+  redirects: () =>
+    Promise.resolve([
+      { source: '/posts', destination: '/blog', permanent: true },
+      { source: '/posts/:slug', destination: '/blog/:slug', permanent: true },
+    ]),
   // CSP y cabeceras de ADR-017, punto 4, en todas las rutas.
   headers: () => Promise.resolve([{ source: '/:path*', headers: securityHeaders(isDev) }]),
 };

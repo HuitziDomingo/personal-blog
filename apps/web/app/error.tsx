@@ -13,7 +13,7 @@ export default function ErrorPage({ reset }: { error: Error & { digest?: string 
   const router = useRouter();
 
   return (
-    <Stack gap="4">
+    <Stack gap="4" maxW="3xl" mx="auto">
       <Heading as="h1" size="2xl">
         No pudimos cargar esta página
       </Heading>
