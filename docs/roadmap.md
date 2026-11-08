@@ -81,7 +81,7 @@
 ## Por definir
 
 - [x] BLOG-059: Crear `apps/web` (Next.js, ADR-017): TypeScript estricto, ISR, CSP y `packages/markdown` en el servidor. ([#53](https://github.com/HuitziDomingo/personal-blog/pull/53))
-- [x] BLOG-075: `apps/web` como sitio real: portafolio con el contenido de la web anterior, blog con vista de lectura, modo claro/oscuro/sistema, SEO (canónicas, Open Graph, sitemap, robots y RSS) e imágenes con `next/image`. (PR_LINK)
+- [x] BLOG-075: `apps/web` como sitio real: portafolio con el contenido de la web anterior, blog con vista de lectura, modo claro/oscuro/sistema, SEO (canónicas, Open Graph, sitemap, robots y RSS) e imágenes con `next/image`. ([#70](https://github.com/HuitziDomingo/personal-blog/pull/70))
 - [ ] BLOG-076: Crear en el admin los 2 posts de la web anterior (`docs/web/posts-migrados/`), con los slugs `arreglos` y `backend-api`.
 - [ ] BLOG-077: Decidir los pendientes del inventario de la web anterior: perro 3D (three.js), íconos de marca de las redes, resaltado de sintaxis del código y animaciones de entrada.
 - [ ] BLOG-078: Paginación en `/blog`: hoy muestra los 20 posts más recientes y el resto solo se alcanza desde el sitemap.
