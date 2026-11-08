@@ -1,6 +1,6 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
-import { apiBaseUrl, DEFAULT_PRERENDER_LIMIT, isBuildPhase, prerenderLimit, siteUrl } from './config';
+import { API_ANONYMOUS_BURST, apiBaseUrl, isBuildPhase, prerenderLimit, siteUrl } from './config';
 
 describe('apiBaseUrl', () => {
   it('usa API_BASE_URL sin barra final', () => {
@@ -48,12 +48,18 @@ describe('prerenderLimit (ADR-020)', () => {
     expect(() => prerenderLimit({ WEB_PRERENDER_LIMIT: value })).toThrow('non-negative integer');
   });
 
-  it('con el valor por defecto el build queda por debajo de la ráfaga anónima', () => {
-    // Ráfaga anónima por IP de la API (ADR-010; sin cambios en ADR-016, punto 3).
-    const anonymousBurst = 20;
+  it('con el valor por defecto el build queda por debajo de la ráfaga anónima, sin aviso', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     // Lista de inicio + una página de slugs (hasta 100 publicados) + los posts.
-    const buildRequests = 1 + 1 + DEFAULT_PRERENDER_LIMIT;
+    expect(1 + 1 + prerenderLimit({})).toBeLessThan(API_ANONYMOUS_BURST);
+    expect(warn).not.toHaveBeenCalled();
+    warn.mockRestore();
+  });
 
-    expect(buildRequests).toBeLessThan(anonymousBurst);
+  it('avisa si N más las listas supera la ráfaga', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    expect(prerenderLimit({ WEB_PRERENDER_LIMIT: '19' })).toBe(19);
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('may get 429'));
+    warn.mockRestore();
   });
 });

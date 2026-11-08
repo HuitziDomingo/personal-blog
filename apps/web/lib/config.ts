@@ -6,6 +6,9 @@ export type Env = Readonly<Record<string, string | undefined>>;
 /** Posts que el build pregenera por defecto (ADR-020). */
 export const DEFAULT_PRERENDER_LIMIT = 10;
 
+/** Ráfaga anónima por IP de la API (ADR-010; sin cambios en ADR-016, punto 3). */
+export const API_ANONYMOUS_BURST = 20;
+
 /**
  * Posts que el build pregenera, los más recientes (ADR-020). El resto se genera
  * en su primera visita. Acota las peticiones del build a la API: 1 lista de
@@ -23,7 +26,15 @@ export function prerenderLimit(env: Env = process.env): number {
     throw new Error(`WEB_PRERENDER_LIMIT must be a non-negative integer, got "${configured}"`);
   }
 
-  return Number(configured);
+  const limit = Number(configured);
+  // Lista de inicio + una página de slugs + los posts (ADR-020, Consecuencias).
+  if (limit + 2 > API_ANONYMOUS_BURST) {
+    console.warn(
+      `WEB_PRERENDER_LIMIT=${String(limit)} plus the list requests exceeds the API anonymous burst (${String(API_ANONYMOUS_BURST)}): the build may get 429`,
+    );
+  }
+
+  return limit;
 }
 
 /**
