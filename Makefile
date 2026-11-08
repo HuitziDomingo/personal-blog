@@ -2,7 +2,7 @@ API_DIR := services/api
 # Swagger UI para ver el contrato en local; fijada por tag y digest.
 SWAGGER_UI_IMAGE := swaggerapi/swagger-ui:v5.33.3@sha256:b26661cd754a7efbb2e1aab419ffb5603320d8f35f0bd086d1d7506e23934d23
 
-.PHONY: e2e e2e-clean admin-dev admin-lint admin-test admin-build admin-preview admin-csp-test api-run api-watch api-test api-test-integration api-lint api-build mcp-build api-docker-build api-docs api-flows generate db-up db-down db-logs db-reset
+.PHONY: web-dev web-lint web-typecheck web-test web-build web-start e2e e2e-clean admin-dev admin-lint admin-test admin-build admin-preview admin-csp-test api-run api-watch api-test api-test-integration api-lint api-build mcp-build api-docker-build api-docs api-flows generate db-up db-down db-logs db-reset
 
 api-run:
 	@test -f .env || { echo "Falta .env: copia .env.example a .env"; exit 1; }
@@ -44,6 +44,26 @@ api-flows:
 		test -n "$$INITIAL_ADMIN_EMAIL" && test -n "$$INITIAL_ADMIN_PASSWORD" || { echo "Faltan INITIAL_ADMIN_EMAIL e INITIAL_ADMIN_PASSWORD en .env"; exit 1; }; \
 		cd docs/api/bruno && "$(CURDIR)/node_modules/.bin/bru" run flows -r --env local \
 		--env-var "adminEmail=$$INITIAL_ADMIN_EMAIL" --env-var "adminPassword=$$INITIAL_ADMIN_PASSWORD"
+
+# Web pública (ADR-017) contra la API local; con WEB_API_BASE_URL=<origen> usa
+# otra. web-build y web-start reproducen el ISR de producción en local.
+web-dev:
+	$(if $(WEB_API_BASE_URL),API_BASE_URL=$(WEB_API_BASE_URL)) pnpm --filter @personal-blog/web dev
+
+web-lint:
+	pnpm --filter @personal-blog/web lint
+
+web-typecheck:
+	pnpm --filter @personal-blog/web typecheck
+
+web-test:
+	pnpm --filter @personal-blog/web test
+
+web-build:
+	API_BASE_URL=$(or $(WEB_API_BASE_URL),http://localhost:8080) pnpm --filter @personal-blog/web build
+
+web-start:
+	API_BASE_URL=$(or $(WEB_API_BASE_URL),http://localhost:8080) pnpm --filter @personal-blog/web start
 
 # Con ADMIN_API_BASE_URL=<origen> apunta el admin a otra API; sin ella usa el
 # define de development en angular.json.

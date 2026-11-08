@@ -18,7 +18,8 @@ Cómo levantar y probar el proyecto en local. Las decisiones están en [docs/adr
 ```text
 personal-blog/
 ├── apps/
-│   └── admin/            # Dashboard en Angular; web (Next.js) está pendiente
+│   ├── admin/            # Dashboard en Angular
+│   └── web/              # Blog público en Next.js (spike en borrador)
 ├── packages/
 │   ├── api-types/        # Tipos TypeScript generados del contrato
 │   └── markdown/         # Render y sanitización de Markdown (admin y web)
@@ -199,6 +200,12 @@ Los valores de producción son los previstos; el despliegue está pendiente (BLO
 | `make api-test` | Corre los tests de Go con `-race`; los de integración se saltan |
 | `make api-test-integration` | Levanta MongoDB y corre los tests de `internal/repository` contra él |
 | `make api-lint` | Corre `golangci-lint` |
+| `make web-dev` | Levanta `apps/web` con `next dev` en `http://localhost:3000`; con `WEB_API_BASE_URL=<origen>` usa otra API |
+| `make web-build` | Build de producción de la web contra la API local (o `WEB_API_BASE_URL`) |
+| `make web-start` | Sirve el build de producción de la web en `http://localhost:3000`, con ISR y cabeceras |
+| `make web-lint` | ESLint de la web |
+| `make web-typecheck` | `tsc --noEmit` de la web |
+| `make web-test` | Tests de la web con Vitest |
 | `make admin-dev` | Levanta el admin en `http://localhost:4200`; con `ADMIN_API_BASE_URL=<origen>` usa otra API |
 | `make admin-lint` | Corre ESLint con angular-eslint en el admin |
 | `make admin-test` | Corre los tests del admin y los de los scripts de `apps/admin/scripts/`, incluido el contraste WCAG AA de las paletas de acento |
@@ -285,7 +292,40 @@ El código generado nunca se edita a mano.
 
 ## Frontends
 
-`apps/web` todavía no existe.
+### Web (`apps/web`)
+
+El sitio público ([ADR-017](adr/017-arquitectura-de-la-web-publica-nextjs.md)): Next.js 16 con App Router, TypeScript estricto y Chakra UI v3.
+
+```sh
+make web-dev        # next dev en http://localhost:3000, contra la API de make api-run
+make web-build      # build de producción contra la API local (WEB_API_BASE_URL=<origen> para otra)
+make web-start      # sirve ese build: reproduce el ISR y las cabeceras de producción
+make web-lint       # ESLint con typescript-eslint estricto
+make web-typecheck  # tsc --noEmit
+make web-test       # Vitest de lib/
+```
+
+- **Datos** (`lib/api.ts`): `fetch` nativo hacia la API pública de posts, con la caché de Next (`revalidate: 60`). Solo el servidor de Next llama a la API, así que no hace falta `localhost:3000` en `ALLOWED_ORIGINS`.
+- **Variables:**
+  - `API_BASE_URL`: obligatoria en producción. Sin ella, el build falla en lugar de publicar un sitio vacío. En `next dev` usa `http://localhost:8080` por defecto.
+  - `WEB_SKIP_API=1`: construye sin API, solo para el CI (en Vercel, con `VERCEL` definida, el build falla). Las páginas salen vacías y los posts se generan en su primera visita.
+  - `SITE_URL` (por defecto `https://huitzi.xyz`): decide qué links son internos.
+  - `WEB_PRERENDER_LIMIT` (por defecto `10`): posts que el build pregenera (ADR-020). Debe quedar por debajo de la ráfaga anónima de la API (20) menos las listas; un valor que no sea un entero no negativo hace fallar el build.
+- **ISR:**
+  - `/` se regenera como mucho cada 60 s.
+  - `/posts/[slug]` pregenera los N posts más recientes (`WEB_PRERENDER_LIMIT`, por defecto 10; ADR-020). El resto se genera en su primera visita y queda en caché.
+  - Un post recién publicado tarda hasta un minuto en aparecer en `/`. Mientras la caché esté vieja, la primera visita sirve la versión anterior y dispara la regeneración.
+- **Riesgos de ADR-017 y cómo se resuelven:**
+  - **429 en el build:** el build hace como mucho 1 lista de inicio + 1 lista de slugs por cada 100 publicados + N posts. Next reutiliza las respuestas cacheadas entre páginas, y en local fueron 3 peticiones con un post publicado. Con N = 10 y hasta unos 800 publicados queda por debajo de la ráfaga anónima de 20; si N + 2 la supera, el build lo avisa en el log. Si aun así llega un 429 durante `next build`, espera el `Retry-After` (máximo 10 s, para caber en el límite de 60 s por página de Next) y reintenta hasta 3 veces. Con varios workers, la lista puede pedirse más de una vez; el peor caso estimado con N = 10 es de unas 17 peticiones.
+  - **Slugs inventados:** un slug que no cumple el patrón del contrato da 404 sin llamar a la API. Uno que lo cumple se busca en la lista de slugs publicados, que viene de la caché (una pasada como mucho por minuto). Si no está, da 404 sin pedir el post. Así, inventar slugs no gasta el cupo de las IPs de Vercel. Un post recién publicado puede dar 404 hasta que esa lista se regenere, como mucho un par de minutos.
+  - **Build del CI sin API:** con `WEB_SKIP_API=1` (ver Variables).
+  - **Un 429 o un 5xx nunca es un 404:** solo un 404 de la API da `notFound()`. Un 429, un 5xx o un error de red lanzan `ApiUnavailableError`. En una regeneración, Next conserva la última versión buena. En la primera generación de una página, se muestra `app/error.tsx` («No pudimos cargar esta página»).
+- **Markdown** (`lib/markdown.ts`): `createServerRenderer` de `@personal-blog/markdown/server`, con `newTab: 'external'`. Se sanitiza en el servidor; el HTML llega hecho al navegador.
+- **CSP y cabeceras** (`lib/security-headers.ts`, aplicadas en `next.config.ts`): las de ADR-017, punto 4. En `next dev` se añade `'unsafe-eval'` (React Refresh) y se quita `upgrade-insecure-requests`.
+- **Paquetes del monorepo:** `transpilePackages` compila `@personal-blog/markdown` y `serverExternalPackages` deja jsdom fuera del bundle.
+- **CI:** job `web` (ADR-017, punto 7), con lint, typecheck, tests y build con `WEB_SKIP_API=1`.
+- **Probar de punta a punta en local:** `make api-run`, `make admin-dev`, `make web-build` y `make web-start`. Publica un post en el admin y abre `http://localhost:3000`. Si no aparece, recarga pasados 60 s.
+- **Pendiente:** tema propio y modo oscuro, y el despliegue en Vercel.
 
 ### Admin (`apps/admin`)
 
@@ -428,16 +468,16 @@ El admin no usa `provideSpartanHlm()`. Solo cambia el default de los overlays de
 
 ### Paquete `packages/markdown`
 
-`@personal-blog/markdown` es la única fuente de la allowlist, la política de URLs y el render de Markdown ([ADR-017](adr/017-arquitectura-de-la-web-publica-nextjs.md), punto 5). Convierte con `marked` y sanitiza con DOMPurify (ADR-010, punto 4; ADR-012, punto 6). Se publica como TypeScript sin compilar: cada app lo compila con lo suyo.
+`@personal-blog/markdown` es la única fuente de la allowlist, la política de URLs y el render de Markdown ([ADR-017](adr/017-arquitectura-de-la-web-publica-nextjs.md), punto 5). Convierte con `marked` y sanitiza con DOMPurify (ADR-010, punto 4; ADR-012, punto 6). Se publica como TypeScript sin compilar: cada app lo compila con lo suyo. Por eso sus imports relativos llevan la extensión `.ts` (`./policy.ts`): el pre-empaquetado de Vite en `ng serve` y Turbopack en Next no infieren la extensión dentro de un paquete. El paquete activa `allowImportingTsExtensions`, y el admin `rewriteRelativeImportExtensions`, porque su compilación emite JavaScript.
 
 - **Variantes:**
-  - `@personal-blog/markdown`, para el navegador: `renderMarkdown(source)` sanitiza con el DOM de la página y resuelve las URLs relativas contra `window.location`. La usa el admin.
-  - `@personal-blog/markdown/server`, para el servidor: `createServerRenderer({ siteUrl })` devuelve el mismo render, con DOMPurify sobre un DOM de jsdom; las URLs relativas se resuelven contra `siteUrl`. Crea el DOM una vez: guarda el render y reúsalo. Un `siteUrl` inválido lanza al crearlo. La usará `apps/web`, que nunca debe importar la raíz del paquete en el servidor: la raíz lee `window` al cargarse.
+  - `@personal-blog/markdown`, para el navegador: `renderMarkdown(source)` sanitiza con el DOM de la página y resuelve las URLs relativas contra `window.location`. La usa el admin. `createBrowserRenderer({ newTab })` crea otro con otra política de links.
+  - `@personal-blog/markdown/server`, para el servidor: `createServerRenderer({ siteUrl, newTab })` devuelve el mismo render, con DOMPurify sobre un DOM de jsdom; las URLs relativas se resuelven contra `siteUrl`. Crea el DOM una vez: guarda el render y reúsalo. Un `siteUrl` inválido lanza al crearlo. La usará `apps/web`, que nunca debe importar la raíz del paquete en el servidor: la raíz lee `window` al cargarse.
   - Si el DOM no sirve a DOMPurify, crear el render lanza un error en lugar de devolver HTML sin sanitizar.
   - Las dos comparten `src/renderer.ts`; solo cambian el DOM y la URL base.
 - **Allowlist explícita:** `ALLOWED_TAGS` y `ALLOWED_ATTR` en `src/policy.ts`.
 - **URLs (`isSafeUrl`):** un hook las valida con el parser de URLs WHATWG (`new URL()`). Las absolutas solo pueden ser `http(s)`, o `mailto` en links. Las relativas solo valen si resuelven al origen de la página, y las anclas valen en links. DOMPurify deja pasar `data:` en `<img>`, y el navegador lee `/\host` como `//host`; los dos casos tienen test.
-- **Links:** abren en otra pestaña con `rel="noopener noreferrer"`.
+- **Links (`newTab`):** con `all` (el admin) todos abren en otra pestaña; con `external` (la web) solo los que resuelven a `http(s)` de otro origen (`isExternalLink`); en el servidor, «otro origen» es otro que `siteUrl`, así que en un preview de Vercel un link absoluto a `huitzi.xyz` abre en la misma pestaña. Los relativos, las anclas, los del mismo origen y `mailto:` abren en la misma. Los que abren en otra pestaña llevan siempre `rel="noopener noreferrer"`; `target` y `rel` escritos en el Markdown se descartan.
 - **Tests** (`pnpm --filter @personal-blog/markdown test`):
   - `src/test/sanitization-suite.ts` tiene los casos que antes estaban en el admin. `browser.spec.ts` los corre sobre la variante de navegador (jsdom como DOM global) y `server.spec.ts` sobre la de servidor, en el entorno `node`, sin `window`.
   - `equivalence.spec.ts` comprueba que, con el mismo origen, las dos variantes dan exactamente el mismo HTML en cada caso.
