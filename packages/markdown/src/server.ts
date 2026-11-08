@@ -4,14 +4,17 @@
 /// <reference path="./jsdom.d.ts" />
 import { JSDOM } from 'jsdom';
 
-import { createRenderer, type MarkdownRenderer } from './renderer';
+import type { NewTabPolicy } from './policy.ts';
+import { createRenderer, type MarkdownRenderer } from './renderer.ts';
 
-export { ALLOWED_ATTR, ALLOWED_TAGS, isSafeUrl, type UrlAttribute } from './policy';
-export type { MarkdownRenderer } from './renderer';
+export { ALLOWED_ATTR, ALLOWED_TAGS, isExternalLink, isSafeUrl, type NewTabPolicy, type UrlAttribute } from './policy.ts';
+export type { MarkdownRenderer } from './renderer.ts';
 
 export interface ServerRendererOptions {
   /** URL pública del sitio, p. ej. `https://huitzi.xyz`: los links relativos solo se conservan si resuelven a su origen. */
   siteUrl: string;
+  /** Qué links abren en otra pestaña; la web usa `external`. */
+  newTab: NewTabPolicy;
 }
 
 /**
@@ -22,9 +25,9 @@ export interface ServerRendererOptions {
  * En el servidor se importa esta entrada, nunca la raíz del paquete: la raíz lee
  * `window` al cargarse.
  */
-export function createServerRenderer({ siteUrl }: ServerRendererOptions): MarkdownRenderer {
+export function createServerRenderer({ siteUrl, newTab }: ServerRendererOptions): MarkdownRenderer {
   const base = new URL(siteUrl).href;
   const { window } = new JSDOM('', { url: base });
 
-  return createRenderer(window, () => base);
+  return createRenderer(window, () => base, newTab);
 }
