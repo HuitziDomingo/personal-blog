@@ -52,7 +52,7 @@
 - [x] BLOG-066: Política de links del paquete de Markdown: en la web solo los externos abren en otra pestaña; el admin sigue abriendo todos. ([#53](https://github.com/HuitziDomingo/personal-blog/pull/53))
 - [x] BLOG-067: `ng serve` (y con él `make admin-dev` y `make e2e`) no resolvía los imports sin extensión de `packages/markdown` al pre-empaquetar dependencias. ([#53](https://github.com/HuitziDomingo/personal-blog/pull/53))
 - [x] BLOG-036: Sanitizar el Markdown de los posts al renderizar en `apps/web` y `apps/admin`, con allowlist (ADR-010). ([#58](https://github.com/HuitziDomingo/personal-blog/pull/58), [#53](https://github.com/HuitziDomingo/personal-blog/pull/53))
-- [ ] BLOG-070: Editor WYSIWYG del admin con Milkdown Crepe (ADR-018), sin cambiar la interfaz `value`/`valueChange`.
+- [x] BLOG-070: Editor WYSIWYG del admin con Milkdown Crepe (ADR-018), sin cambiar la interfaz `value`/`valueChange`. ([#64](https://github.com/HuitziDomingo/personal-blog/pull/64))
 - [x] BLOG-046: CSP y cabeceras del admin en Vercel (ADR-012). ([#45](https://github.com/HuitziDomingo/personal-blog/pull/45))
 - [ ] BLOG-047: Configurar admin.huitzi.xyz en Vercel y DNS en DreamHost. El build command de Vercel debe ser el script `build` del paquete (`pnpm --filter @personal-blog/admin build`), que corre el chequeo de la URL de la API, no `ng build` directo.
 - [x] BLOG-050: Activar security.autoCsp en angular.json (va con BLOG-046). ([#45](https://github.com/HuitziDomingo/personal-blog/pull/45))
