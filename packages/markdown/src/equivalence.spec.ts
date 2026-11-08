@@ -1,9 +1,9 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vitest';
 
-import { renderMarkdown } from './index';
-import { createServerRenderer } from './server';
-import { allCases } from './test/sanitization-suite';
+import { renderMarkdown } from './index.ts';
+import { createServerRenderer } from './server.ts';
+import { allCases } from './test/sanitization-suite.ts';
 
 // La página de jsdom es https://huitzi.xyz/ (vitest.config.ts): el mismo
 // origen que el siteUrl del servidor.

@@ -1,7 +1,7 @@
-import { createRenderer } from './renderer';
+import { createRenderer } from './renderer.ts';
 
-export { ALLOWED_ATTR, ALLOWED_TAGS, isSafeUrl, type UrlAttribute } from './policy';
-export type { MarkdownRenderer } from './renderer';
+export { ALLOWED_ATTR, ALLOWED_TAGS, isSafeUrl, type UrlAttribute } from './policy.ts';
+export type { MarkdownRenderer } from './renderer.ts';
 
 /**
  * Variante de navegador: sanitiza con el DOM de la página y resuelve las URLs
