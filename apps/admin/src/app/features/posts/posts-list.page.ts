@@ -40,7 +40,9 @@ type ListState =
   selector: 'app-posts-list-page',
   imports: [RouterLink, HlmAlertDialogImports, HlmBadgeImports, HlmButtonImports, HlmEmptyImports, HlmTableImports],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  host: { class: 'mx-auto flex w-full max-w-5xl flex-col gap-6 p-4 sm:p-6' },
+  // flex-1 dentro del <main> en columna: la página ocupa al menos la pantalla
+  // bajo la barra superior, y la paginación (mt-auto) queda al final.
+  host: { class: 'mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 p-4 sm:p-6' },
   template: `
     <header class="flex flex-wrap items-center justify-between gap-4">
       <h1 #heading tabindex="-1" class="text-2xl font-semibold outline-none">Posts</h1>
@@ -137,7 +139,7 @@ type ListState =
             </table>
           </div>
 
-          <nav aria-label="Paginación" class="flex flex-wrap items-center justify-between gap-2">
+          <nav aria-label="Paginación" class="mt-auto flex flex-wrap items-center justify-center gap-x-4 gap-y-2">
             <p class="text-muted-foreground text-sm">{{ rangeLabel() }}</p>
             <div class="flex gap-2">
               <button hlmBtn variant="outline" size="sm" type="button" [disabled]="!hasPrevious()" (click)="goTo(previousOffset())">
@@ -149,7 +151,9 @@ type ListState =
             </div>
           </nav>
         } @else {
-          <section hlmEmpty aria-labelledby="empty-title">
+          <!-- flex-none: hlmEmpty trae flex-1, y con la página en flex-1 se estiraría
+               hasta el fondo; el estado vacío sigue justo bajo el filtro. -->
+          <section hlmEmpty class="flex-none" aria-labelledby="empty-title">
             <div hlmEmptyHeader>
               <h2 hlmEmptyTitle id="empty-title">{{ emptyTitle() }}</h2>
               <p hlmEmptyDescription>{{ emptyDescription() }}</p>
@@ -164,7 +168,9 @@ type ListState =
       }
     }
 
-    <hlm-alert-dialog [state]="archiveTarget() ? 'open' : 'closed'" (closed)="cancelArchive()">
+    <!-- hidden: el diálogo se pinta en un portal de CDK, y su host, como ítem
+         flex, sumaría un gap tras la paginación. -->
+    <hlm-alert-dialog class="hidden" [state]="archiveTarget() ? 'open' : 'closed'" (closed)="cancelArchive()">
       <hlm-alert-dialog-content *hlmAlertDialogPortal>
         <hlm-alert-dialog-header>
           <h2 hlmAlertDialogTitle>¿Archivar este post?</h2>
