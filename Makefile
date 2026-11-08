@@ -47,16 +47,25 @@ api-flows:
 
 # Con ADMIN_API_BASE_URL=<origen> apunta el admin a otra API; sin ella usa el
 # define de development en angular.json.
-# Spike de apps/web (borrador, sin ADR todavía). Con WEB_API_BASE_URL=<origen>
-# usa otra API; por defecto http://localhost:8080.
+# Web pública (ADR-017) contra la API local; con WEB_API_BASE_URL=<origen> usa
+# otra. web-build y web-start reproducen el ISR de producción en local.
 web-dev:
 	$(if $(WEB_API_BASE_URL),API_BASE_URL=$(WEB_API_BASE_URL)) pnpm --filter @personal-blog/web dev
+
+web-lint:
+	pnpm --filter @personal-blog/web lint
 
 web-typecheck:
 	pnpm --filter @personal-blog/web typecheck
 
 web-test:
 	pnpm --filter @personal-blog/web test
+
+web-build:
+	API_BASE_URL=$(or $(WEB_API_BASE_URL),http://localhost:8080) pnpm --filter @personal-blog/web build
+
+web-start:
+	API_BASE_URL=$(or $(WEB_API_BASE_URL),http://localhost:8080) pnpm --filter @personal-blog/web start
 
 admin-dev:
 	pnpm --filter @personal-blog/admin start $(if $(ADMIN_API_BASE_URL),--define "ADMIN_API_BASE_URL='$(ADMIN_API_BASE_URL)'")

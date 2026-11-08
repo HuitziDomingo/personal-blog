@@ -1,9 +1,9 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vitest';
 
-import { createBrowserRenderer, renderMarkdown } from './index';
-import { isExternalLink } from './policy';
-import { createServerRenderer } from './server';
+import { createBrowserRenderer, renderMarkdown } from './index.ts';
+import { isExternalLink } from './policy.ts';
+import { createServerRenderer } from './server.ts';
 
 const SOURCE = [
   '[externo](https://otro.example/x)',

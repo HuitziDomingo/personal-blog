@@ -19,6 +19,7 @@ jobs:
     outputs:
       api: ${{ steps.filter.outputs.api }}
       admin: ${{ steps.filter.outputs.admin }}
+      web: ${{ steps.filter.outputs.web }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -40,6 +41,14 @@ jobs:
               # El admin usa packages/markdown; el job también corre sus
               # comprobaciones mientras no exista el job web (ADR-017).
               - "packages/markdown/**"
+              - "package.json"
+              - "pnpm-lock.yaml"
+              - "pnpm-workspace.yaml"
+              - ".nvmrc"
+              - ".github/workflows/ci.yml"
+            web:
+              - "apps/web/**"
+              - "packages/**"
               - "package.json"
               - "pnpm-lock.yaml"
               - "pnpm-workspace.yaml"
@@ -161,9 +170,43 @@ jobs:
         timeout-minutes: 5
         run: node scripts/check-csp-browser.mjs
 
+  # ADR-017, punto 7. Construye sin API (WEB_SKIP_API=1): las páginas salen
+  # vacías y los posts se generan en su primera visita; en Vercel el build sí
+  # llama a la API.
+  web:
+    name: web
+    needs: changes
+    if: needs.changes.outputs.web == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+
+      - name: install
+        run: |
+          corepack enable
+          pnpm install --frozen-lockfile
+
+      - name: lint
+        run: pnpm --filter @personal-blog/web lint
+
+      - name: typecheck
+        run: pnpm --filter @personal-blog/web typecheck
+
+      - name: test
+        run: pnpm --filter @personal-blog/web test
+
+      - name: build
+        env:
+          WEB_SKIP_API: "1"
+        run: pnpm --filter @personal-blog/web build
+
   ci:
     name: ci
-    needs: [changes, api, admin]
+    needs: [changes, api, admin, web]
     if: always()
     runs-on: ubuntu-latest
     steps:

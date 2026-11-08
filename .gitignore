@@ -34,3 +34,6 @@ dist/
 .env*
 !.env.example
 .DS_Store
+
+# TypeScript incremental
+*.tsbuildinfo
