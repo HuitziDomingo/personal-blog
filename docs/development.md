@@ -7,6 +7,7 @@ Cómo levantar y probar el proyecto en local. Las decisiones están en [docs/adr
 | Herramienta | Versión | Dónde está fijada |
 | --- | --- | --- |
 | Node.js | 24 | `.nvmrc` y `package.json`; con otra versión, `pnpm install` falla (`engine-strict` en `.npmrc`) |
+| `@types/node` | 24.x, igual que Node | `package.json` de cada paquete que lo usa; súbelo de major solo junto con `.nvmrc` |
 | pnpm | 10.20.0 | `packageManager` en `package.json`; se activa con `corepack enable` |
 | Go | 1.27 (toolchain 1.27.3) | `services/api/go.mod` |
 | Docker | Con Docker Compose v2 | No está fijada |
