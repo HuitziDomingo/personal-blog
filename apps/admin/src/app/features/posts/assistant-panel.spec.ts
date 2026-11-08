@@ -88,6 +88,7 @@ describe('AssistantPanel', () => {
 
     expect(host.content()).toBe('# Hola');
     expect(screen.queryByRole('button', { name: 'Deshacer' })).toBeNull();
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Mejorar redacción' })));
 
     await fireEvent.click(screen.getByRole('button', { name: 'Mejorar redacción' }));
     assistant.improve.next('## Otra');
@@ -124,7 +125,7 @@ describe('AssistantPanel', () => {
 
     it('se copia al portapapeles', async () => {
       const writeText = vi.fn().mockResolvedValue(undefined);
-      vi.stubGlobal('navigator', { ...navigator, clipboard: { writeText } });
+      vi.stubGlobal('navigator', Object.assign(Object.create(navigator) as Navigator, { clipboard: { writeText } }));
       await showCover();
 
       await fireEvent.click(screen.getByRole('button', { name: 'Copiar' }));
@@ -135,7 +136,10 @@ describe('AssistantPanel', () => {
     });
 
     it('si no se puede copiar, lo dice y deja la idea en pantalla', async () => {
-      vi.stubGlobal('navigator', { ...navigator, clipboard: { writeText: vi.fn().mockRejectedValue(new Error('denied')) } });
+      vi.stubGlobal(
+        'navigator',
+        Object.assign(Object.create(navigator) as Navigator, { clipboard: { writeText: vi.fn().mockRejectedValue(new Error('denied')) } }),
+      );
       await showCover();
 
       await fireEvent.click(screen.getByRole('button', { name: 'Copiar' }));
@@ -176,6 +180,7 @@ describe('AssistantPanel', () => {
 
     await fireEvent.click(screen.getByRole('button', { name: 'Mejorar redacción' }));
     expect(screen.getByRole('alert').textContent).toContain('Escribe algo de contenido');
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Reintentar' })));
 
     assistant.failWith = null;
     await fireEvent.click(screen.getByRole('button', { name: 'Reintentar' }));

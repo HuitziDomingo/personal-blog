@@ -75,7 +75,7 @@ const ACTION_LABELS: Record<AssistantAction, string> = {
 
       <!-- Una sola región viva, con textos cortos; los errores van en role=alert.
            Sin role=status: el editor ya tiene el suyo para los avisos de guardado. -->
-      <p aria-live="polite" aria-atomic="true" data-testid="assistant-announcement" class="text-muted-foreground text-sm empty:hidden">
+      <p aria-live="polite" aria-atomic="true" data-testid="assistant-announcement" class="text-muted-foreground min-h-5 text-sm">
         {{ announcement() }}
       </p>
 
@@ -90,7 +90,9 @@ const ACTION_LABELS: Record<AssistantAction, string> = {
         @case ('error') {
           <div role="alert" class="flex flex-wrap items-center gap-3">
             <p class="text-destructive text-sm">{{ errorMessage() }}</p>
-            <button hlmBtn variant="outline" size="sm" type="button" [disabled]="disabled()" (click)="retry()">Reintentar</button>
+            <button #retryButton hlmBtn variant="outline" size="sm" type="button" [disabled]="disabled()" (click)="retry()">
+              Reintentar
+            </button>
           </div>
         }
         @case ('ready') {
@@ -165,6 +167,7 @@ export class AssistantPanel {
 
   private readonly actionButtons = viewChildren<ElementRef<HTMLButtonElement>>('actionButton');
   private readonly suggestionCard = viewChild<ElementRef<HTMLElement>>('suggestionCard');
+  private readonly retryButton = viewChild<ElementRef<HTMLButtonElement>>('retryButton');
   private pending?: Subscription;
 
   protected errorMessage(): string {
@@ -204,6 +207,8 @@ export class AssistantPanel {
           action,
           message: error instanceof AssistantError ? error.message : 'El asistente no respondió. Inténtalo de nuevo.',
         });
+        // El botón pulsado quedó deshabilitado: el foco pasa a «Reintentar».
+        afterNextRender(() => this.retryButton()?.nativeElement.focus(), { injector: this.injector });
       },
     });
   }
@@ -252,6 +257,7 @@ export class AssistantPanel {
     if (previous !== null) {
       this.applyContent.emit(previous);
       this.undoContent.set(null);
+      this.focusAction('improve');
       this.announcement.set('Se restauró el contenido anterior.');
     }
   }
@@ -260,6 +266,11 @@ export class AssistantPanel {
   private finish(action: AssistantAction, message: string): void {
     this.state.set({ kind: 'idle' });
     this.announcement.set(message);
+    this.focusAction(action);
+  }
+
+  /** Lleva el foco al botón de una acción cuando el botón que lo tenía desaparece. */
+  private focusAction(action: AssistantAction): void {
     afterNextRender(
       () => this.actionButtons().find((button) => button.nativeElement.dataset['action'] === action)?.nativeElement.focus(),
       { injector: this.injector },
