@@ -1,5 +1,5 @@
 # ADR-002: Arquitectura Hexagonal y Autenticación JWT en Go (Gin)
-* Estado: Aprobado — parcialmente reemplazado por ADR-006; complementado por ADR-019
+* Estado: Aprobado — parcialmente reemplazado por ADR-006, complementado por ADR-019
 * Fecha: 2026-10-30
 * Autor: León Nieves Huitzitzili Domingo
 
