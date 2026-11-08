@@ -25,7 +25,9 @@ import { finalize, Observable, Subject, Subscription } from 'rxjs';
 import { Post, PostStatus } from '../../core/api/api-types';
 import { PostsApi } from '../../core/api/posts-api';
 import { ApiError } from '../../core/http/api-error';
+import { ASSISTANT_ENABLED, MetadataSuggestion } from '../../core/assistant/writing-assistant';
 import { MarkdownEditor } from '../../shared/markdown-editor/markdown-editor';
+import { AssistantPanel } from './assistant-panel';
 import { POST_STATUS_LABELS } from './post-display';
 import { createPostForm, formValueOf, isSlugEditable, POST_LIMITS, toPostWrite } from './post-form';
 
@@ -64,6 +66,7 @@ const SLUG_CONFLICTS: Record<string, string> = {
     ReactiveFormsModule,
     RouterLink,
     MarkdownEditor,
+    AssistantPanel,
     HlmAlertDialogImports,
     HlmBadgeImports,
     HlmButtonImports,
@@ -159,6 +162,16 @@ const SLUG_CONFLICTS: Record<string, string> = {
             <p id="content-error" role="alert" class="text-destructive text-sm">Escribe el contenido.</p>
           }
         </div>
+
+        @if (assistantEnabled) {
+          <app-assistant-panel
+            [title]="form.controls.title.value"
+            [content]="form.controls.content.value"
+            [disabled]="saving()"
+            (applyContent)="setContent($event)"
+            (applyMetadata)="applyMetadata($event)"
+          />
+        }
 
         <fieldset hlmFieldSet formGroupName="seo">
           <legend hlmFieldLegend>SEO</legend>
@@ -259,6 +272,8 @@ export class PostEditorPage {
   protected readonly limits = POST_LIMITS;
   protected readonly statusLabels = POST_STATUS_LABELS;
   protected readonly form = createPostForm(inject(NonNullableFormBuilder));
+  /** Panel «Asistente»: solo con el flag del build (apagado en producción). */
+  protected readonly assistantEnabled = inject(ASSISTANT_ENABLED);
 
   protected readonly post = signal<Post | null>(null);
   protected readonly loading = signal(false);
@@ -378,6 +393,17 @@ export class PostEditorPage {
   protected setContent(value: string): void {
     this.form.controls.content.setValue(value);
     this.form.controls.content.markAsDirty();
+  }
+
+  /** Título, extracto y tags que el autor aplicó desde el asistente. */
+  protected applyMetadata(metadata: MetadataSuggestion): void {
+    const { title, excerpt, tags } = this.form.controls;
+    title.setValue(metadata.title);
+    excerpt.setValue(metadata.excerpt);
+    tags.setValue(metadata.tags.join(', '));
+    for (const control of [title, excerpt, tags]) {
+      control.markAsDirty();
+    }
   }
 
   protected save(status: PostStatus): void {

@@ -43,7 +43,8 @@
               ],
               "outputHashing": "all",
               "define": {
-                "ADMIN_API_BASE_URL": "'https://api.huitzi.xyz'"
+                "ADMIN_API_BASE_URL": "'https://api.huitzi.xyz'",
+                "ADMIN_ASSISTANT_ENABLED": "false"
               },
               "security": {
                 "autoCsp": true
@@ -54,7 +55,8 @@
               "extractLicenses": false,
               "sourceMap": true,
               "define": {
-                "ADMIN_API_BASE_URL": "'http://localhost:8080'"
+                "ADMIN_API_BASE_URL": "'http://localhost:8080'",
+                "ADMIN_ASSISTANT_ENABLED": "true"
               }
             }
           },
