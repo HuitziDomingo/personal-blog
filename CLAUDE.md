@@ -30,7 +30,7 @@ No inventes comandos. Cuando exista uno real, sustituye su TODO.
 - E2E: `make e2e` (base temporal, API y admin propios; limpia al terminar)
 - Borrar bases de E2E que quedaron de una corrida interrumpida: `make e2e-clean`
 - Lint y análisis de Go: `make api-lint`
-- Lint y análisis de front: TODO
+- Lint y análisis de front: `make admin-lint` y `make web-lint`
 - Build de la API: `make api-build`
 - Build del servidor MCP (stdio, solo lectura): `make mcp-build`
 - Build de la imagen Docker de la API: `make api-docker-build`
@@ -38,6 +38,10 @@ No inventes comandos. Cuando exista uno real, sustituye su TODO.
 - Ver el contrato en el navegador: `make api-docs`
 - Correr los flujos de Bruno contra la API local: `make api-flows`
 - Levantar el admin: `make admin-dev`
+- Levantar la web: `make web-dev` (puerto 3000)
+- Build de la web y servirlo con ISR: `make web-build` y `make web-start`
+- Lint y tipos de web: `make web-lint` y `make web-typecheck`
+- Tests de web: `make web-test`
 - Build del admin: `make admin-build`
 - Build del admin servido con las cabeceras de Vercel: `make admin-preview`
 - Probar la CSP del admin en un navegador headless: `make admin-csp-test`

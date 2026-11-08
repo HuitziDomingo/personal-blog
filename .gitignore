@@ -35,5 +35,8 @@ dist/
 !.env.example
 .DS_Store
 
+# TypeScript incremental
+*.tsbuildinfo
+
 # Salidas locales de Claude Code
 Claude outputs/

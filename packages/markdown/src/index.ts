@@ -1,7 +1,13 @@
-import { createRenderer } from './renderer';
+import { createRenderer, type MarkdownRenderer } from './renderer.ts';
+import type { NewTabPolicy } from './policy.ts';
 
-export { ALLOWED_ATTR, ALLOWED_TAGS, isSafeUrl, type UrlAttribute } from './policy';
-export type { MarkdownRenderer } from './renderer';
+export { ALLOWED_ATTR, ALLOWED_TAGS, isExternalLink, isSafeUrl, type NewTabPolicy, type UrlAttribute } from './policy.ts';
+export type { MarkdownRenderer } from './renderer.ts';
+
+export interface BrowserRendererOptions {
+  /** Qué links abren en otra pestaña; ver `NewTabPolicy`. */
+  newTab: NewTabPolicy;
+}
 
 /**
  * Variante de navegador: sanitiza con el DOM de la página y resuelve las URLs
@@ -9,4 +15,9 @@ export type { MarkdownRenderer } from './renderer';
  * Angular, que vuelve a pasar por su sanitizador. Nunca se usa
  * `bypassSecurityTrust*` sobre contenido del usuario (ADR-012).
  */
-export const renderMarkdown = createRenderer(window, () => window.location.href);
+export function createBrowserRenderer({ newTab }: BrowserRendererOptions): MarkdownRenderer {
+  return createRenderer(window, () => window.location.href, newTab);
+}
+
+/** El render del admin: todos los links abren en otra pestaña. */
+export const renderMarkdown = createBrowserRenderer({ newTab: 'all' });
