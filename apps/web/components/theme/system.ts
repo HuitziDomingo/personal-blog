@@ -10,11 +10,22 @@ function mode(lightValue: string, darkValue: string) {
 
 const config = defineConfig({
   globalCss: {
-    html: { scrollPaddingTop: '5rem' },
-    body: { bg: 'bg', color: 'fg', fontFamily: 'body', WebkitFontSmoothing: 'antialiased' },
+    html: {
+      scrollPaddingTop: '5rem',
+      '@media (prefers-reduced-motion: no-preference)': { scrollBehavior: 'smooth' },
+    },
+    body: { bg: 'bg', color: 'fg', fontFamily: 'body' },
     '::selection': { bg: 'brand.accent', color: 'bg' },
-    '@media (prefers-reduced-motion: no-preference)': {
-      html: { scrollBehavior: 'smooth' },
+    '.sr-only': {
+      position: 'absolute',
+      width: '1px',
+      height: '1px',
+      padding: '0',
+      margin: '-1px',
+      overflow: 'hidden',
+      clip: 'rect(0, 0, 0, 0)',
+      whiteSpace: 'nowrap',
+      borderWidth: '0',
     },
   },
   theme: {

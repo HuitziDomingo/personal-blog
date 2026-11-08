@@ -1,17 +1,19 @@
-import { Heading, Link, Stack, Text } from '@chakra-ui/react';
+import { Button, Heading, Separator, Stack, Text } from '@chakra-ui/react';
 import NextLink from 'next/link';
+
+import { glassTeal, palette } from '@/lib/brand';
 
 export default function NotFound() {
   return (
-    <Stack gap="4">
-      <Heading as="h1" size="2xl">
-        No encontramos esa página
+    <Stack gap="4" maxW="3xl" mx="auto">
+      <Heading as="h1" fontSize={{ base: '3xl', md: '4xl' }} fontWeight="800">
+        No encontrado
       </Heading>
-      <Text>
-        <Link asChild>
-          <NextLink href="/">Volver a los posts</NextLink>
-        </Link>
-      </Text>
+      <Text>La página que has estado buscando no se encuentra disponible :C</Text>
+      <Separator my="4" />
+      <Button asChild alignSelf="start" bg={glassTeal} color={palette.light.fg} _hover={{ opacity: 0.9 }}>
+        <NextLink href="/">Regresar al inicio</NextLink>
+      </Button>
     </Stack>
   );
 }
