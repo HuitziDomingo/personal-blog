@@ -1,7 +1,5 @@
-import { inject, Injectable, InjectionToken } from '@angular/core';
+import { InjectionToken } from '@angular/core';
 import { Observable } from 'rxjs';
-
-import { FakeWritingAssistant } from './fake-writing-assistant';
 
 /** El borrador sobre el que se pide una sugerencia. */
 export interface DraftInput {
@@ -22,13 +20,17 @@ export interface CoverIdea {
   altText: string;
 }
 
+/** Error del asistente con un mensaje ya en español para mostrarlo. */
+export class AssistantError extends Error {
+  override readonly name = 'AssistantError';
+}
+
 /**
- * Puerto del asistente de escritura. La interfaz del editor solo conoce esta
- * clase; hoy la implementa FakeWritingAssistant, sin red. Un proveedor real
- * irá detrás de la API, con su contrato y su ADR, nunca llamado desde el
- * navegador.
+ * Puerto del asistente de escritura: la interfaz del editor solo conoce esta
+ * clase. La implementación se elige al proveerla (hoy, FakeWritingAssistant en
+ * las rutas de posts). Un proveedor real irá detrás de la API, con su contrato y
+ * su ADR, nunca llamado desde el navegador.
  */
-@Injectable({ providedIn: 'root', useExisting: FakeWritingAssistant })
 export abstract class WritingAssistant {
   /** El Markdown con la redacción mejorada. */
   abstract improveWriting(draft: DraftInput): Observable<string>;
@@ -40,15 +42,13 @@ export abstract class WritingAssistant {
  * El build lo reemplaza con el `define` de la configuración activa en
  * `angular.json`: true en development y false en production.
  */
-declare const ADMIN_ASSISTANT_ENABLED: boolean;
+declare const ADMIN_ASSISTANT_ENABLED: boolean | undefined;
 
-/** Muestra el panel «Asistente» en el editor. Apagado en producción. */
+/**
+ * Muestra el panel «Asistente» en el editor. Falla cerrado: sin el `define`, o
+ * con cualquier valor que no sea true, queda apagado.
+ */
 export const ASSISTANT_ENABLED = new InjectionToken<boolean>('ASSISTANT_ENABLED', {
   providedIn: 'root',
-  factory: () => ADMIN_ASSISTANT_ENABLED,
+  factory: () => typeof ADMIN_ASSISTANT_ENABLED !== 'undefined' && ADMIN_ASSISTANT_ENABLED === true,
 });
-
-/** Atajo para componentes. */
-export function injectAssistantEnabled(): boolean {
-  return inject(ASSISTANT_ENABLED);
-}

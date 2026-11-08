@@ -1,5 +1,6 @@
 import { Routes } from '@angular/router';
 
+import { provideFakeWritingAssistant } from '../../core/assistant/fake-writing-assistant';
 import { unsavedChangesGuard } from './unsaved-changes.guard';
 
 /**
@@ -18,6 +19,8 @@ export const POSTS_ROUTES: Routes = [
     path: ':id',
     title: 'Editor de posts · Admin',
     canDeactivate: [unsavedChangesGuard],
+    // El asistente de escritura (BLOG-072): hoy, el falso, sin red.
+    providers: [provideFakeWritingAssistant()],
     loadComponent: () => import('./post-editor.page').then((m) => m.PostEditorPage),
   },
 ];

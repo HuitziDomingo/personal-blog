@@ -3,24 +3,31 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { TestBed } from '@angular/core/testing';
 import { firstValueFrom } from 'rxjs';
 
-import { AssistantError, FAKE_ASSISTANT_DELAY_MS, FakeWritingAssistant } from './fake-writing-assistant';
-import { ASSISTANT_ENABLED, WritingAssistant } from './writing-assistant';
+import angularJson from '../../../../angular.json';
+import { FAKE_ASSISTANT_DELAY_MS, FakeWritingAssistant, provideFakeWritingAssistant } from './fake-writing-assistant';
+import { ASSISTANT_ENABLED, AssistantError, WritingAssistant } from './writing-assistant';
 
 describe('FakeWritingAssistant', () => {
+  let fetchSpy: ReturnType<typeof vi.spyOn>;
+
   beforeEach(() => {
     vi.useFakeTimers();
-    TestBed.configureTestingModule({ providers: [provideHttpClient(), provideHttpClientTesting()] });
+    fetchSpy = vi.spyOn(globalThis, 'fetch');
+    TestBed.configureTestingModule({
+      providers: [provideFakeWritingAssistant(), provideHttpClient(), provideHttpClientTesting()],
+    });
   });
 
   afterEach(() => {
     vi.useRealTimers();
+    fetchSpy.mockRestore();
   });
 
-  it('es la implementación del puerto por defecto', () => {
+  it('es la implementación del puerto que se provee', () => {
     expect(TestBed.inject(WritingAssistant)).toBeInstanceOf(FakeWritingAssistant);
   });
 
-  it('devuelve ejemplos fijos tras la espera, sin ninguna petición de red', async () => {
+  it('devuelve ejemplos fijos tras la espera, sin fetch ni HttpClient', async () => {
     const assistant = TestBed.inject(WritingAssistant);
     const draft = { title: 'Hola', content: 'Algo' };
 
@@ -32,6 +39,7 @@ describe('FakeWritingAssistant', () => {
     expect(await content).toContain('orquestador');
     expect((await metadata).tags).toEqual(['agentes', 'orquestacion', 'ia']);
     expect((await cover).altText).toBeTruthy();
+    expect(fetchSpy).not.toHaveBeenCalled();
     TestBed.inject(HttpTestingController).verify();
   });
 
@@ -45,7 +53,14 @@ describe('FakeWritingAssistant', () => {
 });
 
 describe('ASSISTANT_ENABLED', () => {
-  it('está encendido en development (la configuración de los tests)', () => {
+  const configurations = angularJson.projects.admin.architect.build.configurations;
+
+  it('production lo apaga', () => {
+    expect(configurations.production.define.ADMIN_ASSISTANT_ENABLED).toBe('false');
+  });
+
+  it('toma el valor del define de development (la configuración de los tests)', () => {
+    expect(configurations.development.define.ADMIN_ASSISTANT_ENABLED).toBe('true');
     expect(TestBed.inject(ASSISTANT_ENABLED)).toBe(true);
   });
 });
