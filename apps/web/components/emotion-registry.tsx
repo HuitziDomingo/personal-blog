@@ -1,33 +1,25 @@
-// @ts-check
 'use client';
 
 import createCache from '@emotion/cache';
 import { CacheProvider } from '@emotion/react';
 import { useServerInsertedHTML } from 'next/navigation';
-import { useState } from 'react';
+import { type ReactNode, useState } from 'react';
 
 /**
  * Chakra v3 usa Emotion. Sin este registro, en el SSR del App Router Emotion
  * pinta cada <style> en línea junto al componente, y la hidratación falla
  * porque el cliente los inserta en <head>. Con `compat`, Emotion no los pinta
  * en línea: el registro junta los estilos de cada render y Next los inserta en
- * <head> con useServerInsertedHTML.
- *
- * Una CSP con nonces tendría que pasar el nonce aquí (createCache({ nonce })),
- * pero los nonces exigen renderizado dinámico y desactivan ISR: es una de las
- * decisiones del ADR de apps/web.
- *
- * @param {{ children: import('react').ReactNode }} props
+ * <head> con useServerInsertedHTML. Sin nonce: la CSP de ADR-017 permite
+ * estilos inline.
  */
-export function EmotionRegistry({ children }) {
+export function EmotionRegistry({ children }: { children: ReactNode }) {
   const [registry] = useState(() => {
     const cache = createCache({ key: 'css' });
     cache.compat = true;
 
-    /** @type {string[]} */
-    let inserted = [];
-    const insert = cache.insert;
-    /** @type {typeof cache.insert} */
+    let inserted: string[] = [];
+    const insert = cache.insert.bind(cache);
     cache.insert = (selector, serialized, sheet, shouldCache) => {
       // Solo en el servidor: en el cliente useServerInsertedHTML no vacía la
       // lista y crecería sin fin.
@@ -37,7 +29,7 @@ export function EmotionRegistry({ children }) {
       return insert(selector, serialized, sheet, shouldCache);
     };
 
-    const flush = () => {
+    const flush = (): string[] => {
       const names = inserted;
       inserted = [];
       return names;
@@ -51,7 +43,10 @@ export function EmotionRegistry({ children }) {
     if (names.length === 0) {
       return null;
     }
-    const styles = names.map((name) => registry.cache.inserted[name]).filter((css) => typeof css === 'string').join('');
+    const styles = names
+      .map((name) => registry.cache.inserted[name])
+      .filter((css): css is string => typeof css === 'string')
+      .join('');
 
     return (
       <style

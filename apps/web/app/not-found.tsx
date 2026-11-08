@@ -1,4 +1,3 @@
-// @ts-check
 import { Heading, Link, Stack, Text } from '@chakra-ui/react';
 import NextLink from 'next/link';
 

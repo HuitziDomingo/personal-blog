@@ -1,17 +1,16 @@
-// @ts-check
 import { Box, Container, Link, Text } from '@chakra-ui/react';
+import type { Metadata } from 'next';
 import NextLink from 'next/link';
+import type { ReactNode } from 'react';
 
 import { Provider } from '@/components/provider';
 
-/** @type {import('next').Metadata} */
-export const metadata = {
+export const metadata: Metadata = {
   title: { default: 'huitzi.xyz', template: '%s · huitzi.xyz' },
   description: 'Blog técnico sobre orquestación de agentes de IA.',
 };
 
-/** @param {{ children: import('react').ReactNode }} props */
-export default function RootLayout({ children }) {
+export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="es">
       <body>

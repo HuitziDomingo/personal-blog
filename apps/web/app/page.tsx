@@ -1,17 +1,14 @@
-// @ts-check
 import { Badge, Heading, HStack, LinkBox, LinkOverlay, Stack, Text } from '@chakra-ui/react';
 import NextLink from 'next/link';
 
-import { formatDate } from '@/components/format';
-import { listPublishedPosts } from '@/lib/api';
+import { postsApi } from '@/lib/api';
+import { formatDate } from '@/lib/format';
 
-// ISR: la lista se genera en el servidor y se regenera como mucho cada minuto.
-// Next exige un literal en la configuración de segmento: debe coincidir con
-// REVALIDATE_SECONDS de lib/api.js.
+// ISR (ADR-017): Next exige un literal; debe coincidir con REVALIDATE_SECONDS.
 export const revalidate = 60;
 
 export default async function HomePage() {
-  const page = await listPublishedPosts();
+  const page = await postsApi.listPublished();
 
   return (
     <Stack gap="8">
@@ -27,7 +24,7 @@ export default async function HomePage() {
               <Stack gap="2">
                 <Heading as="h2" size="lg">
                   <LinkOverlay asChild>
-                    <NextLink href={`/posts/${encodeURIComponent(post.slug)}`}>{post.title}</NextLink>
+                    <NextLink href={`/posts/${post.slug}`}>{post.title}</NextLink>
                   </LinkOverlay>
                 </Heading>
                 {post.publishedAt && (

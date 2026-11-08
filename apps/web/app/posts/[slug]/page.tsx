@@ -1,48 +1,51 @@
-// @ts-check
 import { Badge, Box, Heading, HStack, Stack, Text } from '@chakra-ui/react';
+import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 
-import { formatDate } from '@/components/format';
-import { getPublishedPost } from '@/lib/api';
-import { renderMarkdown } from '@/lib/render-markdown';
+import { postsApi } from '@/lib/api';
+import { PRERENDER_LIMIT } from '@/lib/config';
+import { formatDate } from '@/lib/format';
+import { renderPostMarkdown } from '@/lib/markdown';
 
-// Next exige un literal en la configuración de segmento: debe coincidir con
-// REVALIDATE_SECONDS de lib/api.js.
+// ISR (ADR-017): Next exige un literal; debe coincidir con REVALIDATE_SECONDS.
 export const revalidate = 60;
-
-// ISR en una ruta dinámica: generateStaticParams la vuelve estática. Con una
-// lista vacía el build no llama a la API, y cada slug se genera en su primera
-// visita y queda en caché (dynamicParams = true).
+// Los posts que no se pregeneran se generan en su primera visita.
 export const dynamicParams = true;
 
-export async function generateStaticParams() {
-  return [];
+interface PageProps {
+  params: Promise<{ slug: string }>;
 }
 
-/** @typedef {{ params: Promise<{ slug: string }> }} PageProps */
+/** Pregenera solo los posts más recientes; ver PRERENDER_LIMIT. */
+export async function generateStaticParams(): Promise<{ slug: string }[]> {
+  const slugs = await postsApi.publishedSlugs();
 
-/** @param {PageProps} props @returns {Promise<import('next').Metadata>} */
-export async function generateMetadata({ params }) {
-  const post = await getPublishedPost((await params).slug);
+  return slugs.slice(0, PRERENDER_LIMIT).map((slug) => ({ slug }));
+}
+
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+  const post = await postsApi.getPublished((await params).slug);
   if (!post) {
     return {};
   }
+
   return {
     title: post.seo?.title ?? post.title,
-    description: post.seo?.description ?? post.excerpt,
+    description: post.seo?.description ?? post.excerpt ?? null,
   };
 }
 
-/** @param {PageProps} props */
-export default async function PostPage({ params }) {
-  const post = await getPublishedPost((await params).slug);
+export default async function PostPage({ params }: PageProps) {
+  // Solo un 404 de la API (o un slug inválido o no publicado) da notFound();
+  // un 429 o un 5xx lanza ApiUnavailableError y Next conserva la página anterior.
+  const post = await postsApi.getPublished((await params).slug);
   if (!post) {
     notFound();
   }
 
-  // El único HTML de usuario de la página: sale de renderMarkdown, sanitizado
-  // con la allowlist (ADR-010, punto 4).
-  const html = renderMarkdown(post.content);
+  // El único HTML de usuario de la página, sanitizado en el servidor con la
+  // allowlist de packages/markdown (ADR-010, punto 4; ADR-017, punto 5).
+  const html = renderPostMarkdown(post.content);
 
   return (
     <Stack as="article" gap="6">
