@@ -38,8 +38,9 @@ No inventes comandos. Cuando exista uno real, sustituye su TODO.
 - Ver el contrato en el navegador: `make api-docs`
 - Correr los flujos de Bruno contra la API local: `make api-flows`
 - Levantar el admin: `make admin-dev`
-- Levantar el spike de web: `make web-dev` (puerto 3000)
-- Chequeo de tipos de web: `make web-typecheck`
+- Levantar la web: `make web-dev` (puerto 3000)
+- Build de la web y servirlo con ISR: `make web-build` y `make web-start`
+- Lint y tipos de web: `make web-lint` y `make web-typecheck`
 - Tests de web: `make web-test`
 - Build del admin: `make admin-build`
 - Build del admin servido con las cabeceras de Vercel: `make admin-preview`

@@ -200,9 +200,12 @@ Los valores de producción son los previstos; el despliegue está pendiente (BLO
 | `make api-test` | Corre los tests de Go con `-race`; los de integración se saltan |
 | `make api-test-integration` | Levanta MongoDB y corre los tests de `internal/repository` contra él |
 | `make api-lint` | Corre `golangci-lint` |
-| `make web-dev` | Levanta el spike de `apps/web` en `http://localhost:3000`; con `WEB_API_BASE_URL=<origen>` usa otra API |
-| `make web-typecheck` | Verifica los tipos del JavaScript de `apps/web` contra los JSDoc y el contrato |
-| `make web-test` | Corre los tests de `apps/web/lib/` con `node --test` |
+| `make web-dev` | Levanta `apps/web` con `next dev` en `http://localhost:3000`; con `WEB_API_BASE_URL=<origen>` usa otra API |
+| `make web-build` | Build de producción de la web contra la API local (o `WEB_API_BASE_URL`) |
+| `make web-start` | Sirve el build de producción de la web en `http://localhost:3000`, con ISR y cabeceras |
+| `make web-lint` | ESLint de la web |
+| `make web-typecheck` | `tsc --noEmit` de la web |
+| `make web-test` | Tests de la web con Vitest |
 | `make admin-dev` | Levanta el admin en `http://localhost:4200`; con `ADMIN_API_BASE_URL=<origen>` usa otra API |
 | `make admin-lint` | Corre ESLint con angular-eslint en el admin |
 | `make admin-test` | Corre los tests del admin y los de los scripts de `apps/admin/scripts/`, incluido el contraste WCAG AA de las paletas de acento |
@@ -289,23 +292,39 @@ El código generado nunca se edita a mano.
 
 ## Frontends
 
-### Web (`apps/web`), spike en borrador
+### Web (`apps/web`)
 
-**Spike sin ADR:** no se mergea hasta que exista el ADR de `apps/web`. Next.js 16 con App Router, en JavaScript con `// @ts-check` y JSDoc, y Chakra UI v3.
+El sitio público ([ADR-017](adr/017-arquitectura-de-la-web-publica-nextjs.md)): Next.js 16 con App Router, TypeScript estricto y Chakra UI v3.
 
 ```sh
-make web-dev        # http://localhost:3000, contra la API de make api-run
-make web-typecheck  # tsc con checkJs sobre jsconfig.json
-make web-test       # node --test de lib/*.test.mjs
+make web-dev        # next dev en http://localhost:3000, contra la API de make api-run
+make web-build      # build de producción contra la API local (WEB_API_BASE_URL=<origen> para otra)
+make web-start      # sirve ese build: reproduce el ISR y las cabeceras de producción
+make web-lint       # ESLint con typescript-eslint estricto
+make web-typecheck  # tsc --noEmit
+make web-test       # Vitest de lib/
 ```
 
-- **API:** `lib/api.js` llama a la API pública de posts (`GET /api/v1/posts` y `GET /api/v1/posts/{slug}`) con `fetch` nativo desde el servidor. Next la cachea con `revalidate` (ISR, 60 s). La URL sale de `API_BASE_URL` (por defecto `http://localhost:8080`); con `make web-dev WEB_API_BASE_URL=<origen>` usa otra. Como las peticiones salen del servidor de Next y no del navegador, no hace falta agregar `localhost:3000` a `ALLOWED_ORIGINS`.
-- **Páginas:**
-  - `/`: los posts publicados; estática, regenerada como mucho cada minuto. Se prerenderiza en el build, así que `pnpm --filter @personal-blog/web build` necesita la API accesible: sin ella, el build falla.
-  - `/posts/[slug]`: el post; `generateStaticParams` devuelve una lista vacía, así que el build no llama a la API y cada slug se genera en su primera visita y queda en caché. Un slug que no existe da 404, y uno que no cumple el patrón `Slug` del contrato da 404 sin llamar a la API.
-- **Tipos:** `pnpm typecheck` (`tsc -p jsconfig.json`) verifica los JSDoc y los tipos del contrato importados de `@personal-blog/api-types` (ADR-007). `maxNodeModuleJsDepth: 0` evita que `tsc` analice el JavaScript de las dependencias.
-- **Markdown:** `lib/render-markdown.js` usa la misma allowlist que el admin, duplicada (con un TODO) hasta que el ADR decida si se comparte en `packages/`. DOMPurify corre en el servidor sobre `jsdom`. Un test compara las listas con las de `apps/admin`.
-- **Lo que falta antes de producción** (va en el ADR): CSP, tema propio y modo oscuro, job `web` en el CI (BLOG-052) y despliegue en Vercel.
+- **Datos** (`lib/api.ts`): `fetch` nativo hacia la API pública de posts, con la caché de Next (`revalidate: 60`). Solo el servidor de Next llama a la API, así que no hace falta `localhost:3000` en `ALLOWED_ORIGINS`.
+- **Variables:**
+  - `API_BASE_URL`: obligatoria en producción. Sin ella, el build falla en lugar de publicar un sitio vacío. En `next dev` usa `http://localhost:8080` por defecto.
+  - `WEB_SKIP_API=1`: construye sin API, solo para el CI. Las páginas salen vacías y los posts se generan en su primera visita.
+  - `SITE_URL` (por defecto `https://huitzi.xyz`): decide qué links son internos.
+- **ISR:**
+  - `/` se regenera como mucho cada 60 s.
+  - `/posts/[slug]` pregenera los 10 posts más recientes (`PRERENDER_LIMIT`). El resto se genera en su primera visita y queda en caché.
+  - Un post recién publicado tarda hasta un minuto en aparecer en `/`. Mientras la caché esté vieja, la primera visita sirve la versión anterior y dispara la regeneración.
+- **Riesgos de ADR-017 y cómo se resuelven:**
+  - **429 en el build:** el build hace como mucho 1 lista de inicio + 1 lista de slugs + 10 posts. Next reutiliza las respuestas cacheadas entre páginas, y en local fueron 3 peticiones con un post publicado. Todo queda por debajo de la ráfaga anónima de 20. Si aun así llega un 429 durante `next build`, espera el `Retry-After` (máximo 60 s) y reintenta hasta 3 veces.
+  - **Slugs inventados:** un slug que no cumple el patrón del contrato da 404 sin llamar a la API. Uno que lo cumple se busca en la lista de slugs publicados, que viene de la caché (una pasada como mucho por minuto). Si no está, da 404 sin pedir el post. Así, inventar slugs no gasta el cupo de las IPs de Vercel. Un post recién publicado puede dar 404 hasta que esa lista se regenere, como mucho un par de minutos.
+  - **Build del CI sin API:** con `WEB_SKIP_API=1` (ver Variables).
+  - **Un 429 o un 5xx nunca es un 404:** solo un 404 de la API da `notFound()`. Un 429, un 5xx o un error de red lanzan `ApiUnavailableError`. En una regeneración, Next conserva la última versión buena. En la primera generación de una página, se muestra `app/error.tsx` («No pudimos cargar esta página»).
+- **Markdown** (`lib/markdown.ts`): `createServerRenderer` de `@personal-blog/markdown/server`, con `newTab: 'external'`. Se sanitiza en el servidor; el HTML llega hecho al navegador.
+- **CSP y cabeceras** (`lib/security-headers.ts`, aplicadas en `next.config.ts`): las de ADR-017, punto 4. En `next dev` se añade `'unsafe-eval'` (React Refresh) y se quita `upgrade-insecure-requests`.
+- **Paquetes del monorepo:** `transpilePackages` compila `@personal-blog/markdown` y `serverExternalPackages` deja jsdom fuera del bundle.
+- **CI:** job `web` (ADR-017, punto 7), con lint, typecheck, tests y build con `WEB_SKIP_API=1`.
+- **Probar de punta a punta en local:** `make api-run`, `make admin-dev`, `make web-build` y `make web-start`. Publica un post en el admin y abre `http://localhost:3000`. Si no aparece, recarga pasados 60 s.
+- **Pendiente:** tema propio y modo oscuro, y el despliegue en Vercel.
 
 ### Admin (`apps/admin`)
 

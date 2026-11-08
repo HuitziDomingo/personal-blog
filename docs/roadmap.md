@@ -51,7 +51,7 @@
 - [x] BLOG-069: Fijar `@types/node` en 24.x (el runtime de `.nvmrc`) en e2e, admin y `packages/markdown`. ([#63](https://github.com/HuitziDomingo/personal-blog/pull/63))
 - [x] BLOG-066: Política de links del paquete de Markdown: en la web solo los externos abren en otra pestaña; el admin sigue abriendo todos. ([#60](https://github.com/HuitziDomingo/personal-blog/pull/60))
 - [x] BLOG-067: `ng serve` (y con él `make admin-dev` y `make e2e`) no resolvía los imports sin extensión de `packages/markdown` al pre-empaquetar dependencias. ([#61](https://github.com/HuitziDomingo/personal-blog/pull/61))
-- [ ] BLOG-036: Sanitizar el Markdown de los posts al renderizar en `apps/web` y `apps/admin`, con allowlist (ADR-010).
+- [x] BLOG-036: Sanitizar el Markdown de los posts al renderizar en `apps/web` y `apps/admin`, con allowlist (ADR-010). ([#58](https://github.com/HuitziDomingo/personal-blog/pull/58), [#53](https://github.com/HuitziDomingo/personal-blog/pull/53))
 - [x] BLOG-046: CSP y cabeceras del admin en Vercel (ADR-012). ([#45](https://github.com/HuitziDomingo/personal-blog/pull/45))
 - [ ] BLOG-047: Configurar admin.huitzi.xyz en Vercel y DNS en DreamHost. El build command de Vercel debe ser el script `build` del paquete (`pnpm --filter @personal-blog/admin build`), que corre el chequeo de la URL de la API, no `ng build` directo.
 - [x] BLOG-050: Activar security.autoCsp en angular.json (va con BLOG-046). ([#45](https://github.com/HuitziDomingo/personal-blog/pull/45))
@@ -66,7 +66,7 @@
 - [ ] BLOG-020: Implementar pruebas unitarias de componentes/servicios en Angular (`Vitest`).
 - [x] BLOG-061: E2E con Playwright del flujo crítico de ADR-006 (login, borrador, edición, publicación, API pública y archivo), más contraseña incorrecta y logout, con `make e2e` contra el stack local en una base temporal. ([#56](https://github.com/HuitziDomingo/personal-blog/pull/56))
 - [x] BLOG-021: Job admin en ci.yml (ADR-014). ([#34](https://github.com/HuitziDomingo/personal-blog/pull/34))
-- [ ] BLOG-052: Job web en ci.yml con su filtro en el job changes, cuando exista `apps/web` (ADR-014).
+- [x] BLOG-052: Job web en ci.yml con su filtro en el job changes, cuando exista `apps/web` (ADR-014). ([#53](https://github.com/HuitziDomingo/personal-blog/pull/53))
 - [x] BLOG-049: Incluir Makefile y scripts de generación en el filtro del job api (va en el ADR de BLOG-021). ([#34](https://github.com/HuitziDomingo/personal-blog/pull/34))
 - [x] BLOG-037: Crear el `Dockerfile` multi-stage de la API y compilarlo en CI, sin publicar la imagen (ADR-004). ([#19](https://github.com/HuitziDomingo/personal-blog/pull/19))
 - [ ] BLOG-054: ADR de despliegue: Cloud Run, dominio de la API (api.huitzi.xyz) y certificados.
@@ -80,7 +80,7 @@
 
 ## Por definir
 
-- [ ] BLOG-059: Crear `apps/web` (Next.js). Spike en borrador en [#53](https://github.com/HuitziDomingo/personal-blog/pull/53); no se mergea hasta el ADR de `apps/web`.
+- [x] BLOG-059: Crear `apps/web` (Next.js, ADR-017): TypeScript estricto, ISR, CSP y `packages/markdown` en el servidor. ([#53](https://github.com/HuitziDomingo/personal-blog/pull/53))
 
 ## Fase futura (fuera del MVP)
 
