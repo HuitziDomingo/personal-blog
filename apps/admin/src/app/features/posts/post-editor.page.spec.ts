@@ -8,9 +8,9 @@ import { firstValueFrom, Observable, of, Subject, throwError } from 'rxjs';
 
 import { Post, PostWrite } from '../../core/api/api-types';
 import { PostsApi } from '../../core/api/posts-api';
-import { FakeWritingAssistant } from '../../core/assistant/fake-writing-assistant';
-import { ASSISTANT_ENABLED, MetadataSuggestion } from '../../core/assistant/writing-assistant';
-import { WritingAssistant } from '../../core/assistant/writing-assistant';
+import { provideFakeWritingAssistant } from '../../core/assistant/fake-writing-assistant';
+import { ASSISTANT_ENABLED, MetadataSuggestion, WritingAssistant } from '../../core/assistant/writing-assistant';
+import { POSTS_ROUTES } from './posts.routes';
 import { ApiError } from '../../core/http/api-error';
 import { MarkdownEditor } from '../../shared/markdown-editor/markdown-editor';
 import { FakeMarkdownEditor } from '../../shared/markdown-editor/markdown-editor-fake';
@@ -127,7 +127,7 @@ async function renderEditor(api: FakePostsApi, id: string, extraProviders: Provi
       provideRouter([]),
       { provide: PostsApi, useValue: api },
       // En la app lo provee la ruta del editor.
-      { provide: WritingAssistant, useClass: FakeWritingAssistant },
+      provideFakeWritingAssistant(),
       ...extraProviders,
     ],
   });
@@ -210,7 +210,7 @@ describe('PostEditorPage', () => {
       const api = new FakePostsApi();
       TestBed.configureTestingModule({
         providers: [
-          { provide: WritingAssistant, useClass: FakeWritingAssistant },
+          provideFakeWritingAssistant(),
           provideRouter(
             [{ path: 'posts/:id', component: PostEditorPage, canDeactivate: [unsavedChangesGuard] }],
             withComponentInputBinding(),
@@ -554,6 +554,12 @@ describe('PostEditorPage', () => {
       expect((screen.getByLabelText('Etiquetas') as HTMLInputElement).value).toBe('ia, go');
       expect(page['form'].dirty).toBe(true);
     });
+  });
+
+  it('la ruta del editor provee el asistente', () => {
+    const editorRoute = POSTS_ROUTES.find((route) => route.path === ':id');
+
+    expect(editorRoute?.providers).toEqual([provideFakeWritingAssistant()]);
   });
 });
 
