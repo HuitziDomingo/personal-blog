@@ -34,3 +34,6 @@ dist/
 .env*
 !.env.example
 .DS_Store
+
+# Salidas locales de Claude Code
+Claude outputs/
