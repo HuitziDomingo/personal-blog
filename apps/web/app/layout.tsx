@@ -15,10 +15,14 @@ import { profile, siteDescription } from '@/lib/site';
 
 // Fuente de títulos de la marca; next/font la descarga en el build y la sirve
 // desde el propio sitio, así que la CSP no necesita fonts.googleapis.com.
+// Google la parte en ~120 rangos Unicode (japonés) y next/font no distingue el
+// latino: con preload precargaría todos (~1,7 MB). Sin preload, el navegador
+// baja solo los rangos de los caracteres que la página usa.
 const headingFont = M_PLUS_Rounded_1c({
   weight: ['700', '800'],
   subsets: ['latin'],
   display: 'swap',
+  preload: false,
   variable: '--font-heading',
 });
 

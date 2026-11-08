@@ -16,13 +16,16 @@ export function renderPostMarkdown(source: string): string {
 }
 
 /**
- * Carga diferida para las imágenes del post salvo la primera, que suele ser la
- * portada y el elemento más grande de la página. Se aplica al HTML ya
+ * La primera imagen del post, que suele ser la portada y el elemento más
+ * grande de la página, se pide con prioridad alta; las demás, en diferido.
+ * Se aplica al HTML ya
  * sanitizado y solo añade dos atributos fijos, así que no abre nada que la
  * allowlist haya cerrado.
  */
 export function lazyImages(html: string): string {
   let seen = 0;
 
-  return html.replace(/<img\b/g, (tag) => (seen++ === 0 ? tag : `${tag} loading="lazy" decoding="async"`));
+  return html.replace(/<img\b/g, (tag) =>
+    seen++ === 0 ? `${tag} fetchpriority="high"` : `${tag} loading="lazy" decoding="async"`,
+  );
 }
