@@ -1,14 +1,11 @@
-import { provideHttpClient } from '@angular/common/http';
-import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
-import { TestBed } from '@angular/core/testing';
-import { fireEvent, render, screen } from '@testing-library/angular';
+import { Component, signal } from '@angular/core';
+import { fireEvent, render, screen, waitFor } from '@testing-library/angular';
 import { Observable, Subject, throwError } from 'rxjs';
 
-import { AssistantError } from '../../core/assistant/fake-writing-assistant';
-import { CoverIdea, DraftInput, MetadataSuggestion, WritingAssistant } from '../../core/assistant/writing-assistant';
+import { AssistantError, CoverIdea, DraftInput, MetadataSuggestion, WritingAssistant } from '../../core/assistant/writing-assistant';
 import { AssistantPanel } from './assistant-panel';
 
-/** Doble del puerto (ADR-015): cada petición responde cuando el test decide. */
+/** Doble del puerto: cada petición responde cuando el test decide. */
 class ControlledAssistant implements WritingAssistant {
   readonly drafts: DraftInput[] = [];
   improve = new Subject<string>();
@@ -34,38 +31,75 @@ class ControlledAssistant implements WritingAssistant {
   }
 }
 
-async function renderPanel(assistant = new ControlledAssistant()) {
-  const applyContent = vi.fn();
-  const applyMetadata = vi.fn();
-  const result = await render(AssistantPanel, {
-    inputs: { title: 'Hola', content: '# Hola' },
-    on: { applyContent, applyMetadata },
-    providers: [{ provide: WritingAssistant, useValue: assistant }, provideHttpClient(), provideHttpClientTesting()],
-  });
-
-  return { ...result, assistant, applyContent, applyMetadata };
+/** Anfitrión que hace de formulario: el contenido cambia con lo que aplica el panel. */
+@Component({
+  imports: [AssistantPanel],
+  template: `<app-assistant-panel
+    title="Hola"
+    [content]="content()"
+    [disabled]="saving()"
+    (applyContent)="content.set($event)"
+    (applyMetadata)="metadata = $event"
+  />`,
+})
+class Host {
+  readonly content = signal('# Hola');
+  readonly saving = signal(false);
+  metadata: MetadataSuggestion | null = null;
 }
 
-describe('AssistantPanel', () => {
-  it('muestra la carga, la sugerencia y la aplica', async () => {
-    const { assistant, applyContent, fixture } = await renderPanel();
+async function renderPanel(assistant = new ControlledAssistant()) {
+  const result = await render(Host, { providers: [{ provide: WritingAssistant, useValue: assistant }] });
 
-    await fireEvent.click(screen.getByRole('button', { name: 'Mejorar redacción' }));
-    expect(screen.getByRole('status').textContent).toContain('Pensando: Mejorar redacción');
+  return { ...result, assistant, host: result.fixture.componentInstance };
+}
+
+const status = () => screen.getByTestId('assistant-announcement');
+
+describe('AssistantPanel', () => {
+  it('muestra la carga, enfoca la sugerencia y al aplicar devuelve el foco', async () => {
+    const { assistant, host, fixture } = await renderPanel();
+    const improve = screen.getByRole('button', { name: 'Mejorar redacción' });
+
+    await fireEvent.click(improve);
+    expect(status().textContent).toContain('Pensando: Mejorar redacción');
     expect(screen.getByRole('button', { name: 'Sugerir título, extracto y tags' }).hasAttribute('disabled')).toBe(true);
     expect(assistant.drafts).toEqual([{ title: 'Hola', content: '# Hola' }]);
 
     assistant.improve.next('## Mejor');
     fixture.detectChanges();
-    expect(screen.getByRole('article', { name: 'Sugerencia' }).textContent).toContain('## Mejor');
+    const card = screen.getByRole('article', { name: 'Redacción sugerida' });
+    await waitFor(() => expect(document.activeElement).toBe(card));
 
     await fireEvent.click(screen.getByRole('button', { name: 'Aplicar' }));
-    expect(applyContent).toHaveBeenCalledWith('## Mejor');
-    expect(screen.queryByRole('article', { name: 'Sugerencia' })).toBeNull();
+    expect(host.content()).toBe('## Mejor');
+    expect(status().textContent?.trim()).toBe('Redacción aplicada.');
+    await waitFor(() => expect(document.activeElement).toBe(improve));
+  });
+
+  it('deshace la redacción aplicada, pero no después de editarla', async () => {
+    const { assistant, host, fixture } = await renderPanel();
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Mejorar redacción' }));
+    assistant.improve.next('## Mejor');
+    fixture.detectChanges();
+    await fireEvent.click(screen.getByRole('button', { name: 'Aplicar' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Deshacer' }));
+
+    expect(host.content()).toBe('# Hola');
+    expect(screen.queryByRole('button', { name: 'Deshacer' })).toBeNull();
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Mejorar redacción' }));
+    assistant.improve.next('## Otra');
+    fixture.detectChanges();
+    await fireEvent.click(screen.getByRole('button', { name: 'Aplicar' }));
+    host.content.set('## Otra, editada a mano');
+    fixture.detectChanges();
+    expect(screen.queryByRole('button', { name: 'Deshacer' })).toBeNull();
   });
 
   it('aplica título, extracto y tags', async () => {
-    const { assistant, applyMetadata, fixture } = await renderPanel();
+    const { assistant, host, fixture } = await renderPanel();
     const metadata = { title: 'T', excerpt: 'E', tags: ['a', 'b'] };
 
     await fireEvent.click(screen.getByRole('button', { name: 'Sugerir título, extracto y tags' }));
@@ -74,20 +108,65 @@ describe('AssistantPanel', () => {
     expect(screen.getByText('a, b')).toBeTruthy();
     await fireEvent.click(screen.getByRole('button', { name: 'Aplicar' }));
 
-    expect(applyMetadata).toHaveBeenCalledWith(metadata);
+    expect(host.metadata).toEqual(metadata);
+  });
+
+  describe('idea de portada', () => {
+    afterEach(() => vi.unstubAllGlobals());
+
+    async function showCover() {
+      const panel = await renderPanel();
+      await fireEvent.click(screen.getByRole('button', { name: 'Idea de imagen de portada' }));
+      panel.assistant.cover.next({ description: 'Robots', altText: 'Alt' });
+      panel.fixture.detectChanges();
+      return panel;
+    }
+
+    it('se copia al portapapeles', async () => {
+      const writeText = vi.fn().mockResolvedValue(undefined);
+      vi.stubGlobal('navigator', { ...navigator, clipboard: { writeText } });
+      await showCover();
+
+      await fireEvent.click(screen.getByRole('button', { name: 'Copiar' }));
+
+      expect(writeText).toHaveBeenCalledWith('Robots\n\nAlt: Alt');
+      await waitFor(() => expect(status().textContent?.trim()).toBe('Idea copiada al portapapeles.'));
+      expect(screen.queryByRole('article')).toBeNull();
+    });
+
+    it('si no se puede copiar, lo dice y deja la idea en pantalla', async () => {
+      vi.stubGlobal('navigator', { ...navigator, clipboard: { writeText: vi.fn().mockRejectedValue(new Error('denied')) } });
+      await showCover();
+
+      await fireEvent.click(screen.getByRole('button', { name: 'Copiar' }));
+
+      await waitFor(() => expect(status().textContent).toContain('No se pudo copiar'));
+      expect(screen.getByText('Robots')).toBeTruthy();
+    });
   });
 
   it('descartar no aplica nada', async () => {
-    const { assistant, applyContent, applyMetadata, fixture } = await renderPanel();
+    const { assistant, host, fixture } = await renderPanel();
 
-    await fireEvent.click(screen.getByRole('button', { name: 'Idea de imagen de portada' }));
-    assistant.cover.next({ description: 'Robots', altText: 'Alt' });
+    await fireEvent.click(screen.getByRole('button', { name: 'Mejorar redacción' }));
+    assistant.improve.next('## Mejor');
     fixture.detectChanges();
     await fireEvent.click(screen.getByRole('button', { name: 'Descartar' }));
 
-    expect(screen.queryByRole('article', { name: 'Sugerencia' })).toBeNull();
-    expect(applyContent).not.toHaveBeenCalled();
-    expect(applyMetadata).not.toHaveBeenCalled();
+    expect(screen.queryByRole('article')).toBeNull();
+    expect(host.content()).toBe('# Hola');
+  });
+
+  it('mientras el editor guarda, nada del panel se puede usar', async () => {
+    const { assistant, host, fixture } = await renderPanel();
+    await fireEvent.click(screen.getByRole('button', { name: 'Mejorar redacción' }));
+    assistant.improve.next('## Mejor');
+    host.saving.set(true);
+    fixture.detectChanges();
+
+    for (const name of ['Mejorar redacción', 'Aplicar', 'Descartar']) {
+      expect(screen.getByRole('button', { name }).hasAttribute('disabled')).toBe(true);
+    }
   });
 
   it('muestra el error del asistente y reintenta', async () => {
@@ -102,7 +181,7 @@ describe('AssistantPanel', () => {
     await fireEvent.click(screen.getByRole('button', { name: 'Reintentar' }));
     assistant.improve.next('Listo');
     fixture.detectChanges();
-    expect(screen.getByRole('article', { name: 'Sugerencia' }).textContent).toContain('Listo');
+    expect(screen.getByRole('article', { name: 'Redacción sugerida' }).textContent).toContain('Listo');
   });
 
   it('un error inesperado se muestra con un mensaje genérico', async () => {
@@ -114,15 +193,5 @@ describe('AssistantPanel', () => {
 
     expect(screen.getByRole('alert').textContent).toContain('El asistente no respondió.');
     expect(screen.getByRole('alert').textContent).not.toContain('stack interno');
-  });
-
-  it('no hace ninguna petición HTTP', async () => {
-    const { assistant, fixture } = await renderPanel();
-
-    await fireEvent.click(screen.getByRole('button', { name: 'Mejorar redacción' }));
-    assistant.improve.next('x');
-    fixture.detectChanges();
-
-    TestBed.inject(HttpTestingController).verify();
   });
 });

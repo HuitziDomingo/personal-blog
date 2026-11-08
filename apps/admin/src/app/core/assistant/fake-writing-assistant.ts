@@ -1,22 +1,17 @@
-import { Injectable } from '@angular/core';
+import { Injectable, Provider } from '@angular/core';
 import { defer, delay, Observable, of, throwError } from 'rxjs';
 
-import type { CoverIdea, DraftInput, MetadataSuggestion, WritingAssistant } from './writing-assistant';
+import { AssistantError, CoverIdea, DraftInput, MetadataSuggestion, WritingAssistant } from './writing-assistant';
 
 /** Espera simulada, para ver el estado de carga. */
 export const FAKE_ASSISTANT_DELAY_MS = 700;
-
-/** Error del asistente, ya en español para mostrarlo. */
-export class AssistantError extends Error {
-  override readonly name = 'AssistantError';
-}
 
 /**
  * Implementación falsa de WritingAssistant: ejemplos fijos, sin ninguna
  * petición de red. Con el contenido vacío falla, para poder ver el estado de
  * error.
  */
-@Injectable({ providedIn: 'root' })
+@Injectable()
 export class FakeWritingAssistant implements WritingAssistant {
   improveWriting(draft: DraftInput): Observable<string> {
     return this.answer(draft, () =>
@@ -55,4 +50,9 @@ export class FakeWritingAssistant implements WritingAssistant {
         : of(example()),
     ).pipe(delay(FAKE_ASSISTANT_DELAY_MS));
   }
+}
+
+/** Provee el asistente falso como implementación del puerto. */
+export function provideFakeWritingAssistant(): Provider {
+  return { provide: WritingAssistant, useClass: FakeWritingAssistant };
 }

@@ -1,4 +1,5 @@
 import { HttpErrorResponse } from '@angular/common/http';
+import { Provider } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter, Router, withComponentInputBinding } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
@@ -7,7 +8,9 @@ import { firstValueFrom, Observable, of, Subject, throwError } from 'rxjs';
 
 import { Post, PostWrite } from '../../core/api/api-types';
 import { PostsApi } from '../../core/api/posts-api';
-import { ASSISTANT_ENABLED, MetadataSuggestion, WritingAssistant } from '../../core/assistant/writing-assistant';
+import { FakeWritingAssistant } from '../../core/assistant/fake-writing-assistant';
+import { ASSISTANT_ENABLED, MetadataSuggestion } from '../../core/assistant/writing-assistant';
+import { WritingAssistant } from '../../core/assistant/writing-assistant';
 import { ApiError } from '../../core/http/api-error';
 import { MarkdownEditor } from '../../shared/markdown-editor/markdown-editor';
 import { FakeMarkdownEditor } from '../../shared/markdown-editor/markdown-editor-fake';
@@ -117,10 +120,16 @@ class FakePostsApi {
   }
 }
 
-async function renderEditor(api: FakePostsApi, id: string, extraProviders: unknown[] = []) {
+async function renderEditor(api: FakePostsApi, id: string, extraProviders: Provider[] = []) {
   const result = await render(PostEditorPage, {
     inputs: { id },
-    providers: [provideRouter([]), { provide: PostsApi, useValue: api }, ...(extraProviders as [])],
+    providers: [
+      provideRouter([]),
+      { provide: PostsApi, useValue: api },
+      // En la app lo provee la ruta del editor.
+      { provide: WritingAssistant, useClass: FakeWritingAssistant },
+      ...extraProviders,
+    ],
   });
   const navigate = vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
   await result.fixture.whenStable();
@@ -201,6 +210,7 @@ describe('PostEditorPage', () => {
       const api = new FakePostsApi();
       TestBed.configureTestingModule({
         providers: [
+          { provide: WritingAssistant, useClass: FakeWritingAssistant },
           provideRouter(
             [{ path: 'posts/:id', component: PostEditorPage, canDeactivate: [unsavedChangesGuard] }],
             withComponentInputBinding(),
@@ -522,8 +532,19 @@ describe('PostEditorPage', () => {
 
     it('aplicar título, extracto y tags rellena el formulario', async () => {
       const metadata: MetadataSuggestion = { title: 'Título sugerido', excerpt: 'Extracto sugerido', tags: ['ia', 'go'] };
-      const assistant: Partial<WritingAssistant> = { suggestMetadata: () => of(metadata) };
-      await renderEditor(new FakePostsApi(), 'new', [{ provide: WritingAssistant, useValue: assistant }]);
+      /** Doble completo del puerto: responde al momento con valores fijos. */
+      class InstantAssistant implements WritingAssistant {
+        improveWriting() {
+          return of('## Redacción sugerida');
+        }
+        suggestMetadata() {
+          return of(metadata);
+        }
+        suggestCover() {
+          return of({ description: 'Idea', altText: 'Alt' });
+        }
+      }
+      const { page } = await renderEditor(new FakePostsApi(), 'new', [{ provide: WritingAssistant, useClass: InstantAssistant }]);
 
       await fireEvent.click(screen.getByRole('button', { name: 'Sugerir título, extracto y tags' }));
       await fireEvent.click(await screen.findByRole('button', { name: 'Aplicar' }));
@@ -531,6 +552,7 @@ describe('PostEditorPage', () => {
       expect((screen.getByLabelText('Título', { exact: true }) as HTMLInputElement).value).toBe('Título sugerido');
       expect((screen.getByLabelText('Extracto') as HTMLTextAreaElement).value).toBe('Extracto sugerido');
       expect((screen.getByLabelText('Etiquetas') as HTMLInputElement).value).toBe('ia, go');
+      expect(page['form'].dirty).toBe(true);
     });
   });
 });
