@@ -25,11 +25,13 @@ personal-blog/
 ├── e2e/                  # E2E con Playwright (make e2e)
 ├── services/
 │   └── api/              # API en Go + Gin
-│       ├── cmd/api/      # Punto de entrada
+│       ├── cmd/api/      # Punto de entrada de la API HTTP
+│       ├── cmd/mcp/      # Servidor MCP de solo lectura (stdio)
 │       └── internal/
 │           ├── config/       # Variables de entorno
 │           ├── domain/       # Entidades, puertos y errores
 │           ├── handler/      # HTTP; handler/gen es código generado
+│           ├── mcp/          # Adaptador MCP (ADR-019)
 │           ├── repository/   # Implementación en MongoDB
 │           └── service/      # Casos de uso
 ├── docs/
@@ -98,6 +100,44 @@ Los dos cargan `.env` igual y levantan la misma API en el puerto de `PORT` (8080
 Al reiniciar, Air manda `SIGINT`, que dispara el graceful shutdown de la API (hasta 8 s), y espera a que salga antes de arrancar el binario nuevo. Esa espera de Air es de 5 s como máximo y no se configura: si la API vieja sigue drenando peticiones, la nueva arranca igual (el puerto ya está libre, porque el shutdown cierra el listener al empezar) y conviven unos segundos. A los 10 s (`kill_delay`), Air mata la vieja con `SIGKILL`. Sin peticiones en vuelo, la API sale al instante. Si el build falla, detiene la API vieja para que no pruebes código desactualizado: arregla el error y guarda otra vez. El binario se compila en `services/api/tmp/`, ignorado por git y borrado al salir.
 
 Air es una herramienta de Go declarada con la directiva `tool` de `services/api/go.mod`, así que no hace falta instalarla: `go tool air` usa la versión fijada.
+
+## Servidor MCP
+
+[ADR-019](adr/019-servidor-mcp-como-adaptador.md): un adaptador de entrada más de la arquitectura hexagonal. `internal/mcp` usa los puertos de `service` (como `handler`), y `cmd/mcp` es un binario aparte que habla **solo por stdio**: no escucha en la red. No está conectado a ningún cliente ni LLM.
+
+- **Solo lectura:**
+  - Herramientas: `list_posts` (filtro por tag y paginación), `get_post` (por slug, con el Markdown) y `search_posts` (texto en título, extracto, contenido y etiquetas, sin distinguir mayúsculas).
+  - Recursos: `blog://posts` (los 100 más recientes, sin contenido) y `blog://posts/{slug}` (el Markdown).
+  - Ninguna operación crea, edita, publica ni archiva.
+- **Datos:** devuelve el Markdown y sus metadatos, nunca IDs de autor, datos de usuarios, hashes ni tokens.
+- **Prompt injection:** las `instructions` del servidor y las descripciones de las herramientas avisan de que el contenido es dato, nunca instrucción (ADR-019, punto 5).
+- **Errores:** «no existe» y entradas inválidas se explican. Cualquier otro error se registra en stderr y el cliente solo ve `internal error`.
+- **Búsqueda:** `service.SearchPublished` filtra en memoria sobre los publicados (como mucho 1000), sin construir consultas de MongoDB con texto del usuario.
+- **Variables:** solo `MONGO_URI` y `MONGO_DB_NAME`. Los logs van a stderr, porque stdout es el canal del protocolo.
+- **Solo lectura, en el código:** en local, `MONGO_URI` es el usuario `root`, así que la credencial sí podría escribir. Fuera de local, el servidor necesita un usuario de MongoDB con permiso solo de lectura.
+- **Búsqueda:** no ignora acentos («orquestacion» no encuentra «Orquestación»), recorre los 1000 posts publicados más recientes y devuelve `count`, no un total.
+
+### Probarlo con el MCP Inspector
+
+El [MCP Inspector](https://github.com/modelcontextprotocol/inspector) oficial no es dependencia del repo: se ejecuta con `npx` en una versión exacta. Usa una con más de 7 días (ADR-013; la 2.13.0 es del 2026-10-28).
+
+```sh
+make db-up mcp-build
+set -a && . ./.env && set +a
+npx @modelcontextprotocol/inspector@2.13.0 \
+  -e MONGO_URI="$MONGO_URI" -e MONGO_DB_NAME="$MONGO_DB_NAME" \
+  -- services/api/bin/mcp
+```
+
+- **El `--`:** separa los `-e`, que se pueden repetir, del comando. Sin él, el Inspector puede tomar el comando como otra variable. abre la URL que imprime (`http://localhost:6274`, con un token de sesión). Conecta con el transporte STDIO y prueba las herramientas y los recursos.
+- **Variables con `-e`:** quedan visibles en la lista de procesos y en la UI del Inspector, y la v2 puede guardarlas en su almacén de secretos (el keychain o `~/.mcp-inspector/secrets.json`). Úsalo solo con la base local.
+- **Sin interfaz:** el modo CLI sirve para un script.
+
+  ```sh
+  npx @modelcontextprotocol/inspector@2.13.0 --cli \
+    -e MONGO_URI="$MONGO_URI" -e MONGO_DB_NAME="$MONGO_DB_NAME" \
+    -- services/api/bin/mcp --method tools/call --tool-name search_posts --tool-arg query=claude
+  ```
 
 ## Variables de la API
 
@@ -170,6 +210,7 @@ Los valores de producción son los previstos; el despliegue está pendiente (BLO
 | `make api-docs` | Muestra el contrato con Swagger UI en `http://localhost:8081` |
 | `make api-flows` | Corre los flujos de Bruno contra la API local |
 | `make api-build` | Compila el binario en `services/api/bin/api` |
+| `make mcp-build` | Compila el servidor MCP de solo lectura en `services/api/bin/mcp` (ver «Servidor MCP») |
 | `make api-docker-build` | Construye la imagen `personal-blog-api` |
 | `make generate` | Regenera el código, los tipos y la colección de Bruno del contrato |
 | `make db-up` | Levanta MongoDB y espera a que esté sano |

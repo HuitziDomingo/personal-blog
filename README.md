@@ -30,7 +30,7 @@ personal-blog/
 
 ## Estado
 
-- **API:** autenticación con cookies `HttpOnly` (login, refresh, logout y `/auth/me`), línea base de seguridad de ADR-010, y CRUD de posts: API pública de posts publicados y endpoints de admin para crear, editar, publicar y archivar.
+- **API:** autenticación con cookies `HttpOnly` (login, refresh, logout y `/auth/me`), línea base de seguridad de ADR-010, y CRUD de posts: API pública de posts publicados y endpoints de admin para crear, editar, publicar y archivar. Además, un servidor MCP de solo lectura por stdio (ADR-019), sin conectar a ningún cliente.
 - **Admin:** proyecto Angular con sesión, guard de rutas e interceptores de credenciales y refresh, lista de posts en `/posts` con filtro por estado, paginación y archivar, editor de posts (`/posts/new` y `/posts/:id`) con vista previa del Markdown sanitizada, y layout con menú lateral u offcanvas, tema claro, oscuro o del sistema y color de acento.
 - **E2E:** Playwright con el flujo crítico de ADR-006 (login, borrador, edición, publicación, API pública y archivo), la contraseña incorrecta y el logout, con `make e2e` contra el stack local en una base temporal. Todavía no corre en el CI.
 - **Web:** pendiente.
