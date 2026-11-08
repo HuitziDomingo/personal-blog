@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/modelcontextprotocol/go-sdk/jsonrpc"
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -24,11 +25,9 @@ import (
 type fakePosts struct {
 	posts []*domain.Post
 	err   error
-	calls []string
 }
 
 func (f *fakePosts) ListPublished(_ context.Context, tag string, limit, offset int) (service.PostPage, error) {
-	f.calls = append(f.calls, "ListPublished")
 	if f.err != nil {
 		return service.PostPage{}, f.err
 	}
@@ -43,7 +42,6 @@ func (f *fakePosts) ListPublished(_ context.Context, tag string, limit, offset i
 }
 
 func (f *fakePosts) GetPublished(_ context.Context, slug string) (*domain.Post, error) {
-	f.calls = append(f.calls, "GetPublished")
 	if f.err != nil {
 		return nil, f.err
 	}
@@ -57,7 +55,6 @@ func (f *fakePosts) GetPublished(_ context.Context, slug string) (*domain.Post, 
 }
 
 func (f *fakePosts) SearchPublished(_ context.Context, query string, _ int) ([]*domain.Post, error) {
-	f.calls = append(f.calls, "SearchPublished")
 	if f.err != nil {
 		return nil, f.err
 	}
@@ -209,13 +206,26 @@ func TestResultsNeverIncludeUserData(t *testing.T) {
 	}
 }
 
+func TestResourcesNeverIncludeUserData(t *testing.T) {
+	session := connect(t, &fakePosts{posts: samplePosts()}, nil)
+
+	for _, uri := range []string{"blog://posts", "blog://posts/programacion-claude"} {
+		result, err := session.ReadResource(t.Context(), &sdk.ReadResourceParams{URI: uri})
+		require.NoError(t, err)
+		raw, err := json.Marshal(result)
+		require.NoError(t, err)
+		assert.NotContains(t, string(raw), "user-secret-id", uri)
+	}
+}
+
 func TestSearchPosts(t *testing.T) {
 	session := connect(t, &fakePosts{posts: samplePosts()}, nil)
 
-	list := structured[PostList](t, callTool(t, session, "search_posts", map[string]any{"query": "GO"}))
+	result := structured[SearchResult](t, callTool(t, session, "search_posts", map[string]any{"query": "GO"}))
 
-	require.Len(t, list.Posts, 1)
-	assert.Equal(t, "go-hexagonal", list.Posts[0].Slug)
+	require.Len(t, result.Posts, 1)
+	assert.Equal(t, "go-hexagonal", result.Posts[0].Slug)
+	assert.Equal(t, 1, result.Count)
 }
 
 func TestSearchPostsInvalidInput(t *testing.T) {
@@ -250,9 +260,13 @@ func TestReadPostResource(t *testing.T) {
 func TestReadPostResourceNotFound(t *testing.T) {
 	session := connect(t, &fakePosts{posts: samplePosts()}, nil)
 
-	for _, uri := range []string{"blog://posts/no-existe", "blog://posts/a/b"} {
+	// blog://posts/a/b ni siquiera encaja en la plantilla; blog://posts/ sí
+	// llega al handler con el slug vacío.
+	for _, uri := range []string{"blog://posts/no-existe", "blog://posts/", "blog://posts/a/b"} {
 		_, err := session.ReadResource(t.Context(), &sdk.ReadResourceParams{URI: uri})
-		require.Error(t, err, uri)
+		var rpcErr *jsonrpc.Error
+		require.ErrorAs(t, err, &rpcErr, uri)
+		assert.EqualValues(t, jsonrpc.CodeInvalidParams, rpcErr.Code, uri)
 	}
 }
 

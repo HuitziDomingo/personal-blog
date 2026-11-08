@@ -61,7 +61,8 @@ func run(logger *slog.Logger) error {
 	return errors.Join(runErr, client.Disconnect(disconnectCtx))
 }
 
-// version es la del módulo si el binario se compiló desde un tag; si no, "dev".
+// version es la que Go estampa al compilar (un tag o una pseudo-versión del
+// commit); "dev" solo con go run o sin información de VCS.
 func version() string {
 	if info, ok := debug.ReadBuildInfo(); ok && info.Main.Version != "" && info.Main.Version != "(devel)" {
 		return info.Main.Version
