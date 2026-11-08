@@ -310,12 +310,13 @@ make web-test       # Vitest de lib/
   - `API_BASE_URL`: obligatoria en producción. Sin ella, el build falla en lugar de publicar un sitio vacío. En `next dev` usa `http://localhost:8080` por defecto.
   - `WEB_SKIP_API=1`: construye sin API, solo para el CI (en Vercel, con `VERCEL` definida, el build falla). Las páginas salen vacías y los posts se generan en su primera visita.
   - `SITE_URL` (por defecto `https://huitzi.xyz`): decide qué links son internos.
+  - `WEB_PRERENDER_LIMIT` (por defecto `10`): posts que el build pregenera (ADR-020). Debe quedar por debajo de la ráfaga anónima de la API (20) menos las listas; un valor que no sea un entero no negativo hace fallar el build.
 - **ISR:**
   - `/` se regenera como mucho cada 60 s.
-  - `/posts/[slug]` pregenera los 10 posts más recientes (`PRERENDER_LIMIT`). El resto se genera en su primera visita y queda en caché.
+  - `/posts/[slug]` pregenera los 10 posts más recientes (`WEB_PRERENDER_LIMIT`, ADR-020). El resto se genera en su primera visita y queda en caché.
   - Un post recién publicado tarda hasta un minuto en aparecer en `/`. Mientras la caché esté vieja, la primera visita sirve la versión anterior y dispara la regeneración.
 - **Riesgos de ADR-017 y cómo se resuelven:**
-  - **429 en el build:** el build hace como mucho 1 lista de inicio + 1 lista de slugs + 10 posts. Next reutiliza las respuestas cacheadas entre páginas, y en local fueron 3 peticiones con un post publicado. Todo queda por debajo de la ráfaga anónima de 20. Si aun así llega un 429 durante `next build`, espera el `Retry-After` (máximo 10 s, para caber en el límite de 60 s por página de Next) y reintenta hasta 3 veces. Con varios workers, la lista puede pedirse más de una vez; el peor caso estimado con 10 posts es de unas 17 peticiones.
+  - **429 en el build:** el build hace como mucho 1 lista de inicio + 1 lista de slugs por cada 100 publicados + 10 posts. Next reutiliza las respuestas cacheadas entre páginas, y en local fueron 3 peticiones con un post publicado. Todo queda por debajo de la ráfaga anónima de 20. Si aun así llega un 429 durante `next build`, espera el `Retry-After` (máximo 10 s, para caber en el límite de 60 s por página de Next) y reintenta hasta 3 veces. Con varios workers, la lista puede pedirse más de una vez; el peor caso estimado con 10 posts es de unas 17 peticiones.
   - **Slugs inventados:** un slug que no cumple el patrón del contrato da 404 sin llamar a la API. Uno que lo cumple se busca en la lista de slugs publicados, que viene de la caché (una pasada como mucho por minuto). Si no está, da 404 sin pedir el post. Así, inventar slugs no gasta el cupo de las IPs de Vercel. Un post recién publicado puede dar 404 hasta que esa lista se regenere, como mucho un par de minutos.
   - **Build del CI sin API:** con `WEB_SKIP_API=1` (ver Variables).
   - **Un 429 o un 5xx nunca es un 404:** solo un 404 de la API da `notFound()`. Un 429, un 5xx o un error de red lanzan `ApiUnavailableError`. En una regeneración, Next conserva la última versión buena. En la primera generación de una página, se muestra `app/error.tsx` («No pudimos cargar esta página»).

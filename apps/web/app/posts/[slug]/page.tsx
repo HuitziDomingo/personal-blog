@@ -3,7 +3,7 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 
 import { postsApi } from '@/lib/api';
-import { PRERENDER_LIMIT } from '@/lib/config';
+import { prerenderLimit } from '@/lib/config';
 import { formatDate } from '@/lib/format';
 import { renderPostMarkdown } from '@/lib/markdown';
 
@@ -16,11 +16,11 @@ interface PageProps {
   params: Promise<{ slug: string }>;
 }
 
-/** Pregenera solo los posts más recientes; ver PRERENDER_LIMIT. */
+/** Pregenera solo los N posts más recientes (ADR-020); ver prerenderLimit. */
 export async function generateStaticParams(): Promise<{ slug: string }[]> {
   const slugs = await postsApi.publishedSlugs();
 
-  return slugs.slice(0, PRERENDER_LIMIT).map((slug) => ({ slug }));
+  return slugs.slice(0, prerenderLimit()).map((slug) => ({ slug }));
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {

@@ -1,16 +1,30 @@
 /** Segundos que Next sirve una página desde caché antes de regenerarla (ADR-017). */
 export const REVALIDATE_SECONDS = 60;
 
-/**
- * Posts que el build pregenera, los más recientes. El resto se genera en su
- * primera visita. Acota las peticiones del build a la API: 1 lista de inicio +
- * 1 lista de slugs + PRERENDER_LIMIT posts, por debajo de la ráfaga anónima de
- * 20 por IP (ADR-010). Con varios workers la lista puede pedirse más de una
- * vez; el reintento ante un 429 cubre ese caso.
- */
-export const PRERENDER_LIMIT = 10;
-
 export type Env = Readonly<Record<string, string | undefined>>;
+
+/** Posts que el build pregenera por defecto (ADR-020). */
+export const DEFAULT_PRERENDER_LIMIT = 10;
+
+/**
+ * Posts que el build pregenera, los más recientes (ADR-020). El resto se genera
+ * en su primera visita. Acota las peticiones del build a la API: 1 lista de
+ * inicio + 1 lista de slugs por cada 100 publicados + N posts, que con el valor
+ * por defecto queda por debajo de la ráfaga anónima de 20 por IP (ADR-010 y
+ * ADR-016). Con varios workers la lista puede pedirse más de una vez; el
+ * reintento ante un 429 cubre ese caso.
+ */
+export function prerenderLimit(env: Env = process.env): number {
+  const configured = env['WEB_PRERENDER_LIMIT'];
+  if (configured === undefined || configured === '') {
+    return DEFAULT_PRERENDER_LIMIT;
+  }
+  if (!/^\d+$/.test(configured)) {
+    throw new Error(`WEB_PRERENDER_LIMIT must be a non-negative integer, got "${configured}"`);
+  }
+
+  return Number(configured);
+}
 
 /**
  * Origen de la API sin barra final, o `null` si se pidió construir sin API

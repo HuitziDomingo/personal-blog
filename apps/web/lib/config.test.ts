@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { apiBaseUrl, isBuildPhase, siteUrl } from './config';
+import { apiBaseUrl, DEFAULT_PRERENDER_LIMIT, isBuildPhase, prerenderLimit, siteUrl } from './config';
 
 describe('apiBaseUrl', () => {
   it('usa API_BASE_URL sin barra final', () => {
@@ -31,4 +31,29 @@ it('siteUrl por defecto es huitzi.xyz', () => {
 it('isBuildPhase solo durante next build', () => {
   expect(isBuildPhase({ NEXT_PHASE: 'phase-production-build' })).toBe(true);
   expect(isBuildPhase({ NEXT_PHASE: 'phase-production-server' })).toBe(false);
+});
+
+describe('prerenderLimit (ADR-020)', () => {
+  it('por defecto pregenera 10', () => {
+    expect(prerenderLimit({})).toBe(10);
+    expect(prerenderLimit({ WEB_PRERENDER_LIMIT: '' })).toBe(10);
+  });
+
+  it('se configura con WEB_PRERENDER_LIMIT', () => {
+    expect(prerenderLimit({ WEB_PRERENDER_LIMIT: '5' })).toBe(5);
+    expect(prerenderLimit({ WEB_PRERENDER_LIMIT: '0' })).toBe(0);
+  });
+
+  it.each(['-1', '2.5', 'diez', ' 3'])('rechaza %j en lugar de pregenerar de más o de menos', (value) => {
+    expect(() => prerenderLimit({ WEB_PRERENDER_LIMIT: value })).toThrow('non-negative integer');
+  });
+
+  it('con el valor por defecto el build queda por debajo de la ráfaga anónima', () => {
+    // Ráfaga anónima por IP de la API (ADR-010; sin cambios en ADR-016, punto 3).
+    const anonymousBurst = 20;
+    // Lista de inicio + una página de slugs (hasta 100 publicados) + los posts.
+    const buildRequests = 1 + 1 + DEFAULT_PRERENDER_LIMIT;
+
+    expect(buildRequests).toBeLessThan(anonymousBurst);
+  });
 });
