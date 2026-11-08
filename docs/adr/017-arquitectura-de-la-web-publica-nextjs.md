@@ -1,5 +1,5 @@
 # ADR-017: Arquitectura de la Web Pública (Next.js)
-* Estado: Aprobado
+* Estado: Aprobado — punto 3 reemplazado por ADR-020
 * Fecha: 2026-11-07
 * Autor: León Nieves Huitzitzili Domingo
 * Complementa: ADR-001 (detalla `apps/web`), ADR-007, ADR-010 y ADR-011 (decisiones delegadas al ADR de `apps/web`)
