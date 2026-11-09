@@ -17,6 +17,8 @@
     "@angular/forms": "22.2.3",
     "@angular/platform-browser": "22.2.3",
     "@angular/router": "22.2.3",
+    "@milkdown/crepe": "7.23.0",
+    "@milkdown/kit": "7.23.0",
     "@ng-icons/core": "33.4.0",
     "@ng-icons/lucide": "33.4.0",
     "@personal-blog/api-types": "workspace:*",

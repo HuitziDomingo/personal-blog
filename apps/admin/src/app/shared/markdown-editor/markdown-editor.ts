@@ -1,6 +1,23 @@
-import { ChangeDetectionStrategy, Component, computed, effect, input, output, signal, untracked } from '@angular/core';
+import {
+  afterNextRender,
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  DestroyRef,
+  effect,
+  ElementRef,
+  inject,
+  input,
+  output,
+  signal,
+  untracked,
+  viewChild,
+  ViewEncapsulation,
+} from '@angular/core';
 
 import { renderMarkdown } from '@personal-blog/markdown';
+
+import type { MilkdownHandle } from './milkdown';
 
 /**
  * Espera de la vista previa tras la última tecla. Convertir y sanitizar el
@@ -9,37 +26,56 @@ import { renderMarkdown } from '@personal-blog/markdown';
  */
 export const PREVIEW_DEBOUNCE_MS = 150;
 
+type EditorState = 'loading' | 'ready' | 'error';
+
 /**
- * Editor de Markdown de ADR-012: un textarea y la vista previa lado a lado (una
- * debajo de otra en pantallas angostas). La interfaz es solo `value` y
- * `valueChange`, para poder cambiarlo por un editor WYSIWYG sin tocar el
- * formulario que lo usa.
+ * Editor de Markdown de ADR-018: Milkdown Crepe y la vista previa lado a lado
+ * (una debajo de otra en pantallas angostas). La interfaz sigue siendo `value`
+ * y `valueChange` (ADR-012), así que el formulario no cambia.
  *
- * La vista previa pasa por `renderMarkdown` (marked + DOMPurify con allowlist)
- * y se enlaza con [innerHTML], que vuelve a sanitizar Angular. Nunca
- * `bypassSecurityTrust*`. Se recalcula PREVIEW_DEBOUNCE_MS después de la última
- * tecla; el primer valor se muestra de inmediato.
+ * - Entra y sale Markdown; el editor nunca entrega HTML (ADR-018, punto 2).
+ * - Milkdown se carga con `import()` al montar el editor, en su propio chunk
+ *   (ADR-018, punto 4). Mientras carga se muestra un aviso.
+ * - La vista previa pasa por `renderMarkdown` (marked + DOMPurify con
+ *   allowlist), igual que la web, y se enlaza con [innerHTML], que vuelve a
+ *   sanitizar Angular. Es la verdad de cómo se publicará el post (ADR-018,
+ *   punto 3). Se recalcula PREVIEW_DEBOUNCE_MS después de la última tecla; el
+ *   primer valor se muestra de inmediato.
+ *
+ * Sin encapsulación: el DOM del editor lo crea Milkdown, no la plantilla, y
+ * los estilos del tema no le llegarían. Todas las reglas van bajo
+ * `app-markdown-editor`.
  */
 @Component({
   selector: 'app-markdown-editor',
-  // Textarea propio y no hlmTextarea: las directivas de brain manejan
-  // aria-invalid y aria-describedby desde un hlmField, y aquí los define quien
-  // usa el editor.
   changeDetection: ChangeDetectionStrategy.OnPush,
+  encapsulation: ViewEncapsulation.None,
+  styleUrl: './markdown-editor.css',
   template: `
     <div class="grid gap-4 md:grid-cols-2">
       <div class="flex min-w-0 flex-col gap-2">
-        <label class="text-sm font-medium" [for]="inputId()">{{ label() }}</label>
-        <textarea
-          class="border-input focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 min-h-96 w-full rounded-md border bg-transparent px-2.5 py-2 font-mono text-sm outline-none focus-visible:ring-3 aria-invalid:ring-3"
-          [id]="inputId()"
-          [value]="value()"
-          [disabled]="disabled()"
-          [attr.aria-invalid]="invalid() || null"
-          [attr.aria-describedby]="describedBy() || null"
-          (input)="valueChange.emit($any($event.target).value)"
-          (blur)="touched.emit()"
-        ></textarea>
+        <!-- Un contenteditable no es «labelable»: el nombre le llega por
+             aria-labelledby. -->
+        <span class="text-sm font-medium" [id]="labelId()">{{ label() }}</span>
+        <!-- Sin role="status" en el aviso de carga: la página ya tiene uno
+             para «Borrador guardado.», y serían dos. -->
+        <div
+          class="editor-frame border-input min-h-96 rounded-md border"
+          [class.editor-invalid]="invalid()"
+          [class.editor-disabled]="disabled()"
+          [attr.aria-busy]="state() === 'loading' || null"
+          (focusout)="onFocusOut($event)"
+        >
+          <div #root></div>
+          @switch (state()) {
+            @case ('loading') {
+              <p class="text-muted-foreground px-3 py-2 text-sm">Cargando el editor…</p>
+            }
+            @case ('error') {
+              <p class="text-destructive px-3 py-2 text-sm" role="alert">No se pudo cargar el editor. Recarga la página.</p>
+            }
+          }
+        </div>
       </div>
 
       <section class="flex min-w-0 flex-col gap-2" [attr.aria-labelledby]="inputId() + '-preview'">
@@ -51,28 +87,11 @@ export const PREVIEW_DEBOUNCE_MS = 150;
       </section>
     </div>
   `,
-  styles: `
-    .preview :where(h1, h2, h3, h4, h5, h6) { font-weight: 600; margin: 1em 0 0.5em; }
-    .preview h1 { font-size: 1.5rem; }
-    .preview h2 { font-size: 1.25rem; }
-    .preview h3 { font-size: 1.125rem; }
-    .preview :where(p, ul, ol, pre, blockquote, table) { margin: 0 0 0.75em; }
-    .preview :where(ul, ol) { padding-left: 1.5em; }
-    .preview ul { list-style: disc; }
-    .preview ol { list-style: decimal; }
-    .preview a { text-decoration: underline; }
-    .preview code { font-family: var(--font-mono, monospace); background: var(--muted); padding: 0 0.25em; border-radius: 0.25rem; }
-    .preview pre { background: var(--muted); padding: 0.75em; border-radius: 0.375rem; overflow-x: auto; }
-    .preview pre code { padding: 0; background: none; }
-    .preview blockquote { border-left: 3px solid var(--border); padding-left: 0.75em; color: var(--muted-foreground); }
-    .preview img { max-width: 100%; }
-    .preview :where(th, td) { border: 1px solid var(--border); padding: 0.25em 0.5em; }
-  `,
 })
 export class MarkdownEditor {
   readonly value = input('');
   readonly valueChange = output<string>();
-  /** Se emite al salir del textarea, para marcar el campo como tocado. */
+  /** Se emite al salir del editor, para marcar el campo como tocado. */
   readonly touched = output<void>();
 
   readonly inputId = input('markdown-editor');
@@ -80,6 +99,18 @@ export class MarkdownEditor {
   readonly invalid = input(false);
   readonly disabled = input(false);
   readonly describedBy = input<string>();
+
+  protected readonly labelId = computed(() => `${this.inputId()}-label`);
+  protected readonly state = signal<EditorState>('loading');
+
+  private readonly root = viewChild.required<ElementRef<HTMLElement>>('root');
+  private readonly editor = signal<MilkdownHandle | undefined>(undefined);
+  /**
+   * Último Markdown que el editor tiene: el que emitió o el que se le aplicó.
+   * Cuando `value` vuelve con ese mismo texto (el formulario devuelve lo que el
+   * editor emitió) no se reaplica, para no mover el cursor.
+   */
+  private current = '';
 
   /** Texto que muestra la vista previa: `value` con el debounce aplicado. */
   private readonly previewSource = signal<string | undefined>(undefined);
@@ -99,5 +130,91 @@ export class MarkdownEditor {
       const timer = setTimeout(() => this.previewSource.set(value), PREVIEW_DEBOUNCE_MS);
       onCleanup(() => clearTimeout(timer));
     });
+
+    // Un valor que llega de fuera (por ejemplo, el post cargado de la API).
+    effect(() => {
+      const editor = this.editor();
+      const value = this.value();
+      if (editor && value !== this.current) {
+        this.current = value;
+        editor.setMarkdown(value);
+      }
+    });
+
+    effect(() => this.editor()?.setReadonly(this.disabled()));
+
+    // Atributos de accesibilidad del área editable. ProseMirror solo maneja los
+    // suyos (class, contenteditable, translate), así que estos se conservan.
+    effect(() => {
+      const dom = this.editor()?.dom;
+      if (!dom) {
+        return;
+      }
+      setAttributes(dom, {
+        id: this.inputId(),
+        role: 'textbox',
+        'aria-multiline': 'true',
+        'aria-labelledby': this.labelId(),
+        'aria-describedby': this.describedBy() || null,
+        'aria-invalid': this.invalid() ? 'true' : null,
+        'aria-disabled': this.disabled() ? 'true' : null,
+      });
+    });
+
+    const destroyRef = inject(DestroyRef);
+    afterNextRender(() => void this.load(destroyRef));
+  }
+
+  protected onFocusOut(event: FocusEvent): void {
+    const frame = event.currentTarget as HTMLElement;
+    if (!(event.relatedTarget instanceof Node && frame.contains(event.relatedTarget))) {
+      this.touched.emit();
+    }
+  }
+
+  private async load(destroyRef: DestroyRef): Promise<void> {
+    let destroyed = false;
+    destroyRef.onDestroy(() => {
+      destroyed = true;
+      void this.editor()?.destroy();
+    });
+
+    try {
+      const { createMilkdown } = await import('./milkdown');
+      if (destroyed) {
+        return;
+      }
+      this.current = untracked(this.value);
+      const editor = await createMilkdown({
+        root: this.root().nativeElement,
+        markdown: this.current,
+        readonly: untracked(this.disabled),
+        onChange: (markdown) => {
+          this.current = markdown;
+          this.valueChange.emit(markdown);
+        },
+      });
+      // Si el componente se destruyó mientras se creaba, el editor no llegó a
+      // la señal y nadie más lo destruiría.
+      if (destroyed) {
+        await editor.destroy();
+        return;
+      }
+      this.editor.set(editor);
+      this.state.set('ready');
+    } catch (error) {
+      console.error('No se pudo cargar el editor', error);
+      this.state.set('error');
+    }
+  }
+}
+
+function setAttributes(element: HTMLElement, attributes: Record<string, string | null>): void {
+  for (const [name, value] of Object.entries(attributes)) {
+    if (value === null) {
+      element.removeAttribute(name);
+    } else {
+      element.setAttribute(name, value);
+    }
   }
 }
