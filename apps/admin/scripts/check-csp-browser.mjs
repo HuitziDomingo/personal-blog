@@ -117,7 +117,10 @@ async function connect(url) {
   socket.addEventListener('message', ({ data }) => {
     const message = JSON.parse(data);
     if (!Number.isInteger(message.id)) {
-      listeners.get(message.method)?.(message.params);
+      const listener = listeners.get(message.method);
+      if (typeof listener === 'function') {
+        listener(message.params);
+      }
       return;
     }
     const callback = pending.get(message.id);
