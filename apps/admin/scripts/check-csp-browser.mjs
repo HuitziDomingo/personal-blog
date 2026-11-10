@@ -10,8 +10,8 @@
 // - un link javascript: inyectado no se ejecuta (script-src-elem);
 // - con el sistema en oscuro, el script de tema de <head> pone la clase dark
 //   antes de que exista <body>: corre bajo la CSP, antes que Angular;
-// - el editor de posts (Milkdown, ADR-018) carga y se usa sin violar la CSP
-//   aplicada: se escribe un título, se abre el menú «/» y un bloque de código
+// - el editor de posts (Milkdown, ADR-018) carga, con su tema desde la hoja
+//   aparte, y se usa sin violar la CSP aplicada: se escribe un título, se abre el menú «/» y un bloque de código
 //   con CodeMirror. La API no se toca: DevTools responde /auth/me con un
 //   usuario de prueba para pasar el guard.
 // También informa, sin exigirlo, si corre un <script> inline creado con
@@ -244,6 +244,15 @@ async function checkEditor(page) {
   const loaded =
     (await waitUntil(page, 'window.__beforeEditor !== true')) && (await waitUntil(page, `!!${EDITOR}`));
 
+  // El tema llega por un <link> a milkdown-theme.css (inject: false en
+  // angular.json): cargó si sus variables ya se aplican al editor.
+  const theme =
+    loaded &&
+    (await evaluate(
+      page,
+      `!!document.querySelector('link[href="milkdown-theme.css"]')?.sheet &&
+      getComputedStyle(document.querySelector('.milkdown')).getPropertyValue('--crepe-color-background').trim() !== ''`,
+    ));
   let heading = false;
   let slashMenu = false;
   let codeBlock = false;
@@ -270,6 +279,7 @@ async function checkEditor(page) {
 
   return {
     loaded,
+    theme,
     heading,
     slashMenu,
     codeBlock,
@@ -368,6 +378,7 @@ async function run() {
       ['un link javascript: inyectado no se ejecuta', blocked(results.link, 'script-src-elem')],
       ['el script de tema pone dark antes de <body> (sistema en oscuro)', themeBeforeBody],
       ['el editor de posts carga Milkdown (chunk diferido)', editor.loaded],
+      ['el tema del editor carga desde su hoja aparte', editor.theme],
       ['escribir «# Hola» da un título en el editor y en la vista previa', editor.heading],
       ['se abren el menú «/» y un bloque de código con CodeMirror', editor.slashMenu && editor.codeBlock],
       ['el editor no viola la CSP aplicada', editor.loaded && editor.enforced.length === 0],

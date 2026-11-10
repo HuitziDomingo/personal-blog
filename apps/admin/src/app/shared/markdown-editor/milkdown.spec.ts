@@ -110,26 +110,44 @@ describe('createMilkdown', () => {
   });
 
   describe('avisos de cambio', () => {
+    // Más que el debounce de Milkdown (200 ms).
+    const afterDebounce = () => new Promise((resolve) => setTimeout(resolve, 300));
+
     it('no avisa al abrirse ni al recibir un valor de fuera', async () => {
       const onChange = vi.fn();
       const editor = await open('# Hola', onChange);
 
       editor.setMarkdown('# Otro\n\ncontenido');
+      editor.flush();
+      await afterDebounce();
 
       expect(onChange).not.toHaveBeenCalled();
       expect(editor.getMarkdown()).toBe('# Otro\n\ncontenido\n');
     });
 
-    it('avisa en cada cambio, sin espera, con el Markdown completo', async () => {
+    it('avisa con el debounce de Milkdown, una vez por ráfaga de cambios', async () => {
       const onChange = vi.fn();
       const editor = await open('', onChange);
 
       paste(editor.dom, { text: '# Hola' });
-      expect(onChange).toHaveBeenLastCalledWith('# Hola\n');
+      paste(editor.dom, { text: ', mundo' });
+      expect(onChange).not.toHaveBeenCalled();
 
-      paste(editor.dom, { text: '\n\nSegunda versión, **editada**.' });
-      expect(onChange).toHaveBeenCalledTimes(2);
-      expect(onChange).toHaveBeenLastCalledWith(expect.stringContaining('**editada**'));
+      await vi.waitFor(() => expect(onChange).toHaveBeenCalledWith('# Hola, mundo\n'));
+      expect(onChange).toHaveBeenCalledTimes(1);
+    });
+
+    it('flush avisa ya el cambio pendiente, y el debounce no lo repite', async () => {
+      const onChange = vi.fn();
+      const editor = await open('', onChange);
+
+      paste(editor.dom, { text: '# Hola' });
+      editor.flush();
+      expect(onChange).toHaveBeenCalledExactlyOnceWith('# Hola\n');
+
+      await afterDebounce();
+      editor.flush();
+      expect(onChange).toHaveBeenCalledTimes(1);
     });
 
     it('en solo lectura no acepta cambios', async () => {

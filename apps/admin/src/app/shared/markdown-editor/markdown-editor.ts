@@ -18,6 +18,7 @@ import {
 import { renderMarkdown } from '@personal-blog/markdown';
 
 import type { MilkdownHandle } from './milkdown';
+import { MILKDOWN_THEME_LOADER } from './milkdown-theme';
 
 /**
  * Espera de la vista previa tras la última tecla. Convertir y sanitizar el
@@ -35,16 +36,18 @@ type EditorState = 'loading' | 'ready' | 'error';
  *
  * - Entra y sale Markdown; el editor nunca entrega HTML (ADR-018, punto 2).
  * - Milkdown se carga con `import()` al montar el editor, en su propio chunk
- *   (ADR-018, punto 4). Mientras carga se muestra un aviso.
+ *   (ADR-018, punto 4), y su tema con un <link> a una hoja aparte
+ *   (milkdown-theme.css). Mientras cargan se muestra un aviso.
+ * - `valueChange` llega con el debounce de Milkdown (200 ms), no en cada
+ *   tecla. Quien guarda llama antes a `flush()`, que emite ya lo pendiente.
  * - La vista previa pasa por `renderMarkdown` (marked + DOMPurify con
  *   allowlist), igual que la web, y se enlaza con [innerHTML], que vuelve a
  *   sanitizar Angular. Es la verdad de cómo se publicará el post (ADR-018,
  *   punto 3). Se recalcula PREVIEW_DEBOUNCE_MS después de la última tecla; el
  *   primer valor se muestra de inmediato.
  *
- * Sin encapsulación: el DOM del editor lo crea Milkdown, no la plantilla, y
- * los estilos del tema no le llegarían. Todas las reglas van bajo
- * `app-markdown-editor`.
+ * Sin encapsulación: la vista previa se llena con [innerHTML] y los estilos
+ * encapsulados no le llegarían. Todas las reglas van bajo `app-markdown-editor`.
  */
 @Component({
   selector: 'app-markdown-editor',
@@ -104,6 +107,7 @@ export class MarkdownEditor {
   protected readonly state = signal<EditorState>('loading');
 
   private readonly root = viewChild.required<ElementRef<HTMLElement>>('root');
+  private readonly theme = inject(MILKDOWN_THEME_LOADER);
   private readonly editor = signal<MilkdownHandle | undefined>(undefined);
   /**
    * Último Markdown que el editor tiene: el que emitió o el que se le aplicó.
@@ -165,6 +169,14 @@ export class MarkdownEditor {
     afterNextRender(() => void this.load(destroyRef));
   }
 
+  /**
+   * Emite ya, por `valueChange`, el cambio que el debounce de Milkdown todavía
+   * no avisó. Es síncrono: al volver, el formulario tiene el último contenido.
+   */
+  flush(): void {
+    this.editor()?.flush();
+  }
+
   protected onFocusOut(event: FocusEvent): void {
     const frame = event.currentTarget as HTMLElement;
     if (!(event.relatedTarget instanceof Node && frame.contains(event.relatedTarget))) {
@@ -180,7 +192,7 @@ export class MarkdownEditor {
     });
 
     try {
-      const { createMilkdown } = await import('./milkdown');
+      const [{ createMilkdown }] = await Promise.all([import('./milkdown'), this.theme.load()]);
       if (destroyed) {
         return;
       }
