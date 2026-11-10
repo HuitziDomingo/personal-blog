@@ -1,0 +1,10 @@
+info:
+  name: admin-assistant
+  type: folder
+
+request:
+  auth: inherit
+
+docs:
+  content: "Asistente de escritura con IA (ADR-021). Sus respuestas son sugerencias: la API no guarda nada."
+  type: text/markdown

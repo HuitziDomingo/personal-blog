@@ -12,6 +12,10 @@ tags:
     description: Lectura pública de posts publicados.
   - name: admin-posts
     description: Gestión de posts desde el dashboard.
+  - name: admin-assistant
+    description: >-
+      Asistente de escritura con IA (ADR-021). Sus respuestas son sugerencias:
+      la API no guarda nada.
 
 paths:
   /api/v1/auth/login:
@@ -230,6 +234,84 @@ paths:
         default:
           $ref: "#/components/responses/UnexpectedError"
 
+  /api/v1/admin/assistant/improve-writing:
+    post:
+      tags: [admin-assistant]
+      operationId: improveWriting
+      summary: Mejora la redacción de un borrador.
+      description: >-
+        Devuelve el contenido reescrito en Markdown. Es una sugerencia: no se
+        guarda. Tiene su propio límite por usuario, más estricto que el general
+        (ADR-021).
+      security:
+        - accessCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AssistantDraft"
+      responses:
+        "200":
+          description: Contenido con la redacción mejorada.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ImprovedWriting"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "413":
+          $ref: "#/components/responses/PayloadTooLarge"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "503":
+          $ref: "#/components/responses/AssistantUnavailable"
+        default:
+          $ref: "#/components/responses/UnexpectedError"
+
+  /api/v1/admin/assistant/suggest-metadata:
+    post:
+      tags: [admin-assistant]
+      operationId: suggestMetadata
+      summary: Sugiere título, extracto y etiquetas para un borrador.
+      description: >-
+        Devuelve metadatos que cumplen las mismas reglas que un post. Es una
+        sugerencia: no se guarda. Tiene su propio límite por usuario, más
+        estricto que el general (ADR-021).
+      security:
+        - accessCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AssistantDraft"
+      responses:
+        "200":
+          description: Metadatos sugeridos.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MetadataSuggestion"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "413":
+          $ref: "#/components/responses/PayloadTooLarge"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "503":
+          $ref: "#/components/responses/AssistantUnavailable"
+        default:
+          $ref: "#/components/responses/UnexpectedError"
+
   /api/v1/admin/posts/{id}:
     parameters:
       - name: id
@@ -430,6 +512,15 @@ components:
         application/problem+json:
           schema:
             $ref: "#/components/schemas/Problem"
+    AssistantUnavailable:
+      description: >-
+        El asistente está desactivado (ASSISTANT_ENABLED=false), el proveedor
+        falló o agotó su cuota, o devolvió una sugerencia que no cumple las
+        reglas. `detail` dice cuál.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
     UnexpectedError:
       description: Error inesperado.
       content:
@@ -562,6 +653,55 @@ components:
           $ref: "#/components/schemas/PostStatus"
         seo:
           $ref: "#/components/schemas/Seo"
+
+    AssistantDraft:
+      type: object
+      description: >-
+        El borrador que se envía al asistente. Solo el título y el contenido:
+        nunca datos de usuarios ni otros posts (ADR-021).
+      required: [title, content]
+      properties:
+        title:
+          type: string
+          maxLength: 200
+          description: Puede estar vacío.
+        content:
+          type: string
+          description: Contenido en Markdown.
+          minLength: 1
+          maxLength: 50000
+
+    ImprovedWriting:
+      type: object
+      required: [content]
+      properties:
+        content:
+          type: string
+          description: >-
+            Contenido sugerido en Markdown. Es texto no confiable: se renderiza
+            con el mismo sanitizado que cualquier post (packages/markdown).
+
+    MetadataSuggestion:
+      type: object
+      description: Metadatos sugeridos, con las mismas reglas que en PostWrite.
+      required: [title, excerpt, tags]
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        excerpt:
+          type: string
+          minLength: 1
+          maxLength: 500
+        tags:
+          type: array
+          maxItems: 20
+          description: En minúsculas, con los espacios colapsados y sin duplicados.
+          items:
+            type: string
+            minLength: 1
+            maxLength: 50
 
     PostSummary:
       type: object
