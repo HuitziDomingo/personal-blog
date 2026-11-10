@@ -2,8 +2,11 @@
   "permissions": {
     "deny": [
       "Bash(git reset --hard:*)",
-      "Bash(git clean:*)",
-      "Bash(git push --force:*)"
+      "Bash(git clean:*)"
+    ],
+    "ask": [
+      "Bash(git push --force:*)",
+      "Bash(git push -f:*)"
     ]
   }
 }
