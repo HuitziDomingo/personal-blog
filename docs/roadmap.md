@@ -62,6 +62,7 @@
 - [x] BLOG-058: Correr la prueba de la CSP del admin en un navegador headless (`check-csp-browser.mjs`) en el job admin del CI. ([#48](https://github.com/HuitziDomingo/personal-blog/pull/48))
 - [x] BLOG-051: API_BASE_URL del admin desde la configuración de build, no fijo en localhost (antes de BLOG-047). ([#41](https://github.com/HuitziDomingo/personal-blog/pull/41))
 - [x] BLOG-062: Debounce de 150 ms en la vista previa del editor de Markdown, sin retrasar el valor del formulario. ([#55](https://github.com/HuitziDomingo/personal-blog/pull/55))
+- [x] BLOG-085: Footer de la web siempre al fondo en páginas cortas (404, blog vacío, error): `body` en columna con `min-height: 100dvh` y el `<main>` con `flex: 1`. ([#79](https://github.com/HuitziDomingo/personal-blog/pull/79))
 
 ## Fase 4: Testing & CI/CD Pipeline
 
