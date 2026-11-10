@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 
 import { ACCENTS } from '../src/app/core/theme/theme.ts';
-import { checks, composite, contrast, oklchToLinearSrgb, themes, variablesOf } from './check-theme-contrast.mjs';
+import { checks, composite, contrast, luminance, oklchToLinearSrgb, themes, variablesOf } from './check-theme-contrast.mjs';
 
 const STYLES = readFileSync(new URL('../src/styles.css', import.meta.url), 'utf8');
 
@@ -64,4 +64,11 @@ test('detecta una paleta sin contraste suficiente', () => {
   const bad = themes(css).themes.find((theme) => theme.accent === 'bad' && theme.mode === 'light');
   const button = checks(bad).find((row) => row.pair.startsWith('Botón'));
   assert.ok(button.ratio < button.min);
+});
+
+test('el panel elevado es más oscuro que el fondo en claro y más claro en oscuro', () => {
+  for (const { accent, mode, vars } of themes(STYLES).themes) {
+    const [panel, background] = ['--panel', '--background'].map((name) => luminance(oklchToLinearSrgb(vars[name])));
+    assert.ok(mode === 'light' ? panel < background : panel > background, `${accent}/${mode}`);
+  }
 });
