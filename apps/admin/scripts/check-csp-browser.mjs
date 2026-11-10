@@ -9,14 +9,19 @@
 // - un <img onerror> inyectado no se ejecuta (script-src-attr);
 // - un link javascript: inyectado no se ejecuta (script-src-elem);
 // - con el sistema en oscuro, el script de tema de <head> pone la clase dark
-//   antes de que exista <body>: corre bajo la CSP, antes que Angular.
+//   antes de que exista <body>: corre bajo la CSP, antes que Angular;
+// - el editor de posts (Milkdown, ADR-018) carga y se usa sin violar la CSP
+//   aplicada: se escribe un título, se abre el menú «/» y un bloque de código
+//   con CodeMirror. La API no se toca: DevTools responde /auth/me con un
+//   usuario de prueba para pasar el guard.
 // También informa, sin exigirlo, si corre un <script> inline creado con
 // createElement: con 'strict-dynamic' corre, porque lo crea código que ya se
-// está ejecutando; una inyección de HTML no puede hacerlo.
+// está ejecutando; una inyección de HTML no puede hacerlo. Y lista las
+// violaciones de la política Report-Only (Trusted Types) que causa el editor.
 //
 // Uso: node scripts/check-csp-browser.mjs [directorio del build]
 import { spawn, spawnSync } from 'node:child_process';
-import { existsSync, mkdtempSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -25,6 +30,16 @@ const SERVER = fileURLToPath(new URL('./serve-dist.mjs', import.meta.url));
 const PORT = 4310;
 const ORIGIN = `http://127.0.0.1:${PORT}`;
 const TIMEOUT_MS = 15000;
+
+// El origen de la API que el build de producción llama: el connect-src de
+// vercel.json (check-api-base-url comprueba que coincidan).
+const VERCEL_JSON = new URL('../vercel.json', import.meta.url);
+const API_ORIGIN = (() => {
+  const csp = JSON.parse(readFileSync(VERCEL_JSON, 'utf8'))
+    .headers.flatMap((rule) => rule.headers)
+    .find((header) => header.key === 'Content-Security-Policy').value;
+  return /connect-src\s+(\S+)/.exec(csp)[1].replace(/;$/, '');
+})();
 
 const BROWSERS = [
   '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
@@ -84,7 +99,8 @@ function waitForOutput(child, stream, pattern) {
   });
 }
 
-// Cliente mínimo del protocolo de DevTools: un id por mensaje.
+// Cliente mínimo del protocolo de DevTools: un id por mensaje, y eventos por
+// nombre de método.
 async function connect(url) {
   const socket = new WebSocket(url);
   await withTimeout(
@@ -97,9 +113,17 @@ async function connect(url) {
 
   let nextId = 0;
   const pending = new Map();
+  const listeners = new Map();
   socket.addEventListener('message', ({ data }) => {
     const message = JSON.parse(data);
-    const callback = Number.isInteger(message.id) ? pending.get(message.id) : undefined;
+    if (!Number.isInteger(message.id)) {
+      const listener = listeners.get(message.method);
+      if (typeof listener === 'function') {
+        listener(message.params);
+      }
+      return;
+    }
+    const callback = pending.get(message.id);
     if (typeof callback === 'function') {
       pending.delete(message.id);
       callback(message);
@@ -116,6 +140,9 @@ async function connect(url) {
         ),
         method,
       );
+    },
+    on(method, listener) {
+      listeners.set(method, listener);
     },
     close: () => socket.close(),
   };
@@ -155,6 +182,101 @@ const ATTACKS = {
   script.textContent = 'window.__cspRan = true';
   document.body.appendChild(script);`,
 };
+
+// Espera a que la expresión sea verdadera en la página, con un tope.
+async function waitUntil(page, expression, timeout = TIMEOUT_MS) {
+  for (const deadline = Date.now() + timeout; Date.now() < deadline; await sleep(100)) {
+    if (await evaluate(page, expression).catch(() => false)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+// Teclea carácter por carácter, como un usuario: las reglas de entrada de
+// Milkdown («# », «/», «```») se disparan con cada carácter escrito.
+async function typeText(page, text) {
+  for (const char of text) {
+    await page.send('Input.insertText', { text: char });
+  }
+}
+
+async function press(page, key, code = key) {
+  const keyCode = { Enter: 13, Escape: 27 }[key];
+  const text = key === 'Enter' ? '\r' : undefined;
+  await page.send('Input.dispatchKeyEvent', { type: 'keyDown', key, code, windowsVirtualKeyCode: keyCode, text });
+  await page.send('Input.dispatchKeyEvent', { type: 'keyUp', key, code, windowsVirtualKeyCode: keyCode });
+}
+
+const EDITOR = "document.querySelector('.milkdown .ProseMirror[role=textbox]')";
+const PREVIEW_H1 = "document.querySelector('app-markdown-editor .preview h1')?.textContent";
+
+// Editor de posts (ADR-018, punto 5): abre /posts/new con un usuario de prueba
+// y usa Milkdown. Anota todas las violaciones desde que empieza la carga.
+async function checkEditor(page) {
+  // DevTools responde las llamadas a la API: /auth/me con un usuario, el resto
+  // con 404. Nada sale a la red.
+  page.on('Fetch.requestPaused', ({ requestId, request }) => {
+    const me = new URL(request.url).pathname === '/api/v1/auth/me';
+    const body = me ? { id: 'csp', email: 'csp@example.test', role: 'admin' } : { title: 'Not Found', status: 404 };
+    page
+      .send('Fetch.fulfillRequest', {
+        requestId,
+        responseCode: me ? 200 : 404,
+        responseHeaders: [
+          { name: 'Content-Type', value: 'application/json' },
+          { name: 'Access-Control-Allow-Origin', value: ORIGIN },
+          { name: 'Access-Control-Allow-Credentials', value: 'true' },
+        ],
+        body: Buffer.from(JSON.stringify(body)).toString('base64'),
+      })
+      .catch(() => {});
+  });
+  await page.send('Fetch.enable', { patterns: [{ urlPattern: `${API_ORIGIN}/*` }] });
+  await page.send('Page.addScriptToEvaluateOnNewDocument', {
+    source: `window.__violations = [];
+    document.addEventListener('securitypolicyviolation', (e) =>
+      window.__violations.push([e.effectiveDirective, e.disposition, e.blockedURI, e.sample].filter(Boolean).join(' ')));`,
+  });
+
+  await evaluate(page, 'window.__beforeEditor = true');
+  await page.send('Page.navigate', { url: `${ORIGIN}/posts/new` });
+  const loaded =
+    (await waitUntil(page, 'window.__beforeEditor !== true')) && (await waitUntil(page, `!!${EDITOR}`));
+
+  let heading = false;
+  let slashMenu = false;
+  let codeBlock = false;
+  if (loaded) {
+    await evaluate(page, `${EDITOR}.focus()`);
+    await typeText(page, '# Hola');
+    heading =
+      (await waitUntil(page, `${EDITOR}.querySelector('h1')?.textContent === 'Hola'`, 3000)) &&
+      (await waitUntil(page, `${PREVIEW_H1} === 'Hola'`, 3000));
+
+    await press(page, 'Enter');
+    await typeText(page, '/');
+    slashMenu = await waitUntil(page, "document.querySelector('.milkdown-slash-menu')?.dataset.show === 'true'", 3000);
+    await press(page, 'Escape');
+    await evaluate(page, `${EDITOR}.focus()`);
+
+    await press(page, 'Enter');
+    await typeText(page, '```js ');
+    codeBlock = await waitUntil(page, `!!${EDITOR}.querySelector('.cm-editor')`, 3000);
+  }
+  // Deja que terminen los efectos diferidos (estilos de CodeMirror, menús).
+  await sleep(500);
+  const violations = (await evaluate(page, 'window.__violations ?? []')) ?? [];
+
+  return {
+    loaded,
+    heading,
+    slashMenu,
+    codeBlock,
+    enforced: violations.filter((v) => v.includes(' enforce')),
+    reported: violations.filter((v) => v.includes(' report')),
+  };
+}
 
 async function run() {
   const browserPath = findBrowser();
@@ -235,6 +357,7 @@ async function run() {
     }
     const rebooted = reloaded && (await waitForBoot());
     const themeBeforeBody = rebooted && (await evaluate(page, 'window.__themeBeforeBody === true'));
+    const editor = await checkEditor(page);
     page.close();
 
     const blocked = ({ ran, violations }, directive) => !ran && violations.includes(`${directive} enforce`);
@@ -244,6 +367,10 @@ async function run() {
       ['un <img onerror> inyectado no se ejecuta', blocked(results.img, 'script-src-attr')],
       ['un link javascript: inyectado no se ejecuta', blocked(results.link, 'script-src-elem')],
       ['el script de tema pone dark antes de <body> (sistema en oscuro)', themeBeforeBody],
+      ['el editor de posts carga Milkdown (chunk diferido)', editor.loaded],
+      ['escribir «# Hola» da un título en el editor y en la vista previa', editor.heading],
+      ['se abren el menú «/» y un bloque de código con CodeMirror', editor.slashMenu && editor.codeBlock],
+      ['el editor no viola la CSP aplicada', editor.loaded && editor.enforced.length === 0],
     ];
     for (const [name, ok] of checks) {
       console.log(`${ok ? 'ok  ' : 'FALLA'} ${name}`);
@@ -252,6 +379,8 @@ async function run() {
     for (const [name, { violations }] of Object.entries(results)) {
       console.log(`violaciones (${name}): ${violations.join(', ') || 'ninguna'}`);
     }
+    console.log(`violaciones (editor, CSP aplicada): ${[...new Set(editor.enforced)].join(', ') || 'ninguna'}`);
+    console.log(`info  violaciones (editor, Report-Only): ${[...new Set(editor.reported)].join(', ') || 'ninguna'}`);
     return checks.every(([, ok]) => ok);
   } finally {
     await cleanup();

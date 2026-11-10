@@ -1,9 +1,15 @@
 import { expect, test } from '@playwright/test';
 
-import { login, Post, publicPost, publicSlugs } from './support';
+import { login, Post, publicPost, publicSlugs, run } from './support';
+
+// Lo que guarda el editor (Milkdown) para lo que se teclea abajo: Markdown con
+// salto de línea final (ADR-018).
+const FIRST = '# Hola\n\nPrimera versión.\n';
+const SECOND = '# Hola\n\nSegunda versión, **editada**.\n';
 
 // Flujo crítico de ADR-006: Auth → creación de post → publicación. Además se
-// edita el borrador, se comprueba en la API pública y se archiva.
+// edita el borrador, se comprueba que el contenido vuelve sin pérdidas, se
+// comprueba en la API pública y se archiva.
 test('login, borrador, edición, publicación, API pública y archivo', async ({ page, request }) => {
   const slug = `e2e-${Date.now()}`;
   const title = `Post de prueba ${slug}`;
@@ -19,9 +25,15 @@ test('login, borrador, edición, publicación, API pública y archivo', async ({
 
     await page.getByLabel('Título', { exact: true }).fill(title);
     await page.getByLabel('Slug').fill(slug);
-    await page.getByLabel('Contenido').fill('# Hola\n\nPrimera versión.');
+    // El editor es WYSIWYG: se teclea como un usuario, y «# » se vuelve título.
+    await page.getByLabel('Contenido').click();
+    await page.keyboard.type('# Hola');
+    await page.keyboard.press('Enter');
+    await page.keyboard.type('Primera versión.');
+    const created = page.waitForResponse((response) => response.request().method() === 'POST' && response.ok());
     await page.getByRole('button', { name: 'Guardar borrador' }).click();
 
+    expect(((await (await created).json()) as Post).content).toBe(FIRST);
     await expect(status).toHaveText('Borrador guardado.');
     await expect(page).toHaveURL(/\/posts\/(?!new)[^/]+$/);
   });
@@ -32,7 +44,13 @@ test('login, borrador, edición, publicación, API pública y archivo', async ({
 
   await test.step('edita el borrador', async () => {
     const content = page.getByLabel('Contenido');
-    await content.fill('# Hola\n\nSegunda versión, **editada**.');
+    await content.click();
+    await page.keyboard.press('ControlOrMeta+A');
+    await page.keyboard.type('# Hola');
+    await page.keyboard.press('Enter');
+    // «**editada**» se vuelve negritas al cerrar los asteriscos.
+    await page.keyboard.type('Segunda versión, **editada**.');
+    await expect(content.locator('strong')).toHaveText('editada');
     // La vista previa refleja el cambio.
     await expect(page.getByRole('region', { name: 'Vista previa' }).locator('strong')).toHaveText('editada');
     // El aviso «Borrador guardado.» ya está en pantalla desde el primer
@@ -42,7 +60,26 @@ test('login, borrador, edición, publicación, API pública y archivo', async ({
     const draft = (await (await saved).json()) as Post;
 
     expect(draft.status).toBe('draft');
-    expect(draft.content).toBe('# Hola\n\nSegunda versión, **editada**.');
+    expect(draft.content).toBe(SECOND);
+    await expect(status).toHaveText('Borrador guardado.');
+  });
+
+  await test.step('el contenido vuelve de la API sin pérdidas', async () => {
+    // Recarga: el editor se llena con lo que devuelve la API.
+    const loaded = page.waitForResponse(
+      (response) => response.request().method() === 'GET' && response.url().startsWith(`${run.apiUrl}/api/v1/admin/posts/`),
+    );
+    await page.reload();
+    expect(((await (await loaded).json()) as Post).content).toBe(SECOND);
+
+    const content = page.getByLabel('Contenido');
+    await expect(content.locator('h1')).toHaveText('Hola');
+    await expect(content.locator('strong')).toHaveText('editada');
+
+    // Guardar sin tocar nada manda exactamente lo mismo.
+    const saved = page.waitForResponse((response) => response.request().method() === 'PUT' && response.ok());
+    await page.getByRole('button', { name: 'Guardar borrador' }).click();
+    expect(((await saved).request().postDataJSON() as Post).content).toBe(SECOND);
     await expect(status).toHaveText('Borrador guardado.');
   });
 

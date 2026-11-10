@@ -8,7 +8,8 @@ import { firstValueFrom, Observable, of, Subject, throwError } from 'rxjs';
 import { Post, PostWrite } from '../../core/api/api-types';
 import { PostsApi } from '../../core/api/posts-api';
 import { ApiError } from '../../core/http/api-error';
-import { PREVIEW_DEBOUNCE_MS } from '../../shared/markdown-editor/markdown-editor';
+import { MarkdownEditor } from '../../shared/markdown-editor/markdown-editor';
+import { FakeMarkdownEditor } from '../../shared/markdown-editor/markdown-editor-fake';
 import { PostEditorPage } from './post-editor.page';
 import { unsavedChangesGuard } from './unsaved-changes.guard';
 
@@ -129,6 +130,15 @@ async function type(label: string, value: string) {
 }
 
 describe('PostEditorPage', () => {
+  // El editor real (Milkdown) se prueba en sus propios specs y en el E2E: aquí
+  // basta un fake con su misma interfaz (ADR-015).
+  beforeEach(() => {
+    TestBed.overrideComponent(PostEditorPage, {
+      remove: { imports: [MarkdownEditor] },
+      add: { imports: [FakeMarkdownEditor] },
+    });
+  });
+
   describe('nuevo post', () => {
     it('muestra el formulario vacío, con el slug opcional y sin archivar', async () => {
       await renderEditor(new FakePostsApi(), 'new');
@@ -139,7 +149,6 @@ describe('PostEditorPage', () => {
       expect(screen.getByRole('button', { name: 'Guardar borrador' })).toBeTruthy();
       expect(screen.getByRole('button', { name: 'Publicar' })).toBeTruthy();
       expect(screen.queryByRole('button', { name: 'Archivar' })).toBeNull();
-      expect(screen.getByRole('region', { name: 'Vista previa' })).toBeTruthy();
     });
 
     it('no envía un formulario inválido y marca los campos', async () => {
@@ -305,37 +314,23 @@ describe('PostEditorPage', () => {
       expect((screen.getByLabelText('Título') as HTMLInputElement).value).toBe('Hola mundo');
       expect((screen.getByLabelText('Etiquetas') as HTMLInputElement).value).toBe('go');
       expect((screen.getByLabelText('Contenido') as HTMLTextAreaElement).value).toBe('# Hola');
-      // La vista previa del contenido cargado no espera el debounce.
-      expect(screen.getByRole('region', { name: 'Vista previa' }).querySelector('h1')?.textContent).toBe('Hola');
       expect((screen.getByLabelText('Palabras clave') as HTMLInputElement).value).toBe('a, b');
       expect(screen.getByText('Borrador')).toBeTruthy();
       expect(screen.getByText('Si lo dejas vacío, se conserva el actual.')).toBeTruthy();
     });
 
-    it('el formulario tiene cada tecla al instante; solo la vista previa espera', async () => {
+    // Que el editor emita cada tecla sin espera se prueba en sus specs; aquí,
+    // que la página guarda lo último que recibió.
+    it('guarda el contenido recibido del editor al instante', async () => {
       const api = new FakePostsApi();
       api.post = stored();
-      const { fixture, page } = await renderEditor(api, 'p1');
-      vi.useFakeTimers();
-      try {
-        const preview = () => screen.getByRole('region', { name: 'Vista previa' }).querySelector('h1')?.textContent;
+      const { page } = await renderEditor(api, 'p1');
 
-        await type('Contenido', '# Recién escrito');
-        fixture.detectChanges();
+      await type('Contenido', '# Recién escrito');
 
-        // Sin avanzar los timers: el formulario ya cambió y se guarda lo
-        // último, aunque la vista previa siga con el valor anterior.
-        expect(page.hasUnsavedChanges()).toBe(true);
-        expect(preview()).toBe('Hola');
-        await fireEvent.click(screen.getByRole('button', { name: 'Guardar borrador' }));
-        expect(api.updated.at(-1)?.body.content).toBe('# Recién escrito');
-
-        await vi.advanceTimersByTimeAsync(PREVIEW_DEBOUNCE_MS);
-        fixture.detectChanges();
-        expect(preview()).toBe('Recién escrito');
-      } finally {
-        vi.useRealTimers();
-      }
+      expect(page.hasUnsavedChanges()).toBe(true);
+      await fireEvent.click(screen.getByRole('button', { name: 'Guardar borrador' }));
+      expect(api.updated.at(-1)?.body.content).toBe('# Recién escrito');
     });
 
     it('un post que no existe muestra el error y vuelve a la lista', async () => {
