@@ -40,9 +40,85 @@ personal-blog/
 
 El detalle de cada tarea está en el [roadmap](docs/roadmap.md).
 
-## Cómo empezar
+## Arranque rápido
 
-Prerrequisitos, primer arranque, comandos y tests: [docs/development.md](docs/development.md).
+Resumen para levantar todo en local. El detalle (variables, comandos, tests y troubleshooting) está en [docs/development.md](docs/development.md).
+
+### Prerrequisitos
+
+Node.js 24 (`.nvmrc`), pnpm 10 con `corepack`, Go 1.27 y Docker con Compose v2. Las versiones exactas están en [Prerrequisitos](docs/development.md#prerrequisitos).
+
+### Primer arranque
+
+```sh
+nvm use
+corepack enable
+pnpm install
+cp .env.example .env
+openssl rand -base64 32   # pega el resultado en JWT_SECRET, entre comillas simples
+```
+
+En `.env`:
+
+- `JWT_SECRET` es obligatorio (al menos 32 bytes); sin él, la API no arranca.
+- `INITIAL_ADMIN_EMAIL` e `INITIAL_ADMIN_PASSWORD` crean el administrador inicial la primera vez que arranca la API con la colección `users` vacía. La contraseña va de 12 caracteres a 72 bytes; si lleva `$`, `#` o espacios, entre comillas simples.
+
+`.env` nunca se sube a git. Ver [Primer arranque](docs/development.md#primer-arranque) y [Variables de la API](docs/development.md#variables-de-la-api).
+
+### Levantar todo
+
+Una terminal por servicio, desde la raíz del repo:
+
+| Terminal | Comando | Qué levanta |
+| --- | --- | --- |
+| 1 | `make db-up` | MongoDB en Docker (sale al terminar; `make db-down` lo para) |
+| 2 | `make api-watch` | API en `http://localhost:8080`, con recarga al guardar |
+| 3 | `make admin-dev` | Admin en `http://localhost:4200` |
+| 4 | `make web-dev` | Web en `http://localhost:3000` |
+| 5 | `make api-docs` | Contrato OpenAPI (Swagger UI) en `http://localhost:8081` |
+
+Comprueba la API con `curl localhost:8080/ready` (`{"status":"ready"}`). Entra al admin con el administrador inicial. Todos los comandos: [Comandos del Makefile](docs/development.md#comandos-del-makefile).
+
+### Asistente de escritura (opcional)
+
+Está apagado por defecto ([ADR-021](docs/adr/021-asistente-de-escritura-con-ia-v1.md)). Para encenderlo en `.env`:
+
+- `ASSISTANT_ENABLED=true`
+- `GEMINI_API_KEY`: una key de un proyecto de Google **sin facturación** (plan gratuito). Nunca se sube a git.
+- `GEMINI_MODEL`: un modelo incluido en el plan gratuito.
+
+Con `ASSISTANT_ENABLED=true` y sin key o sin modelo, la API no arranca. Un cambio en `.env` exige parar y relanzar la API.
+
+Para ver qué modelos puede usar tu key, exporta la key en tu terminal sin escribirla en el comando (por ejemplo con `read -s GEMINI_API_KEY && export GEMINI_API_KEY`) y lista los que admiten `generateContent`:
+
+```sh
+curl -s -H "x-goog-api-key: $GEMINI_API_KEY" \
+  "https://generativelanguage.googleapis.com/v1beta/models?pageSize=1000" \
+  | jq -r '.models[] | select(.supportedGenerationMethods | index("generateContent")) | .name'
+```
+
+Para probar uno:
+
+```sh
+m=nombre-del-modelo   # uno de la lista, sin el prefijo models/
+curl -s -H "x-goog-api-key: $GEMINI_API_KEY" -H 'Content-Type: application/json' \
+  "https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent" \
+  -d '{"contents":[{"parts":[{"text":"Hola"}]}]}'
+```
+
+En zsh usa `${m}` con llaves: sin ellas, zsh lee los dos puntos de `$m:generateContent` como un modificador de la variable y rompe la URL. Un 429 significa que el modelo no tiene cuota gratuita o que ya la gastaste. Más en [Asistente de escritura](docs/development.md#asistente-de-escritura).
+
+### Colección de Bruno
+
+En la app de Bruno: **Open Collection**, elige la carpeta `docs/api/bruno` (no la raíz del repo) y el environment **local**. Escribe `adminEmail` y `adminPassword` en sus variables secretas; Bruno las guarda en tu equipo, fuera del repo. Ejecuta primero el login: las demás peticiones usan su cookie.
+
+Desde la terminal, con la API levantada:
+
+```sh
+make api-flows
+```
+
+Corre los flujos con el administrador de `.env`. Solo con el asistente **apagado** (`ASSISTANT_ENABLED=false`): el flujo `asistente` espera un 503 y falla a propósito con el asistente encendido, para no gastar cuota de Gemini. Ver [Colección de Bruno](docs/development.md#colección-de-bruno).
 
 ## Decisiones
 
