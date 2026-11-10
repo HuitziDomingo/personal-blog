@@ -2,12 +2,15 @@
 package config
 
 import (
+	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net"
 	"net/url"
 	"os"
 	"strconv"
 	"strings"
+	"time"
 )
 
 const (
@@ -16,6 +19,10 @@ const (
 
 	defaultPort         = "8080"
 	defaultMaxBodyBytes = 1 << 20 // 1 MB
+
+	// defaultAssistantTimeout es el timeout de una llamada al proveedor del
+	// asistente (ADR-021).
+	defaultAssistantTimeoutSeconds = 30
 
 	// LogFormatText es el formato de log por defecto, legible en una terminal.
 	LogFormatText = "text"
@@ -51,6 +58,10 @@ type Config struct {
 	// PreflightRateLimit y UserRateLimit son los buckets de ADR-016.
 	PreflightRateLimit RateLimit
 	UserRateLimit      RateLimit
+	// AssistantRateLimit es el bucket por usuario del asistente (ADR-021).
+	AssistantRateLimit RateLimit
+
+	Assistant Assistant
 
 	// Opcionales: solo se usan para crear el administrador inicial.
 	InitialAdminEmail    string
@@ -110,6 +121,11 @@ func Load() (Config, error) {
 		return Config{}, err
 	}
 
+	assistant, err := loadAssistant()
+	if err != nil {
+		return Config{}, err
+	}
+
 	var limits [len(rateLimitSpecs)]RateLimit
 	for i, spec := range rateLimitSpecs {
 		if limits[i], err = loadRateLimit(spec); err != nil {
@@ -124,6 +140,8 @@ func Load() (Config, error) {
 		RefreshRateLimit:     limits[2],
 		PreflightRateLimit:   limits[3],
 		UserRateLimit:        limits[4],
+		AssistantRateLimit:   limits[5],
+		Assistant:            assistant,
 		Port:                 port,
 		MongoURI:             mongoURI,
 		MongoDBName:          mongoDBName,
@@ -261,13 +279,15 @@ type rateLimitSpec struct {
 }
 
 // rateLimitSpecs son los valores por defecto de ADR-010 (global, login y
-// refresh) y de ADR-016 (preflight y usuario autenticado).
+// refresh), de ADR-016 (preflight y usuario autenticado) y de ADR-021
+// (asistente).
 var rateLimitSpecs = [...]rateLimitSpec{
 	{name: "GLOBAL", defaults: RateLimit{PerMinute: 60, Burst: 20}},
 	{name: "LOGIN", defaults: RateLimit{PerMinute: 5, Burst: 5}},
 	{name: "REFRESH", defaults: RateLimit{PerMinute: 10, Burst: 10}},
 	{name: "PREFLIGHT", defaults: RateLimit{PerMinute: 120, Burst: 60}},
 	{name: "USER", defaults: RateLimit{PerMinute: 300, Burst: 100}},
+	{name: "ASSISTANT", defaults: RateLimit{PerMinute: 5, Burst: 5}},
 }
 
 func loadRateLimit(spec rateLimitSpec) (RateLimit, error) {
@@ -342,4 +362,89 @@ func required(key string) (string, error) {
 	}
 
 	return value, nil
+}
+
+// Secret es un valor secreto, como una API key. Se imprime como [REDACTED] con
+// fmt, slog y JSON: registrar la configuración por error no lo filtra. El valor
+// real solo sale con Reveal.
+type Secret string
+
+// Reveal devuelve el valor real.
+func (s Secret) Reveal() string { return string(s) }
+
+// String oculta el valor en fmt (%s y %v).
+func (s Secret) String() string {
+	if s == "" {
+		return ""
+	}
+
+	return "[REDACTED]"
+}
+
+// GoString oculta el valor en fmt con %#v.
+func (s Secret) GoString() string { return s.String() }
+
+// LogValue oculta el valor en slog.
+func (s Secret) LogValue() slog.Value { return slog.StringValue(s.String()) }
+
+// MarshalJSON oculta el valor en JSON. Hace falta además de LogValue: el
+// handler JSON de slog serializa un struct con encoding/json, y LogValue solo
+// aplica cuando el Secret es el valor del atributo.
+func (s Secret) MarshalJSON() ([]byte, error) { return json.Marshal(s.String()) }
+
+// Assistant es la configuración del asistente de escritura (ADR-021).
+type Assistant struct {
+	// Enabled es false por defecto. Con false, las operaciones responden 503.
+	Enabled      bool
+	GeminiAPIKey Secret
+	GeminiModel  string
+	Timeout      time.Duration
+}
+
+// loadAssistant lee ASSISTANT_ENABLED, GEMINI_API_KEY, GEMINI_MODEL y
+// ASSISTANT_TIMEOUT_SECONDS. Encendido sin key o sin modelo, la API no arranca:
+// falla cerrado (ADR-021, punto 8).
+func loadAssistant() (Assistant, error) {
+	enabled, err := loadBool("ASSISTANT_ENABLED")
+	if err != nil {
+		return Assistant{}, err
+	}
+
+	timeoutSeconds, err := positiveInt("ASSISTANT_TIMEOUT_SECONDS", defaultAssistantTimeoutSeconds)
+	if err != nil {
+		return Assistant{}, err
+	}
+
+	assistant := Assistant{
+		Enabled:      enabled,
+		GeminiAPIKey: Secret(os.Getenv("GEMINI_API_KEY")),
+		GeminiModel:  strings.TrimSpace(os.Getenv("GEMINI_MODEL")),
+		Timeout:      time.Duration(timeoutSeconds) * time.Second,
+	}
+
+	if !enabled {
+		return assistant, nil
+	}
+
+	if assistant.GeminiAPIKey == "" {
+		return Assistant{}, fmt.Errorf("ASSISTANT_ENABLED is true but GEMINI_API_KEY is empty")
+	}
+
+	if assistant.GeminiModel == "" {
+		return Assistant{}, fmt.Errorf("ASSISTANT_ENABLED is true but GEMINI_MODEL is empty: set a model included in the Gemini free tier")
+	}
+
+	return assistant, nil
+}
+
+// loadBool acepta true o false; vacía es false.
+func loadBool(key string) (bool, error) {
+	switch value := os.Getenv(key); value {
+	case "", "false":
+		return false, nil
+	case "true":
+		return true, nil
+	default:
+		return false, fmt.Errorf("invalid %s %q: must be true or false", key, value)
+	}
 }

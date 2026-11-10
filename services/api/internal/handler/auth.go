@@ -12,8 +12,9 @@ import (
 
 // server implementa el contrato: la sesión en auth.go y los posts en posts.go.
 type server struct {
-	sessions Sessions
-	posts    Posts
+	sessions  Sessions
+	posts     Posts
+	assistant Assistant
 }
 
 var _ gen.StrictServerInterface = server{}

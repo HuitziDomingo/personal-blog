@@ -17,6 +17,10 @@ func setRequiredEnv(t *testing.T) {
 	// cargar un .env).
 	t.Setenv("LOG_FORMAT", "")
 	t.Setenv("GIN_MODE", "")
+	t.Setenv("ASSISTANT_ENABLED", "")
+	t.Setenv("GEMINI_API_KEY", "")
+	t.Setenv("GEMINI_MODEL", "")
+	t.Setenv("ASSISTANT_TIMEOUT_SECONDS", "")
 }
 
 const testJWTSecret = "0123456789abcdef0123456789abcdef"
@@ -136,6 +140,7 @@ func TestLoadRateLimitDefaults(t *testing.T) {
 	assert.Equal(t, RateLimit{PerMinute: 10, Burst: 10}, cfg.RefreshRateLimit)
 	assert.Equal(t, RateLimit{PerMinute: 120, Burst: 60}, cfg.PreflightRateLimit)
 	assert.Equal(t, RateLimit{PerMinute: 300, Burst: 100}, cfg.UserRateLimit)
+	assert.Equal(t, RateLimit{PerMinute: 5, Burst: 5}, cfg.AssistantRateLimit)
 	assert.Empty(t, cfg.TrustedProxies)
 }
 
@@ -151,6 +156,8 @@ func TestLoadRateLimitOverrides(t *testing.T) {
 	t.Setenv("RATE_LIMIT_PREFLIGHT_BURST", "6")
 	t.Setenv("RATE_LIMIT_USER_PER_MINUTE", "500")
 	t.Setenv("RATE_LIMIT_USER_BURST", "50")
+	t.Setenv("RATE_LIMIT_ASSISTANT_PER_MINUTE", "2")
+	t.Setenv("RATE_LIMIT_ASSISTANT_BURST", "1")
 
 	cfg, err := Load()
 
@@ -160,12 +167,13 @@ func TestLoadRateLimitOverrides(t *testing.T) {
 	assert.Equal(t, RateLimit{PerMinute: 20, Burst: 4}, cfg.RefreshRateLimit)
 	assert.Equal(t, RateLimit{PerMinute: 30, Burst: 6}, cfg.PreflightRateLimit)
 	assert.Equal(t, RateLimit{PerMinute: 500, Burst: 50}, cfg.UserRateLimit)
+	assert.Equal(t, RateLimit{PerMinute: 2, Burst: 1}, cfg.AssistantRateLimit)
 }
 
 func TestLoadRejectsInvalidRateLimits(t *testing.T) {
 	for _, key := range []string{
 		"RATE_LIMIT_GLOBAL_PER_MINUTE", "RATE_LIMIT_LOGIN_BURST", "RATE_LIMIT_REFRESH_PER_MINUTE",
-		"RATE_LIMIT_PREFLIGHT_BURST", "RATE_LIMIT_USER_PER_MINUTE",
+		"RATE_LIMIT_PREFLIGHT_BURST", "RATE_LIMIT_USER_PER_MINUTE", "RATE_LIMIT_ASSISTANT_PER_MINUTE",
 	} {
 		for _, value := range []string{"0", "-5", "many"} {
 			t.Run(key+"="+value, func(t *testing.T) {

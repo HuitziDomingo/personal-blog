@@ -1,0 +1,15 @@
+{
+  "candidates": [
+    {
+      "content": {
+        "parts": [{ "text": "{\"title\": \"Orquestar agentes de IA\", \"excerpt\": \"Cómo coordinar varios agentes.\", \"tags\": [\"IA\", \"Agentes\"]}" }],
+        "role": "model"
+      },
+      "finishReason": "STOP",
+      "index": 0
+    }
+  ],
+  "usageMetadata": { "promptTokenCount": 90, "candidatesTokenCount": 25, "totalTokenCount": 115 },
+  "modelVersion": "gemini-test-001",
+  "responseId": "resp-metadata-1"
+}

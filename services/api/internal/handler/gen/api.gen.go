@@ -59,10 +59,34 @@ func (e UserRole) Valid() bool {
 	}
 }
 
+// AssistantDraft El borrador que se envía al asistente. Solo el título y el contenido: nunca datos de usuarios ni otros posts (ADR-021).
+type AssistantDraft struct {
+	// Content Contenido en Markdown.
+	Content string `json:"content"`
+
+	// Title Puede estar vacío.
+	Title string `json:"title"`
+}
+
+// ImprovedWriting defines model for ImprovedWriting.
+type ImprovedWriting struct {
+	// Content Contenido sugerido en Markdown. Es texto no confiable: se renderiza con el mismo sanitizado que cualquier post (packages/markdown).
+	Content string `json:"content"`
+}
+
 // LoginRequest defines model for LoginRequest.
 type LoginRequest struct {
 	Email    openapi_types.Email `json:"email"`
 	Password string              `json:"password"`
+}
+
+// MetadataSuggestion Metadatos sugeridos, con las mismas reglas que en PostWrite.
+type MetadataSuggestion struct {
+	Excerpt string `json:"excerpt"`
+
+	// Tags En minúsculas, con los espacios colapsados y sin duplicados.
+	Tags  []string `json:"tags"`
+	Title string   `json:"title"`
 }
 
 // Post Post completo.
@@ -179,6 +203,9 @@ type Offset = int32
 // Tag defines model for Tag.
 type Tag = string
 
+// AssistantUnavailable Detalle de un error según RFC 9457.
+type AssistantUnavailable = Problem
+
 // BadRequest Detalle de un error según RFC 9457.
 type BadRequest = Problem
 
@@ -230,6 +257,12 @@ type ListPublishedPostsParams struct {
 	Offset *Offset `form:"offset,omitempty" json:"offset,omitempty"`
 }
 
+// ImproveWritingJSONRequestBody defines body for ImproveWriting for application/json ContentType.
+type ImproveWritingJSONRequestBody = AssistantDraft
+
+// SuggestMetadataJSONRequestBody defines body for SuggestMetadata for application/json ContentType.
+type SuggestMetadataJSONRequestBody = AssistantDraft
+
 // CreatePostJSONRequestBody defines body for CreatePost for application/json ContentType.
 type CreatePostJSONRequestBody = PostWrite
 
@@ -241,6 +274,12 @@ type LoginJSONRequestBody = LoginRequest
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
+	// ImproveWriting Mejora la redacción de un borrador.
+	// (POST /api/v1/admin/assistant/improve-writing)
+	ImproveWriting(c *gin.Context)
+	// SuggestMetadata Sugiere título, extracto y etiquetas para un borrador.
+	// (POST /api/v1/admin/assistant/suggest-metadata)
+	SuggestMetadata(c *gin.Context)
 	// ListPosts Lista los posts en cualquier estado.
 	// (GET /api/v1/admin/posts)
 	ListPosts(c *gin.Context, params ListPostsParams)
@@ -284,6 +323,32 @@ type ServerInterfaceWrapper struct {
 }
 
 type MiddlewareFunc func(c *gin.Context)
+
+// ImproveWriting operation middleware
+func (siw *ServerInterfaceWrapper) ImproveWriting(c *gin.Context) {
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.ImproveWriting(c)
+}
+
+// SuggestMetadata operation middleware
+func (siw *ServerInterfaceWrapper) SuggestMetadata(c *gin.Context) {
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.SuggestMetadata(c)
+}
 
 // ListPosts operation middleware
 func (siw *ServerInterfaceWrapper) ListPosts(c *gin.Context) {
@@ -579,10 +644,14 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	router.GET(options.BaseURL+"/api/v1/posts/:slug", wrapper.GetPublishedPost)
 	router.GET(options.BaseURL+"/api/v1/admin/posts", wrapper.ListPosts)
 	router.POST(options.BaseURL+"/api/v1/admin/posts", wrapper.CreatePost)
+	router.POST(options.BaseURL+"/api/v1/admin/assistant/improve-writing", wrapper.ImproveWriting)
+	router.POST(options.BaseURL+"/api/v1/admin/assistant/suggest-metadata", wrapper.SuggestMetadata)
 	router.DELETE(options.BaseURL+"/api/v1/admin/posts/:id", wrapper.DeletePost)
 	router.GET(options.BaseURL+"/api/v1/admin/posts/:id", wrapper.GetPost)
 	router.PUT(options.BaseURL+"/api/v1/admin/posts/:id", wrapper.UpdatePost)
 }
+
+type AssistantUnavailableApplicationProblemPlusJSONResponse Problem
 
 type BadRequestApplicationProblemPlusJSONResponse Problem
 
@@ -606,6 +675,282 @@ type TooManyRequestsApplicationProblemPlusJSONResponse struct {
 type UnauthorizedApplicationProblemPlusJSONResponse Problem
 
 type UnexpectedErrorApplicationProblemPlusJSONResponse Problem
+
+type ImproveWritingRequestObject struct {
+	Body *ImproveWritingJSONRequestBody
+}
+
+type ImproveWritingResponseObject interface {
+	VisitImproveWritingResponse(w http.ResponseWriter) error
+}
+
+type ImproveWriting200JSONResponse ImprovedWriting
+
+func (response ImproveWriting200JSONResponse) VisitImproveWritingResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ImproveWriting400ApplicationProblemPlusJSONResponse struct {
+	BadRequestApplicationProblemPlusJSONResponse
+}
+
+func (response ImproveWriting400ApplicationProblemPlusJSONResponse) VisitImproveWritingResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ImproveWriting401ApplicationProblemPlusJSONResponse struct {
+	UnauthorizedApplicationProblemPlusJSONResponse
+}
+
+func (response ImproveWriting401ApplicationProblemPlusJSONResponse) VisitImproveWritingResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ImproveWriting403ApplicationProblemPlusJSONResponse struct {
+	ForbiddenApplicationProblemPlusJSONResponse
+}
+
+func (response ImproveWriting403ApplicationProblemPlusJSONResponse) VisitImproveWritingResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ImproveWriting413ApplicationProblemPlusJSONResponse struct {
+	PayloadTooLargeApplicationProblemPlusJSONResponse
+}
+
+func (response ImproveWriting413ApplicationProblemPlusJSONResponse) VisitImproveWritingResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(413)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ImproveWriting429ApplicationProblemPlusJSONResponse struct {
+	TooManyRequestsApplicationProblemPlusJSONResponse
+}
+
+func (response ImproveWriting429ApplicationProblemPlusJSONResponse) VisitImproveWritingResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	if response.Headers.RetryAfter != nil {
+		w.Header().Set("Retry-After", fmt.Sprint(*response.Headers.RetryAfter))
+	}
+	w.WriteHeader(429)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ImproveWriting503ApplicationProblemPlusJSONResponse struct {
+	AssistantUnavailableApplicationProblemPlusJSONResponse
+}
+
+func (response ImproveWriting503ApplicationProblemPlusJSONResponse) VisitImproveWritingResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(503)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ImproveWritingdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response ImproveWritingdefaultApplicationProblemPlusJSONResponse) VisitImproveWritingResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SuggestMetadataRequestObject struct {
+	Body *SuggestMetadataJSONRequestBody
+}
+
+type SuggestMetadataResponseObject interface {
+	VisitSuggestMetadataResponse(w http.ResponseWriter) error
+}
+
+type SuggestMetadata200JSONResponse MetadataSuggestion
+
+func (response SuggestMetadata200JSONResponse) VisitSuggestMetadataResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SuggestMetadata400ApplicationProblemPlusJSONResponse struct {
+	BadRequestApplicationProblemPlusJSONResponse
+}
+
+func (response SuggestMetadata400ApplicationProblemPlusJSONResponse) VisitSuggestMetadataResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SuggestMetadata401ApplicationProblemPlusJSONResponse struct {
+	UnauthorizedApplicationProblemPlusJSONResponse
+}
+
+func (response SuggestMetadata401ApplicationProblemPlusJSONResponse) VisitSuggestMetadataResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SuggestMetadata403ApplicationProblemPlusJSONResponse struct {
+	ForbiddenApplicationProblemPlusJSONResponse
+}
+
+func (response SuggestMetadata403ApplicationProblemPlusJSONResponse) VisitSuggestMetadataResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SuggestMetadata413ApplicationProblemPlusJSONResponse struct {
+	PayloadTooLargeApplicationProblemPlusJSONResponse
+}
+
+func (response SuggestMetadata413ApplicationProblemPlusJSONResponse) VisitSuggestMetadataResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(413)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SuggestMetadata429ApplicationProblemPlusJSONResponse struct {
+	TooManyRequestsApplicationProblemPlusJSONResponse
+}
+
+func (response SuggestMetadata429ApplicationProblemPlusJSONResponse) VisitSuggestMetadataResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	if response.Headers.RetryAfter != nil {
+		w.Header().Set("Retry-After", fmt.Sprint(*response.Headers.RetryAfter))
+	}
+	w.WriteHeader(429)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SuggestMetadata503ApplicationProblemPlusJSONResponse struct {
+	AssistantUnavailableApplicationProblemPlusJSONResponse
+}
+
+func (response SuggestMetadata503ApplicationProblemPlusJSONResponse) VisitSuggestMetadataResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(503)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SuggestMetadatadefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response SuggestMetadatadefaultApplicationProblemPlusJSONResponse) VisitSuggestMetadataResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
 
 type ListPostsRequestObject struct {
 	Params ListPostsParams
@@ -1749,6 +2094,12 @@ func (response GetPublishedPostdefaultApplicationProblemPlusJSONResponse) VisitG
 
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
+	// ImproveWriting Mejora la redacción de un borrador.
+	// (POST /api/v1/admin/assistant/improve-writing)
+	ImproveWriting(ctx context.Context, request ImproveWritingRequestObject) (ImproveWritingResponseObject, error)
+	// SuggestMetadata Sugiere título, extracto y etiquetas para un borrador.
+	// (POST /api/v1/admin/assistant/suggest-metadata)
+	SuggestMetadata(ctx context.Context, request SuggestMetadataRequestObject) (SuggestMetadataResponseObject, error)
 	// ListPosts Lista los posts en cualquier estado.
 	// (GET /api/v1/admin/posts)
 	ListPosts(ctx context.Context, request ListPostsRequestObject) (ListPostsResponseObject, error)
@@ -1839,6 +2190,90 @@ type strictHandler struct {
 	ssi         StrictServerInterface
 	middlewares []StrictMiddlewareFunc
 	options     StrictGinServerOptions
+}
+
+// ImproveWriting operation middleware
+func (sh *strictHandler) ImproveWriting(ctx *gin.Context) {
+	var request ImproveWritingRequestObject
+
+	var body ImproveWritingJSONRequestBody
+	var err error
+	// A request validator built on kin-openapi's openapi3filter with
+	// KeepValidatedValue leaves the value it validated on the body. Bind
+	// that value, matching member names exactly, so the handler receives
+	// what was validated instead of a second, case-insensitive decode.
+	if vb, ok := ctx.Request.Body.(interface{ ValidatedValue() any }); !ok || runtime.BindJSONValue(vb.ValidatedValue(), &body) != nil {
+		err = ctx.ShouldBindJSON(&body)
+	} else if binding.Validator != nil {
+		// ShouldBindJSON runs the struct validator after decoding; keep that.
+		err = binding.Validator.ValidateStruct(&body)
+	}
+	if err != nil {
+		sh.options.RequestErrorHandlerFunc(ctx, err)
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.ImproveWriting(ctx, request.(ImproveWritingRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ImproveWriting")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		sh.options.HandlerErrorFunc(ctx, err)
+	} else if validResponse, ok := response.(ImproveWritingResponseObject); ok {
+		if err := validResponse.VisitImproveWritingResponse(ctx.Writer); err != nil {
+			sh.options.ResponseErrorHandlerFunc(ctx, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(ctx, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// SuggestMetadata operation middleware
+func (sh *strictHandler) SuggestMetadata(ctx *gin.Context) {
+	var request SuggestMetadataRequestObject
+
+	var body SuggestMetadataJSONRequestBody
+	var err error
+	// A request validator built on kin-openapi's openapi3filter with
+	// KeepValidatedValue leaves the value it validated on the body. Bind
+	// that value, matching member names exactly, so the handler receives
+	// what was validated instead of a second, case-insensitive decode.
+	if vb, ok := ctx.Request.Body.(interface{ ValidatedValue() any }); !ok || runtime.BindJSONValue(vb.ValidatedValue(), &body) != nil {
+		err = ctx.ShouldBindJSON(&body)
+	} else if binding.Validator != nil {
+		// ShouldBindJSON runs the struct validator after decoding; keep that.
+		err = binding.Validator.ValidateStruct(&body)
+	}
+	if err != nil {
+		sh.options.RequestErrorHandlerFunc(ctx, err)
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.SuggestMetadata(ctx, request.(SuggestMetadataRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "SuggestMetadata")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		sh.options.HandlerErrorFunc(ctx, err)
+	} else if validResponse, ok := response.(SuggestMetadataResponseObject); ok {
+		if err := validResponse.VisitSuggestMetadataResponse(ctx.Writer); err != nil {
+			sh.options.ResponseErrorHandlerFunc(ctx, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(ctx, fmt.Errorf("unexpected response type: %T", response))
+	}
 }
 
 // ListPosts operation middleware
@@ -2176,56 +2611,66 @@ func (sh *strictHandler) GetPublishedPost(ctx *gin.Context, slug Slug) {
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
-	"n2VTMKO+Ap3WjandQ6eX0/8NAA==",
+	"7FzPcttG0n+VKXw52F8gipLlbMxUDoosx9qVbZUobQ4ubdQCmtDYgxl4ZkCLcnHfxcc9+LDlW658sa2e",
+	"AUCABEXKdmg7yU0kAUxP//31rwd6E0QqzZREaU3QexNcIsSo3Z99NIYruafUS47umxhNpHlmuZJBL3jE",
+	"XwBT7EJpDUyAYZG/kkEUoTG/WvUSJRsxjQON5tJ/7rBDYBpNlqOxwITAIbBcAovgAiPUwPpoN/yaLFOa",
+	"RRBD8eROEAYmusQUSBg7yjDoBcZqLpNgPB6HQQYaUrSF/Ic85XZe7BNIYfJfxWJkAlg2eZtwCfRoTr++",
+	"ylGPgjCQkNLThXtGfdkYB5ALG/S2u2EwUDoFG/QCLu297SAMUrjiaZ4Gva1uNwxSLotPYSkulxYT1AGJ",
+	"+2wwMNgi4ZEy1rBXOTKDzICwIBlIi2Y1mZV/bKvQy2RuSN1tlbov8mRe5oMYpeUDHkGsNItRsEwZy1CS",
+	"wKfHh5WwGdjLqayGHhYGGl/lXGMc9KzOsS75NxoHQS/4v82pm276X82mk4REOoGkzT2F1eB8CC1/laOF",
+	"DusjoweBBhIt5XLym4lyct4Ri5RkQhmGJoOIK/JnAZmBWJlFqraQNPScwtUhysReBr37XpPlx62wzWEp",
+	"EJQ0Prp2jeHGgrSnEobABVwIpO8jJS1K5yeQZYJHQDvczLS6EJh++8LQdt+sqLMjf5dfvqmwfcGAJEBp",
+	"kaGxk7csRgOR5UOIFbuz2+8f9E92n578uv9096fD/Yc/DkAYvBsysrZWQ0Sy/QCEmLxnikGi7OQ9MzmL",
+	"cmUhZBRzQyWGfPLehbzJE9QoIw7O2aViUZ5mAl0y0ZgIMB12HqMFLs5ZzCNkUT55KzrBOAx+gvgYX1EW",
+	"WaeODoFlaHnEJ+9lTWAU5D1Wg1VOuD0lB4JHds3mo2hiIyiMh5LlRpHay2gcAWWULL8QPJq8ZyASMsMQ",
+	"r9mIzORul4plOcbIIkgvOGi3n0dKX/A4RrleXRsWaYydhwg0JFoMkmWoU15t7JnmCZfFlgc5VRCfJUEI",
+	"9VpwY90Onir7SOUyXrNFNEa5NopExyuKLSfMEYyEgvhEqUPQybqDPMpRZ4qZPCNloWC2qIjp5O0VT70H",
+	"nyj1BOSoCDGzThH76GWbvCfhxORdyi2SUX3kKVkVwoOjwgnoo0q4NC778FgZV4IwBS4od9dQzTFaPdrY",
+	"HVjU8zWjj0ku6W7KRwNfeX2xEMzwJOcuN3KnB+WqCV7Rzhi4yqH05F2CJJ/zUesEobKy6xDRxp6SViux",
+	"sX+VKYMbj71UTVhzI2YgZZ1KyO2l0vwa1+rNj7w6GhHpHNsoyYaTt4LHYJzvnEq8yjCyGO9rrfRa3ZsW",
+	"ZFyiIeeOyZfHpXabRfahhkEL9toXHtBSJSsQGMrh5B3lk2l57LC+Es7z7OSdzYVio7IGoOSx6jGZywhY",
+	"DNa5IstNDpowheRMWa2MS8iG3dl9eLzR3d66S06QaZWhtgXYrqmsKeJeuQpl+CegX8bqtex4IDdFHyWU",
+	"WwxAwsByK3B+gSOX/9FY0GwI0eSdmnn6drc7D2fqKO558eiw2sVZdYO6eIGRpeUPUoca4l80t/SM3pvb",
+	"q8BhiFldsH3DLF5Z556RkgNOWKpHxtQoY9T8mnoKSTZLuUkVMyC55deEc8jqUQ7iVc5R+7p5J4PoJSRo",
+	"NtNiCWevmzVw084PKVnV4Etz2y5t0R8VVPfftFgwA2NeKx03rq6+XIZAmwKXi1S3t0n+BC3EYKGfJwka",
+	"b45Z6xTXKFNZx4QeXYNx+q7gnVM2SkYdD3kBzocBXkWoMzuHrlfwbkhautb9BuwPb0L9hIq4ZHHuElbZ",
+	"BlhMzW2xvoueA3/n9jR2QGsYNQJxNshuY78y5EqNFRposyLp2+ViIZ4Ngt7zJflWGdvP0xQ0Cfvmo/PU",
+	"nHIMqqW9HqpbRNhZ2NJSu85PYAHR6Zsj8OCruaHKwtUfqytnzrKiJCHm2u7Z4h6WjftqF1tlQbSwG/S1",
+	"A0sVieB7FJfsBtQTu2xeX+G7naC106/r2uuiXDasiJFC5kVO1rdgcx/HkkDN8yB2dTcMXBdiLpGyFOjo",
+	"kg+xnnGmzlFX8Nx2H1YFVvpU7dAaoX5wWYfilxrQ0hXn84sHUwdxC6UUBpFGsBjvNo0Sg8UNy1Ns8+Va",
+	"vpr7jbevUqlityWKnhK6SDlKq8G1QAbZJYygaOMgbpqzLpvMRUEieFZlPu4KKmc5yRIGprLk0mjwV9Yy",
+	"cBVI8zl6USKcuzLP4tuZYtaBnaOVxg6rbFkwUE7Uapd1y9eXXuTmrnYt8k6MuSUz1P20w85p4XOGhqmM",
+	"mhoQPWa4bzpCMjI1Eq6ZnYJMEAS/QVNhQnJqg3romhOIbE4AVfjV9A/MEED1PfzUfSpazpAgDaDrAWuN",
+	"Hghd+WNShczTVDGyne6DDjvyjqfZgAjg85r3nvtViaLUPCXph3j90ciW2qwkBx0Do9xG2OwHWmP36KCQ",
+	"WjiUN+SoLbVij0+eOL5xSUmuRWpTjGeFQTqsXxiEqYJg8HC4Zh8PHvx2lWH/3vquyyLQEFnU6LvQKvm4",
+	"bLQYsH9EYVxfKM+16t4ykuEfHleVblspsDUbFL3pfC5AC0JgkQPQ9akGk8lvkh0/2mMPdu7/bT5SPPfZ",
+	"AmKvnOo8Del7NSLsjIuDSDuM06IsLo0FGeFN9P2CZ1UZN9d8Q+PAEbetBXDqXTPBPXkf80QV4lKn9fjk",
+	"5GgWizQnEvcfPKhPUbrdViTU3sUeo8lTmj9gwi+c4gWzPHMCFLwDtGrJf1EbmgRwoXLbuxAgXwbhDZpr",
+	"X2BV1Y1b3KnvE8BM/gSpJI9AnOpmm5hrPtuo73zfssPGDhrBca81Db3EETWEzVo+E6e3jEyVHKSQ4Ifu",
+	"YGFgr6LTIlXWbv1+LiVkYC1qMvC/nsPGdXfjwdm3dzaqP+/+/zdtrnNq2ljFvRyldbQ0xOTMxmofuh6f",
+	"ViRRnVpraYRXZwUW4EytBC7L+rSDY7quFT+VK7ontaW/6vYa4nebboH2rr5FueZ21KfVCzzuqFI/AG5r",
+	"b2imTJqkyxT7+y8nIZUePyBmj63NnkkxKni17v271eTOXzEd3dWH1FMdQsb/gc5Bi6n1UkH8dZFqFYOK",
+	"4BHYyx83IeObw61NAqArCNcYmc9LN3a5fKDaEZQGW063CSJR3rsQKumwf6JmfmlXaooYCi5zbq9552p0",
+	"TdcHYTBEbfzjup2tTteFa4YSMh70gnudbueeY4nspTNYtTUy8yaU/Oom9+zexusau1fQDrOVcZijGGKD",
+	"QWUa3UV2ntlrjg57RU/kcUiHnXCUNECgFJxxVc0PMqVLFjakSYehKqR5ZD3jh6IAdKLJyVIEOq6aOsSS",
+	"sSwJSx8haOxPKh7dQHPfjt6eoajHzUikVm52crzd7X6y1WdJ2RaSfQrTPanHNMYQeTCS4gulIQbHsex0",
+	"u4uWq+TfrA1y3S1by29pjEDcTfeW3zSdYdIdWyvcMTumo/u2Hyy/b3Z2Ng6D+6tI2HoAYBxOgchyvTQH",
+	"L/UU61i+ZnJ9fkZEmSm5leCJs92MQWOst4qdslUu8/pGFfDBGS23KBsYzxdvpAV/vEI6SCsauc5itXPI",
+	"VVv9efNDwYqXJPkfMkG0TABackTLDOCvlPD1pYR+nnDUWDJQIcMrAq/WDTyLU1XGk64fniUcVU1bSTz7",
+	"3YypQ26sOxEXNA/4Pb/pwJdrMBed2qpIvhXHzTUiZBy2XzsVbJMOo61wmT+duMKFxSlBssvvFtPVMKQl",
+	"ko/8acNqpvClh/EHhuO6Iorc2Z8W8RMalLVp89Rvm+HjLg3OxmFVM5sxsufYarLi71RypiT3StVm65Mu",
+	"3OqVbqCn0Z/x+KIdsruCQ1YHBj9DIVqX55OTVkBtoYu3V4fNNzwee6wosG3U8lTRVKysQGwweWd4pDps",
+	"X5RzQQMM2Hk5ajwPWYwvXFajdheLk8rUMGeT39yAg42mI5bydKQ7J9kYeXTYrnsk6HJvzK8BsT9+4kcw",
+	"0vVEs3jxodtNFbeNGNppPxg+fXpnrU68s/yO6ozlV+CMhdGW+2PYjkp+Rttutu5aUt9ftv8I21cdZhmw",
+	"t63BN6HQ9hchFrz+4EjVxS8/3DylOguDLG9xzVM3rv5ywMB6IqIYgbszfF88IrhtQP0FIXzkHiOmmYBr",
+	"D6DjxccrVoIXub3cdMfG62TUTPPpfv59wqhxCHTNkeQGVa1n741j/bjkES8gS+OVwPLdvEULFBdvzrw8",
+	"OB5/2RH5lcZLIzgOnM2YKUw4YuiIzfqbmdPB2agaXDViJbeX7UGicluPkjnwjVc8wWKdnhtrohDuna9I",
+	"SQpLWwzMTKSkinisQmYJGk/+I6fni7a7O2w0/0bpPHA+9BKtAppLl45Q60/v0V8bPTGTToeqOLcwP840",
+	"nN7OTSBcZJElTpPiQkrvZ7R7udYorctDnyHPnXqmn0FOaxTHKD8433wteBdFOeIo5sNlrvDYaQWjFoPp",
+	"xQXz2F9QBMutAlSjVMNPH6F/EtZx5rzCHHJStj3QqzpR1giZ4xCWBPgKjH1JkSyg7v/kJPr09PaH8+lf",
+	"UiWZZbXr25s6UgsIL9g9ItfGN9WLhj/d2p38ydezz9Wa1o7qfygM/soomJv5lkofblhXcKutjlKdPH6+",
+	"qGoQwzI9VlcMH8szXpS4xuHsrYcY2VzDlOhtjcrqKe6nlsf8jMYWIhS3x2hiV2VjMJcXCnRcF6bWh84/",
+	"bLf6zwv0BPrFiUjg+WC3duSA9XMz/f8pxr18Oz3sYHrVwXhVnpkvmeeGGNN57Phs/L8BAA==",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

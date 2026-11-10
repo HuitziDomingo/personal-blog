@@ -13,6 +13,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/HuitziDomingo/personal-blog/services/api/internal/assistant/gemini"
 	"github.com/HuitziDomingo/personal-blog/services/api/internal/config"
 	"github.com/HuitziDomingo/personal-blog/services/api/internal/handler"
 	"github.com/HuitziDomingo/personal-blog/services/api/internal/logging"
@@ -90,20 +91,28 @@ func run(logger *slog.Logger) error {
 		return errors.Join(err, client.Disconnect(ctx))
 	}
 
+	assistant, err := newAssistant(ctx, cfg.Assistant, logger)
+	if err != nil {
+		return errors.Join(err, client.Disconnect(ctx))
+	}
+
 	routerConfig := handler.RouterConfig{
-		AllowedOrigins: cfg.AllowedOrigins,
-		MaxBodyBytes:   cfg.MaxBodyBytes,
-		TrustedProxies: cfg.TrustedProxies,
-		Sessions:       sessions,
-		Posts:          service.NewPostService(mongodb.NewPostRepository(client), time.Now),
-		Logger:         logger,
-		JSONLogs:       cfg.LogFormat == config.LogFormatJSON,
+		AllowedOrigins:   cfg.AllowedOrigins,
+		MaxBodyBytes:     cfg.MaxBodyBytes,
+		TrustedProxies:   cfg.TrustedProxies,
+		Sessions:         sessions,
+		Posts:            service.NewPostService(mongodb.NewPostRepository(client), time.Now),
+		Assistant:        assistant,
+		AssistantTimeout: cfg.Assistant.Timeout,
+		Logger:           logger,
+		JSONLogs:         cfg.LogFormat == config.LogFormatJSON,
 		RateLimits: handler.RateLimits{
 			Global:    handler.RateLimit(cfg.GlobalRateLimit),
 			Login:     handler.RateLimit(cfg.LoginRateLimit),
 			Refresh:   handler.RateLimit(cfg.RefreshRateLimit),
 			Preflight: handler.RateLimit(cfg.PreflightRateLimit),
 			User:      handler.RateLimit(cfg.UserRateLimit),
+			Assistant: handler.RateLimit(cfg.AssistantRateLimit),
 		},
 	}
 
@@ -154,6 +163,28 @@ func newSessions(cfg config.Config, client *mongodb.Client, users *mongodb.UserR
 	}
 
 	return sessions, nil
+}
+
+// newAssistant arma el asistente de escritura sobre Gemini, o el desactivado
+// si ASSISTANT_ENABLED no es true (ADR-021).
+func newAssistant(ctx context.Context, cfg config.Assistant, logger *slog.Logger) (*service.AssistantService, error) {
+	if !cfg.Enabled {
+		return service.NewDisabledAssistant(), nil
+	}
+
+	provider, err := gemini.New(ctx, gemini.Config{APIKey: cfg.GeminiAPIKey.Reveal(), Model: cfg.GeminiModel})
+	if err != nil {
+		return nil, fmt.Errorf("create writing assistant: %w", err)
+	}
+
+	assistant, err := service.NewAssistantService(provider, cfg.Timeout, logger, time.Now)
+	if err != nil {
+		return nil, fmt.Errorf("create writing assistant: %w", err)
+	}
+
+	slog.Info("writing assistant enabled", "model", cfg.GeminiModel, "timeout", cfg.Timeout)
+
+	return assistant, nil
 }
 
 // shutdown cierra el servidor y después la base de datos, para que las

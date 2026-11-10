@@ -76,7 +76,8 @@ func requestError(c *gin.Context, err error) {
 
 // handlerError responde a los errores que devuelven las operaciones.
 // Los errores del login y la sesión se traducen a 401 o 429 sin decir el
-// motivo concreto. Los del dominio de posts, a 400, 403, 404 o 409.
+// motivo concreto. Los del dominio de posts, a 400, 403, 404 o 409, y los del
+// asistente, a 503.
 func handlerError(c *gin.Context, err error) {
 	var tooMany *service.TooManyAttemptsError
 
@@ -102,6 +103,14 @@ func handlerError(c *gin.Context, err error) {
 		writeProblem(c, http.StatusConflict, detailDuplicateSlug)
 	case errors.Is(err, domain.ErrSlugLocked):
 		writeProblem(c, http.StatusConflict, detailSlugLocked)
+	case errors.Is(err, domain.ErrAssistantDisabled):
+		writeProblem(c, http.StatusServiceUnavailable, detailAssistantDisabled)
+	case errors.Is(err, domain.ErrAssistantInvalidOutput):
+		writeProblem(c, http.StatusServiceUnavailable, detailAssistantInvalidOutput)
+	case errors.Is(err, domain.ErrAssistantUnavailable):
+		// El service ya dejó el log con el resultado; el error no lleva el
+		// borrador ni la key, pero tampoco hace falta repetirlo.
+		writeProblem(c, http.StatusServiceUnavailable, detailAssistantUnavailable)
 	case errors.Is(err, domain.ErrInvalidInput):
 		// El validador del contrato ya rechazó casi todo; aquí llegan las reglas
 		// del service, como un título sin caracteres para el slug.

@@ -33,6 +33,12 @@ type RouterConfig struct {
 	Sessions Sessions
 	// Posts implementa los posts; es obligatorio.
 	Posts Posts
+	// Assistant implementa el asistente de escritura; es obligatorio, aunque
+	// esté desactivado (ADR-021).
+	Assistant Assistant
+	// AssistantTimeout es el timeout de una llamada al proveedor. Las rutas
+	// del asistente alargan el WriteTimeout del servidor a lo que haga falta.
+	AssistantTimeout time.Duration
 	// Logger recibe el access log cuando JSONLogs es true; con logs de texto
 	// se usa gin.Logger(), como siempre.
 	Logger   *slog.Logger
@@ -49,8 +55,8 @@ func SetMode(mode string) {
 // LoadSpec: el validador hace panic si no puede construir su router.
 //
 // Orden de la cadena: logger → recovery → cabeceras → límite de preflight →
-// CORS/Origin → rate limit → límite de cuerpo → lectura de la sesión →
-// validador del contrato → handlers.
+// CORS/Origin → rate limit → límite de cuerpo → deadline del asistente →
+// lectura de la sesión → validador del contrato → handlers.
 func NewRouter(pinger Pinger, spec *openapi3.T, cfg RouterConfig) (*gin.Engine, error) {
 	if cfg.Sessions == nil {
 		return nil, errors.New("router needs sessions")
@@ -58,6 +64,10 @@ func NewRouter(pinger Pinger, spec *openapi3.T, cfg RouterConfig) (*gin.Engine, 
 
 	if cfg.Posts == nil {
 		return nil, errors.New("router needs posts")
+	}
+
+	if cfg.Assistant == nil {
+		return nil, errors.New("router needs an assistant")
 	}
 
 	if err := cfg.RateLimits.validate(); err != nil {
@@ -94,6 +104,7 @@ func NewRouter(pinger Pinger, spec *openapi3.T, cfg RouterConfig) (*gin.Engine, 
 		crossOrigin(cfg.AllowedOrigins),
 		limiter.handle,
 		limitBody(cfg.MaxBodyBytes),
+		extendAssistantWriteDeadline(cfg.AssistantTimeout),
 	)
 	router.NoRoute(routeNotFound)
 	router.GET("/health", health)
@@ -107,7 +118,7 @@ func NewRouter(pinger Pinger, spec *openapi3.T, cfg RouterConfig) (*gin.Engine, 
 			AuthenticationFunc: authenticateRequest,
 		},
 	})
-	handlers := gen.NewStrictHandlerWithOptions(server{sessions: cfg.Sessions, posts: cfg.Posts}, nil, gen.StrictGinServerOptions{
+	handlers := gen.NewStrictHandlerWithOptions(server{sessions: cfg.Sessions, posts: cfg.Posts, assistant: cfg.Assistant}, nil, gen.StrictGinServerOptions{
 		RequestErrorHandlerFunc:  requestError,
 		HandlerErrorFunc:         handlerError,
 		ResponseErrorHandlerFunc: responseError,

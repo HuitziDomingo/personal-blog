@@ -1,0 +1,34 @@
+info:
+  name: 4 Borrador demasiado largo
+  type: http
+  seq: 4
+
+http:
+  method: POST
+  url: "{{baseUrl}}/api/v1/admin/assistant/improve-writing"
+  body:
+    type: json
+    data: |-
+      {
+        "title": "Hola",
+        "content": "{{longContent}}"
+      }
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "400"
+  scripts:
+    - type: before-request
+      code: |-
+        // Un carácter más que el maxLength del contrato: el validador lo
+        // rechaza antes de mirar si el asistente está encendido.
+        bru.setVar("longContent", "a".repeat(50001));
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: true

@@ -127,6 +127,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/assistant/improve-writing": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mejora la redacción de un borrador.
+         * @description Devuelve el contenido reescrito en Markdown. Es una sugerencia: no se guarda. Tiene su propio límite por usuario, más estricto que el general (ADR-021).
+         */
+        post: operations["improveWriting"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/assistant/suggest-metadata": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Sugiere título, extracto y etiquetas para un borrador.
+         * @description Devuelve metadatos que cumplen las mismas reglas que un post. Es una sugerencia: no se guarda. Tiene su propio límite por usuario, más estricto que el general (ADR-021).
+         */
+        post: operations["suggestMetadata"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/posts/{id}": {
         parameters: {
             query?: never;
@@ -218,6 +258,24 @@ export interface components {
             tags?: string[];
             status: components["schemas"]["PostStatus"];
             seo?: components["schemas"]["Seo"];
+        };
+        /** @description El borrador que se envía al asistente. Solo el título y el contenido: nunca datos de usuarios ni otros posts (ADR-021). */
+        AssistantDraft: {
+            /** @description Puede estar vacío. */
+            title: string;
+            /** @description Contenido en Markdown. */
+            content: string;
+        };
+        ImprovedWriting: {
+            /** @description Contenido sugerido en Markdown. Es texto no confiable: se renderiza con el mismo sanitizado que cualquier post (packages/markdown). */
+            content: string;
+        };
+        /** @description Metadatos sugeridos, con las mismas reglas que en PostWrite. */
+        MetadataSuggestion: {
+            title: string;
+            excerpt: string;
+            /** @description En minúsculas, con los espacios colapsados y sin duplicados. */
+            tags: string[];
         };
         /** @description Datos de un post para listados, sin su contenido. */
         PostSummary: {
@@ -317,6 +375,15 @@ export interface components {
             headers: {
                 /** @description Segundos que faltan para el siguiente intento. Se expone a los orígenes permitidos con Access-Control-Expose-Headers. */
                 "Retry-After"?: number;
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["Problem"];
+            };
+        };
+        /** @description El asistente está desactivado (ASSISTANT_ENABLED=false), el proveedor falló o agotó su cuota, o devolvió una sugerencia que no cumple las reglas. `detail` dice cuál. */
+        AssistantUnavailable: {
+            headers: {
                 [name: string]: unknown;
             };
             content: {
@@ -570,6 +637,68 @@ export interface operations {
             409: components["responses"]["Conflict"];
             413: components["responses"]["PayloadTooLarge"];
             429: components["responses"]["TooManyRequests"];
+            default: components["responses"]["UnexpectedError"];
+        };
+    };
+    improveWriting: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AssistantDraft"];
+            };
+        };
+        responses: {
+            /** @description Contenido con la redacción mejorada. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImprovedWriting"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            413: components["responses"]["PayloadTooLarge"];
+            429: components["responses"]["TooManyRequests"];
+            503: components["responses"]["AssistantUnavailable"];
+            default: components["responses"]["UnexpectedError"];
+        };
+    };
+    suggestMetadata: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AssistantDraft"];
+            };
+        };
+        responses: {
+            /** @description Metadatos sugeridos. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MetadataSuggestion"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            413: components["responses"]["PayloadTooLarge"];
+            429: components["responses"]["TooManyRequests"];
+            503: components["responses"]["AssistantUnavailable"];
             default: components["responses"]["UnexpectedError"];
         };
     };

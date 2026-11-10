@@ -156,6 +156,11 @@ npx @modelcontextprotocol/inspector@2.13.0 \
 | `RATE_LIMIT_PREFLIGHT_PER_MINUTE` / `_BURST` | No | `120` / `60` | Límite por IP de los preflight CORS (`OPTIONS` con `Origin` y `Access-Control-Request-Method`), que no gastan el global (ADR-016) |
 | `RATE_LIMIT_LOGIN_PER_MINUTE` / `_BURST` | No | `5` / `5` | Límite extra en `POST /api/v1/auth/login` |
 | `RATE_LIMIT_REFRESH_PER_MINUTE` / `_BURST` | No | `10` / `10` | Límite extra en `POST /api/v1/auth/refresh` |
+| `RATE_LIMIT_ASSISTANT_PER_MINUTE` / `_BURST` | No | `5` / `5` | Límite extra por usuario en `/api/v1/admin/assistant/*`, además del de usuario (ADR-021) |
+| `ASSISTANT_ENABLED` | No | `false` | `true` enciende el asistente de escritura (ADR-021). Con `false`, sus operaciones responden 503 `writing assistant is disabled` y nada llega a Gemini. Otro valor detiene la API |
+| `GEMINI_API_KEY` | Con el asistente encendido | | API key de Gemini, de un proyecto de Google sin facturación. Con `ASSISTANT_ENABLED=true` y sin key, la API no arranca. Nunca aparece en logs ni en errores |
+| `GEMINI_MODEL` | Con el asistente encendido | | Modelo de Gemini, uno incluido en el plan gratuito. Con `ASSISTANT_ENABLED=true` y sin modelo, la API no arranca |
+| `ASSISTANT_TIMEOUT_SECONDS` | No | `30` | Timeout de una llamada a Gemini. Las rutas del asistente alargan el `WriteTimeout` del servidor (15 s) a este valor más 10 s |
 | `INITIAL_ADMIN_EMAIL` | No | | Email del administrador inicial |
 | `INITIAL_ADMIN_PASSWORD` | No | | Contraseña del administrador inicial |
 | `LOG_FORMAT` | No | `text` | `text` (key=value, para la terminal) o `json` (una línea por evento con `severity`, `message` y `time`, los campos de Cloud Logging). En `json`, el access log también es JSON, con el grupo `httpRequest` que Cloud Logging muestra como petición HTTP: solo la ruta (sin query), y severidad `ERROR` para 5xx, `WARNING` para 4xx salvo 401 y 404, e `INFO` para el resto. Un `LOG_FORMAT` inválido detiene la API con el error ya en JSON |
@@ -175,6 +180,7 @@ La API arranca con cualquier configuración válida, pero algunas la dejan inút
 | `MAX_BODY_BYTES is N bytes` | Menos de 64 KiB: un post más grande falla con 413 (el contrato no limita el largo del contenido) |
 | `TRUSTED_PROXIES is empty in release mode` | Detrás de Cloud Run todos los clientes comparten la IP del proxy, y con ella el rate limit |
 | `GIN_MODE=debug with LOG_FORMAT=json` | Gin mezcla su salida de debug en texto con el JSON |
+| `GEMINI_API_KEY is set but ASSISTANT_ENABLED is not true` | El asistente sigue apagado y responde 503: la key no se usa |
 
 ### Local frente a producción
 
@@ -188,6 +194,7 @@ La API arranca con cualquier configuración válida, pero algunas la dejan inút
 | `JWT_SECRET` | Generado con `openssl rand -base64 32` | Desde Secret Manager |
 | `INITIAL_ADMIN_EMAIL` e `INITIAL_ADMIN_PASSWORD` | Solo la primera vez, con `users` vacía | Solo en el primer despliegue; después se quitan |
 | `PORT` | `8080` | La que asigna Cloud Run |
+| `ASSISTANT_ENABLED`, `GEMINI_API_KEY` y `GEMINI_MODEL` | Apagado; para probarlo, una key propia en `.env` | La key desde Secret Manager, de un proyecto de Google sin facturación y separado del de la API (ADR-021) |
 
 Los valores de producción son los previstos; el despliegue está pendiente (BLOG-054 y BLOG-022).
 
@@ -508,6 +515,7 @@ La colección está en `docs/api/bruno/`, en formato OpenCollection (YAML):
 - `flows/`: flujos escritos a mano, con aserciones:
   - `flows/posts/` recorre el ciclo de vida de un post: login, crear borrador, editar, publicar, verlo en la API pública, intentar cambiar el slug ya publicado (409), archivar y comprobar que ya no aparece. Cada corrida crea un post nuevo con la hora en el título, que queda archivado en tu base.
   - `flows/sesion/` recorre login, `/me`, refresh, logout y `/me` sin sesión.
+  - `flows/asistente/` comprueba el asistente apagado (`ASSISTANT_ENABLED=false`, el valor por defecto): las dos operaciones responden 503 y un borrador de más de 50 000 caracteres responde 400. Con el asistente encendido falla a propósito, para no gastar la cuota de Gemini.
 - `environments/local.yml`: `baseUrl` apunta a `http://localhost:8080`. `adminEmail` y `adminPassword` son variables secretas sin valor.
 
 Para usarla desde la app de Bruno, que se instala aparte, abre la carpeta `docs/api/bruno`, elige el environment `local` y escribe el email y la contraseña en sus variables secretas. Bruno los guarda en tu equipo, fuera de los archivos del repo.
@@ -520,7 +528,7 @@ make api-flows
 
 Toma el email y la contraseña de `INITIAL_ADMIN_EMAIL` e `INITIAL_ADMIN_PASSWORD` de `.env` y se los pasa al CLI como variables, sin escribirlos en ningún archivo. Deben ser los del administrador que existe en tu base.
 
-Los flujos hacen unas 16 peticiones. Si los corres dos veces seguidas, la segunda puede chocar con el rate limit global de la API (429); espera un minuto.
+Los flujos hacen unas 20 peticiones. Si los corres dos veces seguidas, la segunda puede chocar con el rate limit global de la API (429); espera un minuto.
 
 El generador de Bruno convierte los esquemas de seguridad en cookie (`accessCookie`, `refreshCookie`) en una cabecera `access_token: {{apiKey}}`, no en una cookie. Las peticiones protegidas funcionan igual después del login, porque Bruno guarda las cookies de la respuesta y las reenvía; la API ignora esa cabecera de más. `generated/` se deja tal como sale del CLI.
 
@@ -589,3 +597,20 @@ Tu `.env` es anterior a `JWT_SECRET`. Genera un secreto con `openssl rand -base6
 ```sh
 INITIAL_ADMIN_PASSWORD='pa$$word with spaces'
 ```
+
+## Asistente de escritura
+
+ADR-021. La API expone dos operaciones autenticadas, que solo sugieren y nunca guardan nada:
+
+- `POST /api/v1/admin/assistant/improve-writing` devuelve el contenido reescrito en Markdown.
+- `POST /api/v1/admin/assistant/suggest-metadata` devuelve título, extracto y etiquetas, validados con las mismas reglas que un post.
+
+Las dos reciben `{ "title", "content" }`: hasta 200 y 50 000 caracteres. Solo eso llega al proveedor.
+
+- **Capas:** el puerto `domain.WritingAssistant` tiene dos adaptadores: `internal/assistant/gemini`, con el SDK `google.golang.org/genai`, y el fake de los tests (ADR-015). `service.AssistantService` aplica el timeout, valida la salida y deja un log por llamada con modelo, latencia, tokens y resultado, nunca con el contenido ni la key.
+- **Prompt:** las instrucciones van como instrucción de sistema. El borrador va en el mensaje del usuario como un objeto JSON, así que su texto no puede cerrar el delimitador ni hacerse pasar por instrucciones. La salida se pide con JSON Schema.
+- **Errores:** todos responden 503 con problem+json, sin reintentos y con el `detail` en inglés:
+  - asistente apagado: `writing assistant is disabled`;
+  - el proveedor falló, venció el timeout o se agotó la cuota: `writing assistant is unavailable, try again later`;
+  - el modelo respondió algo que no cumple las reglas: `writing assistant returned an invalid suggestion, try again`.
+- **Tests:** nunca llaman a Gemini. El adaptador se prueba contra `httptest` con las respuestas de `internal/assistant/gemini/testdata/`. Para probarlo a mano, pon tu key y un modelo en `.env`, `ASSISTANT_ENABLED=true`, y usa las peticiones de `docs/api/bruno/generated/admin-assistant/` después del login.
