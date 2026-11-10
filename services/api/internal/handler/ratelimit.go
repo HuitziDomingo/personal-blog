@@ -47,6 +47,9 @@ type RateLimits struct {
 	Preflight RateLimit
 	// User es por usuario, para /api/v1 con un access token válido.
 	User RateLimit
+	// Assistant es por usuario, solo para el asistente de escritura y además
+	// de User (ADR-021).
+	Assistant RateLimit
 }
 
 // accessVerifier valida un access token con las reglas de ADR-011 y devuelve
@@ -138,13 +141,15 @@ func (l *keyedLimiter) size() int {
 }
 
 // rateLimiter aplica a /api/v1 el límite por usuario o el global por IP, uno
-// extra por IP a login y refresh, y uno propio por IP a los preflight CORS.
+// extra por IP a login y refresh, uno extra por usuario al asistente y uno
+// propio por IP a los preflight CORS.
 type rateLimiter struct {
 	global     *keyedLimiter
 	login      *keyedLimiter
 	refresh    *keyedLimiter
 	preflights *keyedLimiter
 	users      *keyedLimiter
+	assistant  *keyedLimiter
 	verify     accessVerifier
 }
 
@@ -153,7 +158,7 @@ type rateLimiter struct {
 func (limits RateLimits) validate() error {
 	for name, limit := range map[string]RateLimit{
 		"global": limits.Global, "login": limits.Login, "refresh": limits.Refresh,
-		"preflight": limits.Preflight, "user": limits.User,
+		"preflight": limits.Preflight, "user": limits.User, "assistant": limits.Assistant,
 	} {
 		if limit.PerMinute <= 0 || limit.Burst <= 0 {
 			return fmt.Errorf("%s rate limit must be positive: %+v", name, limit)
@@ -170,6 +175,7 @@ func newRateLimiter(limits RateLimits, verify accessVerifier, now func() time.Ti
 		refresh:    newKeyedLimiter(limits.Refresh, now),
 		preflights: newKeyedLimiter(limits.Preflight, now),
 		users:      newKeyedLimiter(limits.User, now),
+		assistant:  newKeyedLimiter(limits.Assistant, now),
 		verify:     verify,
 	}
 }
@@ -200,11 +206,20 @@ func (r *rateLimiter) handle(c *gin.Context) {
 
 	ip := clientKey(c.ClientIP())
 	limiter, key := r.global, ip
-	if userID, ok := r.authenticatedUser(c); ok {
+	userID, authenticated := r.authenticatedUser(c)
+	if authenticated {
 		limiter, key = r.users, userID
 	}
 
 	if !admit(c, limiter, key) {
+		return
+	}
+
+	// Sin sesión, la operación responde 401 sin llegar al proveedor: basta
+	// el bucket global.
+	if authenticated && strings.HasPrefix(path, assistantPathPrefix) {
+		admit(c, r.assistant, userID)
+
 		return
 	}
 

@@ -1,0 +1,11 @@
+{
+  "candidates": [
+    {
+      "content": { "parts": [{ "text": "{\"content\": \"# Hola\\n\\nEste es el bor" }], "role": "model" },
+      "finishReason": "MAX_TOKENS",
+      "index": 0
+    }
+  ],
+  "usageMetadata": { "promptTokenCount": 120, "candidatesTokenCount": 8192, "totalTokenCount": 8312 },
+  "modelVersion": "gemini-test-001"
+}

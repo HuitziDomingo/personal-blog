@@ -42,6 +42,10 @@ func (c Config) Warnings() []string {
 		warnings = append(warnings, "TRUSTED_PROXIES is empty in release mode: behind a proxy such as Cloud Run every client shares the proxy IP, and with it the rate limits")
 	}
 
+	if !c.Assistant.Enabled && c.Assistant.GeminiAPIKey != "" {
+		warnings = append(warnings, "GEMINI_API_KEY is set but ASSISTANT_ENABLED is not true: the writing assistant responds 503 and the key is not used")
+	}
+
 	if c.LogFormat == LogFormatJSON && c.GinMode == GinModeDebug {
 		warnings = append(warnings, "GIN_MODE=debug with LOG_FORMAT=json: Gin writes its debug output as plain text between the JSON lines; use GIN_MODE=release")
 	}

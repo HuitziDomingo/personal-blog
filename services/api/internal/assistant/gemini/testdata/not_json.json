@@ -1,0 +1,11 @@
+{
+  "candidates": [
+    {
+      "content": { "parts": [{ "text": "Claro, aquí está el texto privado del modelo" }], "role": "model" },
+      "finishReason": "STOP",
+      "index": 0
+    }
+  ],
+  "usageMetadata": { "promptTokenCount": 90, "candidatesTokenCount": 12, "totalTokenCount": 102 },
+  "modelVersion": "gemini-test-001"
+}

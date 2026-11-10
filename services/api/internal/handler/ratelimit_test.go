@@ -237,6 +237,7 @@ func ipRouter(configure func(*gin.Engine) error) (*gin.Engine, error) {
 		Refresh:   RateLimit{PerMinute: 1, Burst: 1},
 		Preflight: RateLimit{PerMinute: 1, Burst: 1},
 		User:      RateLimit{PerMinute: 1, Burst: 1},
+		Assistant: RateLimit{PerMinute: 1, Burst: 1},
 	}, rejectAllTokens, time.Now).handle)
 	router.GET("/api/v1/posts", func(c *gin.Context) { c.Status(http.StatusOK) })
 

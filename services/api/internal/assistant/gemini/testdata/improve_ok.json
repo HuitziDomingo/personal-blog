@@ -1,0 +1,20 @@
+{
+  "candidates": [
+    {
+      "content": {
+        "parts": [{ "text": "{\"content\": \"# Hola\\n\\nEste es el borrador, con mejor redacción.\\n\"}" }],
+        "role": "model"
+      },
+      "finishReason": "STOP",
+      "index": 0
+    }
+  ],
+  "usageMetadata": {
+    "promptTokenCount": 120,
+    "candidatesTokenCount": 80,
+    "thoughtsTokenCount": 30,
+    "totalTokenCount": 230
+  },
+  "modelVersion": "gemini-test-001",
+  "responseId": "resp-improve-1"
+}
