@@ -12,6 +12,7 @@
 - [x] BLOG-038: Escribir la guía de desarrollo en `docs/development.md`. ([#20](https://github.com/HuitziDomingo/personal-blog/pull/20))
 - [x] BLOG-063: `make api-watch` con Air como herramienta de Go: recompila y reinicia la API al guardar, respetando el graceful shutdown. ([#57](https://github.com/HuitziDomingo/personal-blog/pull/57))
 - [x] BLOG-082: `.claude/settings.json` del repo con `deny` para `git reset --hard` y `git clean`, y `ask` para `git push --force` y `git push -f`. ([#72](https://github.com/HuitziDomingo/personal-blog/pull/72), [#74](https://github.com/HuitziDomingo/personal-blog/pull/74))
+- [x] BLOG-084: «Arranque rápido» en el README: primer arranque, una terminal por servicio, variables del asistente, modelos de la key de Gemini y colección de Bruno; resume y enlaza a `docs/development.md`. ([#78](https://github.com/HuitziDomingo/personal-blog/pull/78))
 
 ## Fase 2: Backend API (Go/Gin) & Autenticación
 
