@@ -1,0 +1,35 @@
+info:
+  name: 3 Sugerir metadatos desactivado
+  type: http
+  seq: 3
+
+http:
+  method: POST
+  url: "{{baseUrl}}/api/v1/admin/assistant/suggest-metadata"
+  body:
+    type: json
+    data: |-
+      {
+        "title": "Hola",
+        "content": "# Hola\n\nUn borrador de prueba."
+      }
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "503"
+  scripts:
+    - type: tests
+      code: |-
+        test("says the assistant is disabled", function () {
+          expect(res.getHeader("content-type")).to.include("application/problem+json");
+          expect(res.body.detail).to.equal("writing assistant is disabled");
+        });
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: true

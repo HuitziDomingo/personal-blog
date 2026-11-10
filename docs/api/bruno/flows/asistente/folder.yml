@@ -1,0 +1,15 @@
+info:
+  name: asistente
+  type: folder
+
+request:
+  auth: inherit
+
+docs:
+  content: |-
+    Asistente de escritura (ADR-021) con la configuración por defecto,
+    ASSISTANT_ENABLED=false: las dos operaciones responden 503 y nada llega a
+    Gemini. Con el asistente encendido, este flujo falla a propósito en vez de
+    gastar la cuota del plan gratuito. Pide adminEmail y adminPassword,
+    variables secretas del environment local.
+  type: text/markdown
