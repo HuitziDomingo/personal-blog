@@ -18,7 +18,16 @@ const config = defineConfig({
       scrollPaddingTop: '5rem',
       '@media (prefers-reduced-motion: no-preference)': { scrollBehavior: 'smooth' },
     },
-    body: { bg: 'bg', color: 'fg', fontFamily: 'body' },
+    // Columna de al menos el alto visible: el <main> crece (flex: 1) y el footer
+    // queda al fondo aunque la página sea corta (404, blog vacío, error).
+    body: {
+      bg: 'bg',
+      color: 'fg',
+      fontFamily: 'body',
+      display: 'flex',
+      flexDirection: 'column',
+      minHeight: '100dvh',
+    },
     '::selection': { bg: 'brand.accent', color: 'bg' },
     '.sr-only': {
       position: 'absolute',

@@ -59,6 +59,8 @@ export default function RootLayout({ children }: { children: ReactNode }) {
             id="contenido"
             tabIndex={-1}
             maxW="4xl"
+            w="full"
+            flex="1"
             px={{ base: '4', md: '6' }}
             pt={{ base: '8', md: '12' }}
             _focus={{ outline: 'none' }}
