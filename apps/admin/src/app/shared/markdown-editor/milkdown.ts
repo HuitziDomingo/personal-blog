@@ -7,10 +7,9 @@ import { listItem } from '@milkdown/crepe/feature/list-item';
 import { placeholder } from '@milkdown/crepe/feature/placeholder';
 import { table } from '@milkdown/crepe/feature/table';
 import { toolbar } from '@milkdown/crepe/feature/toolbar';
-import { editorViewCtx, serializerCtx } from '@milkdown/kit/core';
+import { editorViewCtx } from '@milkdown/kit/core';
 import { uploadConfig } from '@milkdown/kit/plugin/upload';
-import { Plugin } from '@milkdown/kit/prose/state';
-import { $prose, replaceAll } from '@milkdown/kit/utils';
+import { replaceAll } from '@milkdown/kit/utils';
 
 /**
  * Este módulo es el único que importa Milkdown, y el editor lo carga con
@@ -33,7 +32,10 @@ export interface MilkdownOptions {
   readonly root: HTMLElement;
   readonly markdown: string;
   readonly readonly: boolean;
-  /** Se llama en cada cambio del documento hecho en el editor, sin espera. */
+  /**
+   * Se llama con el Markdown nuevo cuando el editor lo cambió: con el debounce
+   * de Milkdown (200 ms después del último cambio) o al llamar a `flush`.
+   */
   readonly onChange: (markdown: string) => void;
 }
 
@@ -42,6 +44,11 @@ export interface MilkdownHandle {
   readonly dom: HTMLElement;
   /** Reemplaza el contenido sin llamar a `onChange`. */
   setMarkdown(markdown: string): void;
+  /**
+   * Serializa ya, sin esperar el debounce, y llama a `onChange` si hay un
+   * cambio que todavía no se avisó. Se usa antes de guardar.
+   */
+  flush(): void;
   getMarkdown(): string;
   setReadonly(readonly: boolean): void;
   destroy(): Promise<void>;
@@ -78,36 +85,18 @@ const BLOCK_EDIT_CONFIG = {
 };
 
 export async function createMilkdown({ root, markdown, readonly, onChange }: MilkdownOptions): Promise<MilkdownHandle> {
-  // Mientras se aplica un valor que viene de fuera no se avisa: no es una
-  // edición, y avisar marcaría el formulario como modificado al cargar.
-  let applyingExternal = false;
-  // Último Markdown conocido. Hay transacciones que cambian el documento pero
-  // no el Markdown (el plugin trailing agrega un párrafo vacío al final): esas
-  // no se avisan.
+  // Último Markdown avisado o aplicado desde fuera. Solo se avisa lo que
+  // difiere: así no se avisa un valor externo (marcaría el formulario como
+  // modificado al cargar), ni dos veces el mismo cambio (el debounce y
+  // `flush`), ni una transacción que no cambia el Markdown (el plugin trailing
+  // agrega un párrafo vacío al final).
   let last = '';
-
-  // El listener de Milkdown (`markdownUpdated`) avisa con 200 ms de debounce: un
-  // guardado justo después de teclear perdería la última tecla. Este plugin
-  // serializa y avisa en cada transacción que cambia el documento.
-  const emitChanges = $prose(
-    (ctx) =>
-      new Plugin({
-        view: () => ({
-          update: (view, previous) => {
-            if (view.state.doc.eq(previous.doc)) {
-              return;
-            }
-            const markdown = ctx.get(serializerCtx)(view.state.doc);
-            if (applyingExternal || markdown === last) {
-              last = markdown;
-              return;
-            }
-            last = markdown;
-            onChange(markdown);
-          },
-        }),
-      }),
-  );
+  const emit = (value: string) => {
+    if (value !== last) {
+      last = value;
+      onChange(value);
+    }
+  };
 
   const crepe = new CrepeBuilder({ root, defaultValue: markdown })
     .addFeature(cursor)
@@ -132,8 +121,10 @@ export async function createMilkdown({ root, markdown, readonly, onChange }: Mil
       // CrepeBuilder convierte en <img src="blob:…"> las imágenes que se pegan
       // o se arrastran. Sin subida no hay URL que guardar: se ignoran.
       ctx.update(uploadConfig.key, (previous) => ({ ...previous, uploader: () => Promise.resolve([]) }));
-    })
-    .use(emitChanges);
+    });
+  // Serializar el documento entero en cada tecla es caro en posts largos: se
+  // usa el debounce del listener de Milkdown, y `flush` cubre el guardado.
+  crepe.on((listener) => listener.markdownUpdated((_, value) => emit(value)));
 
   await crepe.create();
   crepe.setReadonly(readonly);
@@ -142,13 +133,11 @@ export async function createMilkdown({ root, markdown, readonly, onChange }: Mil
   return {
     dom: crepe.editor.ctx.get(editorViewCtx).dom,
     setMarkdown(value) {
-      applyingExternal = true;
-      try {
-        crepe.editor.action(replaceAll(value));
-      } finally {
-        applyingExternal = false;
-      }
+      crepe.editor.action(replaceAll(value));
+      // El debounce pendiente serializará esto mismo y no avisará.
+      last = crepe.getMarkdown();
     },
+    flush: () => emit(crepe.getMarkdown()),
     getMarkdown: () => crepe.getMarkdown(),
     setReadonly(value) {
       crepe.setReadonly(value);

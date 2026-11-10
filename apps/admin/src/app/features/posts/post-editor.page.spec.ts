@@ -10,6 +10,8 @@ import { PostsApi } from '../../core/api/posts-api';
 import { ApiError } from '../../core/http/api-error';
 import { MarkdownEditor } from '../../shared/markdown-editor/markdown-editor';
 import { FakeMarkdownEditor } from '../../shared/markdown-editor/markdown-editor-fake';
+import { MILKDOWN_THEME_LOADER } from '../../shared/markdown-editor/milkdown-theme';
+import { installMissingBrowserApis, paste } from '../../shared/markdown-editor/milkdown-test-support';
 import { PostEditorPage } from './post-editor.page';
 import { unsavedChangesGuard } from './unsaved-changes.guard';
 
@@ -508,5 +510,49 @@ describe('PostEditorPage', () => {
       window.dispatchEvent(dirty);
       expect(dirty.defaultPrevented).toBe(true);
     });
+  });
+});
+
+// Con Milkdown real: el editor avisa con debounce, así que la página tiene que
+// pedirle lo pendiente antes de guardar o de decidir si hay cambios.
+describe('PostEditorPage con el editor real', () => {
+  beforeAll(installMissingBrowserApis);
+
+  async function renderWithMilkdown(api: FakePostsApi, id: string) {
+    const result = await render(PostEditorPage, {
+      inputs: { id },
+      providers: [
+        provideRouter([]),
+        { provide: PostsApi, useValue: api },
+        // jsdom no carga hojas de estilo (ADR-015).
+        { provide: MILKDOWN_THEME_LOADER, useValue: { load: () => Promise.resolve() } },
+      ],
+    });
+    vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
+    await result.fixture.whenStable();
+    const editor = await screen.findByRole('textbox', { name: 'Contenido' });
+
+    return { ...result, editor, page: result.fixture.componentInstance };
+  }
+
+  it('guarda lo escrito justo antes de hacer clic, sin esperar el debounce', async () => {
+    const api = new FakePostsApi();
+    const { editor } = await renderWithMilkdown(api, 'new');
+
+    await type('Título', 'Hola');
+    paste(editor, { text: '# Recién escrito' });
+    await fireEvent.click(screen.getByRole('button', { name: 'Guardar borrador' }));
+
+    expect(api.created[0]?.content).toBe('# Recién escrito\n');
+  });
+
+  it('lo escrito justo antes de salir cuenta como cambio sin guardar', async () => {
+    const api = new FakePostsApi();
+    api.post = stored();
+    const { editor, page } = await renderWithMilkdown(api, 'p1');
+
+    paste(editor, { text: ' más' });
+
+    expect(page.hasUnsavedChanges()).toBe(true);
   });
 });

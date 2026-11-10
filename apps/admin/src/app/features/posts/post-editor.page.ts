@@ -252,6 +252,7 @@ export class PostEditorPage {
   private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
   private readonly heading = viewChild<ElementRef<HTMLElement>>('heading');
+  private readonly contentEditor = viewChild(MarkdownEditor);
 
   /** Parámetro `:id` de la ruta, enlazado por `withComponentInputBinding`. */
   readonly id = input.required<string>();
@@ -346,6 +347,9 @@ export class PostEditorPage {
 
   /** Para el guard de cambios sin guardar. */
   hasUnsavedChanges(): boolean {
+    // El editor avisa con debounce: lo escrito en los últimos 200 ms todavía
+    // no llegó al formulario.
+    this.contentEditor()?.flush();
     // Mientras se guarda también: salir cancelaría la petición y no se sabría
     // si el post quedó guardado.
     return this.form.dirty || this.saving();
@@ -381,6 +385,9 @@ export class PostEditorPage {
   }
 
   protected save(status: PostStatus): void {
+    // El editor avisa con debounce: sin esto se guardaría sin lo escrito en
+    // los últimos 200 ms.
+    this.contentEditor()?.flush();
     this.form.markAllAsTouched();
     if (this.form.invalid || this.saving()) {
       if (this.form.invalid) {

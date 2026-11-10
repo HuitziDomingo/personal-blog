@@ -25,7 +25,14 @@
                 "input": "public"
               }
             ],
-            "styles": ["src/styles.css"]
+            "styles": [
+              "src/styles.css",
+              {
+                "input": "src/app/shared/markdown-editor/milkdown-theme.css",
+                "bundleName": "milkdown-theme",
+                "inject": false
+              }
+            ]
           },
           "configurations": {
             "production": {
@@ -37,8 +44,8 @@
                 },
                 {
                   "type": "anyComponentStyle",
-                  "maximumWarning": "36kB",
-                  "maximumError": "40kB"
+                  "maximumWarning": "4kB",
+                  "maximumError": "8kB"
                 }
               ],
               "outputHashing": "all",

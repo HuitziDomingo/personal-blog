@@ -1,7 +1,11 @@
 import { fireEvent, render, screen } from '@testing-library/angular';
 
 import { MarkdownEditor, PREVIEW_DEBOUNCE_MS } from './markdown-editor';
+import { MILKDOWN_THEME_LOADER } from './milkdown-theme';
 import { paste, installMissingBrowserApis } from './milkdown-test-support';
+
+/** jsdom no carga hojas de estilo: el fake da el tema por cargado (ADR-015). */
+const themeLoaded = { provide: MILKDOWN_THEME_LOADER, useValue: { load: () => Promise.resolve() } };
 
 /** El área editable de Milkdown, cuando ya cargó. */
 const editable = () => screen.findByRole('textbox', { name: 'Contenido' });
@@ -11,7 +15,7 @@ describe('MarkdownEditor', () => {
   beforeAll(installMissingBrowserApis);
 
   it('muestra un aviso mientras carga Milkdown', async () => {
-    await render(MarkdownEditor, { inputs: { value: '' } });
+    await render(MarkdownEditor, { providers: [themeLoaded], inputs: { value: '' } });
     const loading = screen.getByText('Cargando el editor…');
 
     expect(loading.parentElement?.getAttribute('aria-busy')).toBe('true');
@@ -21,7 +25,7 @@ describe('MarkdownEditor', () => {
   });
 
   it('muestra el valor en el editor y su vista previa', async () => {
-    await render(MarkdownEditor, { inputs: { value: '# Hola\n\n**mundo**' } });
+    await render(MarkdownEditor, { providers: [themeLoaded], inputs: { value: '# Hola\n\n**mundo**' } });
 
     const editor = await editable();
     expect(editor.querySelector('h1')?.textContent).toBe('Hola');
@@ -30,23 +34,44 @@ describe('MarkdownEditor', () => {
     expect(preview().querySelector('strong')?.textContent).toBe('mundo');
   });
 
-  it('emite valueChange con el Markdown en cada cambio, sin espera', async () => {
+  it('emite valueChange con el Markdown tras el debounce de Milkdown', async () => {
     const valueChange = vi.fn();
-    await render(MarkdownEditor, { inputs: { value: '' }, on: { valueChange } });
+    await render(MarkdownEditor, { providers: [themeLoaded], inputs: { value: '' }, on: { valueChange } });
     const editor = await editable();
 
     paste(editor, { text: '# Hola' });
-    expect(valueChange).toHaveBeenLastCalledWith('# Hola\n');
+    expect(valueChange).not.toHaveBeenCalled();
 
-    // El cursor quedó al final del título.
-    paste(editor, { text: ', mundo' });
-    expect(valueChange).toHaveBeenCalledTimes(2);
-    expect(valueChange).toHaveBeenLastCalledWith('# Hola, mundo\n');
+    await vi.waitFor(() => expect(valueChange).toHaveBeenCalledExactlyOnceWith('# Hola\n'));
+  });
+
+  it('flush emite ya lo pendiente, sin esperar el debounce', async () => {
+    const valueChange = vi.fn();
+    const { fixture } = await render(MarkdownEditor, { providers: [themeLoaded], inputs: { value: '' }, on: { valueChange } });
+    const editor = await editable();
+
+    paste(editor, { text: '# Hola' });
+    fixture.componentInstance.flush();
+
+    expect(valueChange).toHaveBeenCalledExactlyOnceWith('# Hola\n');
+  });
+
+  it('espera el tema antes de crear el editor', async () => {
+    let themeReady!: () => void;
+    const theme = { load: () => new Promise<void>((resolve) => (themeReady = resolve)) };
+    await render(MarkdownEditor, { providers: [{ provide: MILKDOWN_THEME_LOADER, useValue: theme }], inputs: { value: '' } });
+
+    await import('./milkdown');
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    expect(screen.queryByRole('textbox', { name: 'Contenido' })).toBeNull();
+
+    themeReady();
+    await editable();
   });
 
   it('aplica un valor que llega de fuera sin emitir valueChange', async () => {
     const valueChange = vi.fn();
-    const { rerender, fixture } = await render(MarkdownEditor, { inputs: { value: '' }, on: { valueChange } });
+    const { rerender, fixture } = await render(MarkdownEditor, { providers: [themeLoaded], inputs: { value: '' }, on: { valueChange } });
     const editor = await editable();
 
     await rerender({ inputs: { value: '# Post cargado' }, partialUpdate: true });
@@ -59,7 +84,7 @@ describe('MarkdownEditor', () => {
   // jsdom no ejecuta scripts ni dispara onerror: se comprueba que no quede nada
   // ejecutable en el DOM de la vista previa ni en el del editor.
   it('ni la vista previa ni el editor contienen nada ejecutable', async () => {
-    await render(MarkdownEditor, {
+    await render(MarkdownEditor, { providers: [themeLoaded],
       inputs: {
         value: '<img src="x" onerror="window.pwned()"><script>window.pwned()</script>[x](javascript:window.pwned())<iframe src="https://evil.test"></iframe>',
       },
@@ -74,7 +99,7 @@ describe('MarkdownEditor', () => {
 
   it('se puede desactivar', async () => {
     const valueChange = vi.fn();
-    await render(MarkdownEditor, { inputs: { value: '', disabled: true }, on: { valueChange } });
+    await render(MarkdownEditor, { providers: [themeLoaded], inputs: { value: '', disabled: true }, on: { valueChange } });
 
     const editor = await editable();
     paste(editor, { text: 'texto' });
@@ -85,7 +110,7 @@ describe('MarkdownEditor', () => {
   });
 
   it('marca el editor como inválido y lo enlaza con su error', async () => {
-    await render(MarkdownEditor, { inputs: { value: '', invalid: true, describedBy: 'content-error' } });
+    await render(MarkdownEditor, { providers: [themeLoaded], inputs: { value: '', invalid: true, describedBy: 'content-error' } });
 
     const editor = await editable();
     expect(editor.getAttribute('aria-invalid')).toBe('true');
@@ -95,7 +120,7 @@ describe('MarkdownEditor', () => {
 
   it('emite touched al salir del editor, no al moverse dentro de él', async () => {
     const touched = vi.fn();
-    await render(MarkdownEditor, { inputs: { value: '' }, on: { touched } });
+    await render(MarkdownEditor, { providers: [themeLoaded], inputs: { value: '' }, on: { touched } });
     const editor = await editable();
 
     await fireEvent.focusOut(editor, { relatedTarget: editor });
@@ -106,7 +131,7 @@ describe('MarkdownEditor', () => {
   });
 
   it('destruye Milkdown al destruirse', async () => {
-    const { fixture } = await render(MarkdownEditor, { inputs: { value: '# Hola' } });
+    const { fixture } = await render(MarkdownEditor, { providers: [themeLoaded], inputs: { value: '# Hola' } });
     await editable();
     const host = fixture.nativeElement as HTMLElement;
 
@@ -115,7 +140,7 @@ describe('MarkdownEditor', () => {
   });
 
   it('si se destruye mientras carga, no deja un editor creado', async () => {
-    const { fixture } = await render(MarkdownEditor, { inputs: { value: '# Hola' } });
+    const { fixture } = await render(MarkdownEditor, { providers: [themeLoaded], inputs: { value: '# Hola' } });
     const host = fixture.nativeElement as HTMLElement;
 
     fixture.destroy();
@@ -132,7 +157,7 @@ describe('MarkdownEditor', () => {
     afterEach(() => vi.useRealTimers());
 
     it(`actualiza la vista previa ${PREVIEW_DEBOUNCE_MS} ms después del último cambio`, async () => {
-      const { rerender, fixture } = await render(MarkdownEditor, { inputs: { value: '# Uno' } });
+      const { rerender, fixture } = await render(MarkdownEditor, { providers: [themeLoaded], inputs: { value: '# Uno' } });
       expect(preview().querySelector('h1')?.textContent).toBe('Uno');
 
       await rerender({ inputs: { value: '# Dos' }, partialUpdate: true });
@@ -147,7 +172,7 @@ describe('MarkdownEditor', () => {
     });
 
     it('cada cambio reinicia la espera y solo se renderiza el último valor', async () => {
-      const { rerender, fixture } = await render(MarkdownEditor, { inputs: { value: 'a' } });
+      const { rerender, fixture } = await render(MarkdownEditor, { providers: [themeLoaded], inputs: { value: 'a' } });
 
       for (const value of ['ab', 'abc', 'abcd']) {
         await rerender({ inputs: { value }, partialUpdate: true });
@@ -163,7 +188,7 @@ describe('MarkdownEditor', () => {
     });
 
     it('cancela el timer pendiente al destruirse', async () => {
-      const { rerender, fixture } = await render(MarkdownEditor, { inputs: { value: 'a' } });
+      const { rerender, fixture } = await render(MarkdownEditor, { providers: [themeLoaded], inputs: { value: 'a' } });
       // Solo el timer de la vista previa: el scheduler zoneless tiene los suyos.
       const setTimeoutSpy = vi.spyOn(globalThis, 'setTimeout');
       const clearTimeoutSpy = vi.spyOn(globalThis, 'clearTimeout');
