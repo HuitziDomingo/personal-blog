@@ -11,6 +11,7 @@
 - [x] BLOG-007: Configurar `.github/workflows/ci.yml` con build, vet, golangci-lint y test (ADR-008). ([#5](https://github.com/HuitziDomingo/personal-blog/pull/5))
 - [x] BLOG-038: Escribir la guía de desarrollo en `docs/development.md`. ([#20](https://github.com/HuitziDomingo/personal-blog/pull/20))
 - [x] BLOG-063: `make api-watch` con Air como herramienta de Go: recompila y reinicia la API al guardar, respetando el graceful shutdown. ([#57](https://github.com/HuitziDomingo/personal-blog/pull/57))
+- [x] BLOG-082: `.claude/settings.json` del repo con `deny` para `git reset --hard`, `git clean` y `git push --force`. ([#72](https://github.com/HuitziDomingo/personal-blog/pull/72))
 
 ## Fase 2: Backend API (Go/Gin) & Autenticación
 
