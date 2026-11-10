@@ -3,7 +3,8 @@ import { Box } from '@chakra-ui/react';
 /**
  * Tipografía de lectura para el HTML de un post, ya sanitizado en el servidor
  * con packages/markdown (ADR-017, punto 5). Los estilos van por selector
- * porque el HTML no lleva clases: la allowlist no permite `class`.
+ * porque el HTML no lleva clases: la allowlist no permite `class`. Los
+ * bloques de código ya vienen resaltados desde el servidor (lib/highlight.ts).
  */
 export function PostBody({ html }: { html: string }) {
   return (
@@ -68,6 +69,20 @@ export function PostBody({ html }: { html: string }) {
           tabSize: '2',
         },
         '& pre code': { bg: 'transparent', padding: '0', fontSize: 'inherit', borderRadius: '0' },
+        // Tokens de Shiki (lib/highlight.ts): cada uno trae sus colores claro y
+        // oscuro como variables en su `style`; aquí se elige según el modo.
+        '& pre code span': {
+          color: 'var(--shiki-light)',
+          fontStyle: 'var(--shiki-light-font-style)',
+          fontWeight: 'var(--shiki-light-font-weight)',
+          textDecoration: 'var(--shiki-light-text-decoration)',
+          _dark: {
+            color: 'var(--shiki-dark)',
+            fontStyle: 'var(--shiki-dark-font-style)',
+            fontWeight: 'var(--shiki-dark-font-weight)',
+            textDecoration: 'var(--shiki-dark-text-decoration)',
+          },
+        },
         '& img': {
           display: 'block',
           maxWidth: '100%',

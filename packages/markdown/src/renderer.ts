@@ -1,10 +1,43 @@
 import createDOMPurify, { type WindowLike } from 'dompurify';
-import { Marked } from 'marked';
+import { Marked, type Tokens } from 'marked';
 
 import { ALLOWED_ATTR, ALLOWED_TAGS, isExternalLink, isSafeUrl, type NewTabPolicy } from './policy.ts';
 
 /** Convierte Markdown en HTML sanitizado. */
 export type MarkdownRenderer = (source: string) => string;
+
+/** El motor de Markdown, con la misma configuración en el render y en `codeBlocks`. */
+function createMarked(): Marked {
+  return new Marked({ gfm: true, async: false });
+}
+
+/** Un bloque de código del Markdown, tal como lo ve el motor del render. */
+export interface CodeBlock {
+  /** La primera palabra del info string (```ts title=x → `ts`); vacío si no hay. */
+  lang: string;
+  /** El texto del bloque, sin el salto de línea final. */
+  text: string;
+}
+
+/**
+ * Los bloques de código del Markdown, en orden de documento. La allowlist quita
+ * `class`, así que el HTML sanitizado no conserva el lenguaje de cada bloque;
+ * quien resalte código lo toma de aquí y lo empareja con el HTML ya
+ * sanitizado. No devuelve HTML.
+ */
+export function codeBlocks(source: string): CodeBlock[] {
+  const markdown = createMarked();
+  const blocks: CodeBlock[] = [];
+  // walkTokens devuelve las promesas de las extensiones async; aquí no hay.
+  void markdown.walkTokens(markdown.lexer(source), (token) => {
+    if (token.type === 'code') {
+      const { lang, text } = token as Tokens.Code;
+      blocks.push({ lang: /^\S*/.exec(lang ?? '')?.[0] ?? '', text: text.replace(/\n$/, '') });
+    }
+  });
+
+  return blocks;
+}
 
 /**
  * Arma el render sobre un DOM concreto: el del navegador o el de jsdom. Las dos
@@ -14,7 +47,7 @@ export type MarkdownRenderer = (source: string) => string;
  * ese momento. `newTab` decide qué links abren en otra pestaña.
  */
 export function createRenderer(window: WindowLike, baseUrl: () => string, newTab: NewTabPolicy): MarkdownRenderer {
-  const markdown = new Marked({ gfm: true, async: false });
+  const markdown = createMarked();
 
   // Instancia propia: los hooks de DOMPurify son globales a cada instancia, y así
   // no afectan a nadie más que use la librería.
