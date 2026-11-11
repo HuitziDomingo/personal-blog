@@ -574,6 +574,8 @@ describe('PostEditorPage con el editor real', () => {
       providers: [
         provideRouter([]),
         { provide: PostsApi, useValue: api },
+        // Como en la ruta /posts/:id.
+        provideFakeWritingAssistant(),
         // jsdom no carga hojas de estilo (ADR-015).
         { provide: MILKDOWN_THEME_LOADER, useValue: { load: () => Promise.resolve() } },
       ],

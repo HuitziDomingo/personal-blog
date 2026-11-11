@@ -28,8 +28,8 @@ export class AssistantError extends Error {
 /**
  * Puerto del asistente de escritura: la interfaz del editor solo conoce esta
  * clase. La implementación se elige al proveerla (hoy, FakeWritingAssistant en
- * las rutas de posts). Un proveedor real irá detrás de la API, con su contrato y
- * su ADR, nunca llamado desde el navegador.
+ * las rutas de posts). El proveedor real va detrás de la API (ADR-021), nunca
+ * llamado desde el navegador; el adaptador HTTP es BLOG-081.
  */
 export abstract class WritingAssistant {
   /** El Markdown con la redacción mejorada. */
