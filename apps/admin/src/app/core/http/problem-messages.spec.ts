@@ -24,6 +24,22 @@ describe('problemMessage', () => {
     expect(problemMessage(new Error('boom'))).toBe('Error inesperado del servidor. Inténtalo de nuevo.');
   });
 
+  it('traduce los errores de la cola de comentarios', () => {
+    const withDetail = (status: number, detail: string) =>
+      new HttpErrorResponse({ status, error: { detail }, headers: new HttpHeaders() });
+
+    expect(problemMessage(httpError(404), 'comment')).toContain('El comentario ya no existe');
+    expect(problemMessage(httpError(400), 'comment')).toContain('entre 1 y 2000 caracteres');
+    expect(problemMessage(withDetail(503, 'comment moderation is disabled'), 'comment')).toContain(
+      'La moderación con IA está desactivada',
+    );
+    expect(problemMessage(withDetail(503, 'comment moderation is unavailable'), 'comment')).toContain(
+      'El análisis no está disponible ahora',
+    );
+    expect(problemMessage(httpError(503), 'comment')).toContain('El análisis no está disponible ahora');
+    expect(problemMessage(httpError(429), 'comment')).toBe('Demasiados intentos. Inténtalo de nuevo más tarde.');
+  });
+
   it('el 429 dice cuánto esperar según Retry-After', () => {
     const wait = (retryAfter: string) => problemMessage(httpError(429, { 'Retry-After': retryAfter }));
 

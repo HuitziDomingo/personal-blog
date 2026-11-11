@@ -22,6 +22,11 @@ export const routes: Routes = [
         path: 'posts',
         loadChildren: () => import('./features/posts/posts.routes').then((m) => m.POSTS_ROUTES),
       },
+      {
+        path: 'comments',
+        title: 'Comentarios · Admin',
+        loadComponent: () => import('./features/comments/comments-queue.page').then((m) => m.CommentsQueuePage),
+      },
       { path: '', pathMatch: 'full', redirectTo: 'posts' },
     ],
   },

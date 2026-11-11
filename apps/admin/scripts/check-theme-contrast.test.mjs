@@ -72,3 +72,10 @@ test('el panel elevado es más oscuro que el fondo en claro y más claro en oscu
     assert.ok(mode === 'light' ? panel < background : panel > background, `${accent}/${mode}`);
   }
 });
+
+test('detecta un color de veredicto sin contraste sobre su tinte', () => {
+  const css = `${STYLES}\n[data-accent='bad'] { --verdict-approve: oklch(0.8 0.1 150); }`;
+  const bad = themes(css).themes.find((theme) => theme.accent === 'bad' && theme.mode === 'light');
+  const verdict = checks(bad).find((row) => row.pair.startsWith('Veredicto approve'));
+  assert.ok(verdict.ratio < verdict.min);
+});
