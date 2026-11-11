@@ -53,7 +53,7 @@ const ACTION_LABELS: Record<AssistantAction, string> = {
     <section aria-labelledby="assistant-title" class="border-input flex flex-col gap-3 rounded-md border p-4">
       <div class="flex flex-col gap-1">
         <h2 id="assistant-title" class="text-base font-semibold">Asistente</h2>
-        <p class="text-muted-foreground text-sm">Sugerencias de ejemplo: todavía no hay ningún modelo conectado.</p>
+        <p class="text-muted-foreground text-sm" data-testid="assistant-notice">{{ notice }}</p>
       </div>
 
       <div class="flex flex-wrap gap-2">
@@ -154,7 +154,9 @@ export class AssistantPanel {
   /** El autor aplicó título, extracto y tags. */
   readonly applyMetadata = output<MetadataSuggestion>();
 
-  protected readonly actions = ACTIONS;
+  /** Sin idea de portada si la implementación no la ofrece (ADR-021, punto 1). */
+  protected readonly actions = ACTIONS.filter((action) => action !== 'cover' || this.assistant.suggestsCover);
+  protected readonly notice = this.assistant.notice;
   protected readonly labels = ACTION_LABELS;
   protected readonly state = signal<PanelState>({ kind: 'idle' });
   protected readonly announcement = signal('');

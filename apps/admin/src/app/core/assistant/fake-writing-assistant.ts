@@ -13,6 +13,9 @@ export const FAKE_ASSISTANT_DELAY_MS = 700;
  */
 @Injectable()
 export class FakeWritingAssistant implements WritingAssistant {
+  readonly suggestsCover = true;
+  readonly notice = 'Sugerencias de ejemplo: todavía no hay ningún modelo conectado.';
+
   improveWriting(draft: DraftInput): Observable<string> {
     return this.answer(draft, () =>
       [

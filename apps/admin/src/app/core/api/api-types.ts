@@ -10,3 +10,6 @@ export type PostSummary = components['schemas']['PostSummary'];
 export type PostPage = components['schemas']['PostPage'];
 export type Post = components['schemas']['Post'];
 export type PostWrite = components['schemas']['PostWrite'];
+export type AssistantDraft = components['schemas']['AssistantDraft'];
+export type ImprovedWriting = components['schemas']['ImprovedWriting'];
+export type AssistantMetadata = components['schemas']['MetadataSuggestion'];

@@ -33,7 +33,7 @@ personal-blog/
 ## Estado
 
 - **API:** autenticación con cookies `HttpOnly` (login, refresh, logout y `/auth/me`), línea base de seguridad de ADR-010, y CRUD de posts: API pública de posts publicados y endpoints de admin para crear, editar, publicar y archivar. Además, un servidor MCP de solo lectura por stdio (ADR-019), sin conectar a ningún cliente, y el backend del asistente de escritura con Gemini (ADR-021): mejorar la redacción y sugerir metadatos, apagado por defecto (`ASSISTANT_ENABLED`).
-- **Admin:** proyecto Angular con sesión, guard de rutas e interceptores de credenciales y refresh, lista de posts en `/posts` con filtro por estado, paginación y archivar, editor de posts WYSIWYG con Milkdown (`/posts/new` y `/posts/:id`) que guarda Markdown, con vista previa sanitizada, y layout con menú lateral u offcanvas, tema claro, oscuro o del sistema y color de acento.
+- **Admin:** proyecto Angular con sesión, guard de rutas e interceptores de credenciales y refresh, lista de posts en `/posts` con filtro por estado, paginación y archivar, editor de posts WYSIWYG con Milkdown (`/posts/new` y `/posts/:id`) que guarda Markdown, con vista previa sanitizada, y layout con menú lateral u offcanvas, tema claro, oscuro o del sistema y color de acento. El editor tiene el panel «Asistente», conectado a la API del asistente y visible solo en development (`ADMIN_ASSISTANT_ENABLED`).
 - **E2E:** Playwright con el flujo crítico de ADR-006 (login, borrador, edición, publicación, API pública y archivo), la contraseña incorrecta y el logout, con `make e2e` contra el stack local en una base temporal. Todavía no corre en el CI.
 - **Web:** Next.js con TypeScript estricto (ADR-017): portafolio con el contenido de la web anterior (inicio, trabajos) y blog con ISR de 60 s, cada post con su Markdown sanitizado en el servidor; modo claro, oscuro y sistema; SEO (canónicas, Open Graph, sitemap, robots y RSS); CSP y cabeceras, y job `web` en el CI. Sin desplegar todavía.
 - **Despliegue:** pendiente; nada está en producción.
@@ -87,7 +87,7 @@ Está apagado por defecto ([ADR-021](docs/adr/021-asistente-de-escritura-con-ia-
 - `GEMINI_API_KEY`: una key de un proyecto de Google **sin facturación** (plan gratuito). Nunca se sube a git.
 - `GEMINI_MODEL`: un modelo incluido en el plan gratuito.
 
-Con `ASSISTANT_ENABLED=true` y sin key o sin modelo, la API no arranca. Un cambio en `.env` exige parar y relanzar la API.
+Con `ASSISTANT_ENABLED=true` y sin key o sin modelo, la API no arranca. Un cambio en `.env` exige parar y relanzar la API. Con el asistente apagado, el panel «Asistente» del editor (en `make admin-dev`) responde «El asistente está desactivado en la API».
 
 Para ver qué modelos puede usar tu key, exporta la key en tu terminal sin escribirla en el comando (por ejemplo con `read -s GEMINI_API_KEY && export GEMINI_API_KEY`) y lista los que admiten `generateContent`:
 
