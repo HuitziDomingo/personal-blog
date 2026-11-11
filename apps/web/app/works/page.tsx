@@ -18,7 +18,7 @@ export default function WorksPage() {
       </Heading>
       <SimpleGrid columns={{ base: 1, md: 2 }} gap="6">
         {works.map((work, index) => (
-          <WorkCard key={work.id} work={work} priority={index < 2} />
+          <WorkCard key={work.id} work={work} priority={index < 2} index={index} />
         ))}
       </SimpleGrid>
     </Stack>

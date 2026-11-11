@@ -4,9 +4,19 @@ import NextLink from 'next/link';
 import type { PostSummary } from '@/lib/api';
 import { formatDate } from '@/lib/format';
 
+import { entrance } from './entrance';
 import { TagList } from './tag-list';
 
-export function PostCard({ post, headingLevel = 'h2' }: { post: PostSummary; headingLevel?: 'h2' | 'h3' }) {
+export function PostCard({
+  post,
+  headingLevel = 'h2',
+  index = 0,
+}: {
+  post: PostSummary;
+  headingLevel?: 'h2' | 'h3';
+  /** Posición en la lista, para escalonar la entrada. */
+  index?: number;
+}) {
   return (
     <LinkBox
       as="article"
@@ -17,6 +27,7 @@ export function PostCard({ post, headingLevel = 'h2' }: { post: PostSummary; hea
       transition="border-color 0.2s, transform 0.2s"
       _hover={{ borderColor: 'brand.accent' }}
       _focusWithin={{ borderColor: 'brand.accent' }}
+      css={entrance(index)}
     >
       <Stack gap="2">
         {post.publishedAt && (

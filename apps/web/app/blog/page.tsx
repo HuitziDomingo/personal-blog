@@ -30,9 +30,9 @@ export default async function BlogPage() {
         <Text color="fg.muted">Todavía no hay posts publicados.</Text>
       ) : (
         <Stack as="ul" listStyleType="none" gap="5">
-          {page.items.map((post) => (
+          {page.items.map((post, index) => (
             <li key={post.id}>
-              <PostCard post={post} />
+              <PostCard post={post} index={index} />
             </li>
           ))}
         </Stack>
