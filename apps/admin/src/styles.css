@@ -44,6 +44,17 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
+
+  /*
+   * Panel elevado (la vista previa del editor): en claro, un poco más oscuro
+   * que el fondo; en oscuro, más claro. Lleva su propio texto secundario y su
+   * fondo de código, porque muted-foreground y muted no cumplen AA o se pierden
+   * sobre él. scripts/check-theme-contrast.mjs lo mide.
+   */
+  --panel: oklch(0.965 0 0);
+  --panel-foreground: oklch(0.145 0 0);
+  --panel-muted-foreground: oklch(0.48 0 0);
+  --panel-code: oklch(0.91 0 0);
 }
 
 :root.dark {
@@ -80,6 +91,11 @@
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
+
+  --panel: oklch(0.25 0 0);
+  --panel-foreground: oklch(0.985 0 0);
+  --panel-muted-foreground: oklch(0.75 0 0);
+  --panel-code: oklch(0.18 0 0);
 }
 
 /*

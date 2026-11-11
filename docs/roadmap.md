@@ -92,6 +92,7 @@
   - Resaltado de sintaxis: en el servidor con Shiki, después de sanitizar. ([#77](https://github.com/HuitziDomingo/personal-blog/pull/77))
 - [ ] BLOG-078: Paginación en `/blog`: hoy muestra los 20 posts más recientes y el resto solo se alcanza desde el sitemap.
 - [ ] BLOG-083: Aplicar Trusted Types en el admin requiere políticas para `vue` y `dompurify` por Milkdown (ADR-018): Vue crea la suya, Crepe trae una segunda instancia de DOMPurify y asigna `innerHTML` a sus íconos. Hoy queda en Report-Only.
+- [x] BLOG-086: Pulido visual del admin: íconos de Lucide en navegación, acciones y estado vacío, y la vista previa del editor como panel elevado con tokens propios verificados en WCAG AA. ([#80](https://github.com/HuitziDomingo/personal-blog/pull/80))
 
 ## Fase futura (fuera del MVP)
 

@@ -154,6 +154,10 @@ export function checks({ vars }) {
     { pair: 'Texto del menú sobre el glass, peor caso', ratio: worstOnGlass(color('--sidebar-foreground')), min: TEXT },
     { pair: 'Link activo (sidebar-accent-foreground / sidebar-accent)', ratio: contrast(color('--sidebar-accent-foreground'), color('--sidebar-accent')), min: TEXT },
     { pair: 'Acento sobre el glass, peor caso', ratio: worstOnGlass(primary), min: NON_TEXT },
+    { pair: 'Texto del panel (panel-foreground / panel)', ratio: contrast(color('--panel-foreground'), color('--panel')), min: TEXT },
+    { pair: 'Texto secundario del panel (panel-muted-foreground / panel)', ratio: contrast(color('--panel-muted-foreground'), color('--panel')), min: TEXT },
+    { pair: 'Código en el panel (panel-foreground / panel-code)', ratio: contrast(color('--panel-foreground'), color('--panel-code')), min: TEXT },
+    { pair: 'Acento sobre el panel (primary / panel)', ratio: contrast(primary, color('--panel')), min: NON_TEXT },
   ];
 }
 

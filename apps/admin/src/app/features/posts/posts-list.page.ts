@@ -11,6 +11,8 @@ import {
 } from '@angular/core';
 import { takeUntilDestroyed, toObservable, toSignal } from '@angular/core/rxjs-interop';
 import { Router, RouterLink } from '@angular/router';
+import { NgIcon, provideIcons } from '@ng-icons/core';
+import { lucideArchive, lucideChevronLeft, lucideChevronRight, lucideInbox, lucidePlus, lucideRotateCw } from '@ng-icons/lucide';
 import { HlmAlertDialogImports } from '@spartan-ng/helm/alert-dialog';
 import { HlmBadgeImports } from '@spartan-ng/helm/badge';
 import { HlmButtonImports } from '@spartan-ng/helm/button';
@@ -38,7 +40,10 @@ type ListState =
  */
 @Component({
   selector: 'app-posts-list-page',
-  imports: [RouterLink, HlmAlertDialogImports, HlmBadgeImports, HlmButtonImports, HlmEmptyImports, HlmTableImports],
+  imports: [RouterLink, NgIcon, HlmAlertDialogImports, HlmBadgeImports, HlmButtonImports, HlmEmptyImports, HlmTableImports],
+  providers: [
+    provideIcons({ lucideArchive, lucideChevronLeft, lucideChevronRight, lucideInbox, lucidePlus, lucideRotateCw }),
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   // flex-1 dentro del <main> en columna: la página ocupa al menos la pantalla
   // bajo la barra superior, y la paginación (mt-auto) queda al final.
@@ -46,7 +51,7 @@ type ListState =
   template: `
     <header class="flex flex-wrap items-center justify-between gap-4">
       <h1 #heading tabindex="-1" class="text-2xl font-semibold outline-none">Posts</h1>
-      <a hlmBtn routerLink="/posts/new">Nuevo post</a>
+      <a hlmBtn routerLink="/posts/new"><ng-icon name="lucidePlus" aria-hidden="true" />Nuevo post</a>
     </header>
 
     <div class="flex flex-wrap items-end gap-2">
@@ -82,7 +87,9 @@ type ListState =
       @case ('error') {
         <div role="alert" class="flex flex-wrap items-center gap-3">
           <p class="text-destructive text-sm">{{ errorMessage() }}</p>
-          <button hlmBtn variant="outline" size="sm" type="button" (click)="retry()">Reintentar</button>
+          <button hlmBtn variant="outline" size="sm" type="button" (click)="retry()">
+            <ng-icon name="lucideRotateCw" aria-hidden="true" />Reintentar
+          </button>
         </div>
       }
       @case ('ready') {
@@ -129,7 +136,7 @@ type ListState =
                           [attr.aria-label]="'Archivar «' + post.title + '»'"
                           (click)="askArchive(post)"
                         >
-                          Archivar
+                          <ng-icon name="lucideArchive" aria-hidden="true" />Archivar
                         </button>
                       }
                     </td>
@@ -143,10 +150,10 @@ type ListState =
             <p class="text-muted-foreground text-sm">{{ rangeLabel() }}</p>
             <div class="flex gap-2">
               <button hlmBtn variant="outline" size="sm" type="button" [disabled]="!hasPrevious()" (click)="goTo(previousOffset())">
-                Anterior
+                <ng-icon name="lucideChevronLeft" aria-hidden="true" />Anterior
               </button>
               <button hlmBtn variant="outline" size="sm" type="button" [disabled]="!hasNext()" (click)="goTo(nextOffset())">
-                Siguiente
+                Siguiente<ng-icon name="lucideChevronRight" aria-hidden="true" />
               </button>
             </div>
           </nav>
@@ -155,6 +162,7 @@ type ListState =
                hasta el fondo; el estado vacío sigue justo bajo el filtro. -->
           <section hlmEmpty class="flex-none" aria-labelledby="empty-title">
             <div hlmEmptyHeader>
+              <div hlmEmptyMedia variant="icon" aria-hidden="true"><ng-icon name="lucideInbox" /></div>
               <h2 hlmEmptyTitle id="empty-title">{{ emptyTitle() }}</h2>
               <p hlmEmptyDescription>{{ emptyDescription() }}</p>
             </div>

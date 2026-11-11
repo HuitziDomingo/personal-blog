@@ -14,6 +14,15 @@ import {
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { NonNullableFormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
+import { NgIcon, provideIcons } from '@ng-icons/core';
+import {
+  lucideArchive,
+  lucideArchiveRestore,
+  lucideArrowLeft,
+  lucideEyeOff,
+  lucideSave,
+  lucideSend,
+} from '@ng-icons/lucide';
 import { HlmAlertDialogImports } from '@spartan-ng/helm/alert-dialog';
 import { HlmBadgeImports } from '@spartan-ng/helm/badge';
 import { HlmButtonImports } from '@spartan-ng/helm/button';
@@ -32,7 +41,7 @@ import { createPostForm, formValueOf, isSlugEditable, POST_LIMITS, toPostWrite }
 /** Valor del parámetro `:id` para crear un post. */
 export const NEW_POST_ID = 'new';
 
-type Action = { label: string; status: PostStatus; variant: 'default' | 'outline' };
+type Action = { label: string; status: PostStatus; variant: 'default' | 'outline'; icon: string };
 
 /** Aviso al guardar, según el estado anterior (null si es nuevo) y el nuevo. */
 function savedNotice(before: PostStatus | null, after: PostStatus): string {
@@ -63,6 +72,7 @@ const SLUG_CONFLICTS: Record<string, string> = {
   imports: [
     ReactiveFormsModule,
     RouterLink,
+    NgIcon,
     MarkdownEditor,
     HlmAlertDialogImports,
     HlmBadgeImports,
@@ -71,6 +81,7 @@ const SLUG_CONFLICTS: Record<string, string> = {
     HlmInputImports,
     HlmTextareaImports,
   ],
+  providers: [provideIcons({ lucideArchive, lucideArchiveRestore, lucideArrowLeft, lucideEyeOff, lucideSave, lucideSend })],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: {
     class: 'mx-auto flex w-full max-w-6xl flex-col gap-6 p-4 sm:p-6',
@@ -78,7 +89,7 @@ const SLUG_CONFLICTS: Record<string, string> = {
   },
   template: `
     <header class="flex flex-wrap items-center gap-3">
-      <a hlmBtn variant="ghost" size="sm" routerLink="/posts">← Posts</a>
+      <a hlmBtn variant="ghost" size="sm" routerLink="/posts"><ng-icon name="lucideArrowLeft" aria-hidden="true" />Posts</a>
       <h1 #heading tabindex="-1" class="text-2xl font-semibold outline-none">
         {{ isNew() ? 'Nuevo post' : 'Editar post' }}
       </h1>
@@ -200,12 +211,12 @@ const SLUG_CONFLICTS: Record<string, string> = {
               [disabled]="saving()"
               (click)="action === primaryAction() ? null : save(action.status)"
             >
-              {{ action.label }}
+              <ng-icon [name]="action.icon" aria-hidden="true" />{{ action.label }}
             </button>
           }
           @if (post() && post()!.status !== 'archived') {
             <button hlmBtn variant="destructive" type="button" class="ml-auto" [disabled]="saving()" (click)="archiveOpen.set(true)">
-              Archivar
+              <ng-icon name="lucideArchive" aria-hidden="true" />Archivar
             </button>
           }
         </div>
@@ -301,18 +312,18 @@ export class PostEditorPage {
     switch (this.post()?.status) {
       case 'published':
         return [
-          { label: 'Guardar cambios', status: 'published', variant: 'default' },
-          { label: 'Despublicar', status: 'draft', variant: 'outline' },
+          { label: 'Guardar cambios', status: 'published', variant: 'default', icon: 'lucideSave' },
+          { label: 'Despublicar', status: 'draft', variant: 'outline', icon: 'lucideEyeOff' },
         ];
       case 'archived':
         return [
-          { label: 'Restaurar como borrador', status: 'draft', variant: 'default' },
-          { label: 'Publicar', status: 'published', variant: 'outline' },
+          { label: 'Restaurar como borrador', status: 'draft', variant: 'default', icon: 'lucideArchiveRestore' },
+          { label: 'Publicar', status: 'published', variant: 'outline', icon: 'lucideSend' },
         ];
       default:
         return [
-          { label: 'Guardar borrador', status: 'draft', variant: 'default' },
-          { label: 'Publicar', status: 'published', variant: 'outline' },
+          { label: 'Guardar borrador', status: 'draft', variant: 'default', icon: 'lucideSave' },
+          { label: 'Publicar', status: 'published', variant: 'outline', icon: 'lucideSend' },
         ];
     }
   });

@@ -1,5 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { Router, RouterLink, RouterLinkActive } from '@angular/router';
+import { NgIcon, provideIcons } from '@ng-icons/core';
+import { lucideFileText, lucideLogOut, lucidePalette, lucideSquarePen, lucideUser } from '@ng-icons/lucide';
 import { HlmButtonImports } from '@spartan-ng/helm/button';
 import { HlmLabelImports } from '@spartan-ng/helm/label';
 import { HlmRadioGroupImports } from '@spartan-ng/helm/radio-group';
@@ -16,7 +18,8 @@ import { ThemeService } from '../theme/theme.service';
  */
 @Component({
   selector: 'app-admin-nav',
-  imports: [RouterLink, RouterLinkActive, HlmButtonImports, HlmLabelImports, HlmRadioGroupImports],
+  imports: [RouterLink, RouterLinkActive, NgIcon, HlmButtonImports, HlmLabelImports, HlmRadioGroupImports],
+  providers: [provideIcons({ lucideFileText, lucideLogOut, lucidePalette, lucideSquarePen, lucideUser })],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'flex flex-col gap-6' },
   template: `
@@ -25,12 +28,12 @@ import { ThemeService } from '../theme/theme.service';
         @for (link of links; track link.path) {
           <li>
             <a
-              class="text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-ring/50 flex h-9 items-center rounded-md border-s-4 border-transparent px-3 text-sm font-medium outline-none focus-visible:ring-3"
+              class="text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-ring/50 flex h-9 items-center gap-2 rounded-md border-s-4 border-transparent px-3 text-sm font-medium outline-none focus-visible:ring-3"
               [routerLink]="link.path"
               routerLinkActive="bg-sidebar-accent text-sidebar-accent-foreground !border-sidebar-primary"
               [routerLinkActiveOptions]="exactPath"
               ariaCurrentWhenActive="page"
-              >{{ link.label }}</a
+              ><ng-icon [name]="link.icon" size="1rem" aria-hidden="true" />{{ link.label }}</a
             >
           </li>
         }
@@ -40,19 +43,21 @@ import { ThemeService } from '../theme/theme.service';
     <section aria-labelledby="perfil-titulo" class="flex flex-col gap-4 border-t pt-4">
       <!-- Sin text-muted-foreground: el menú también va sobre el glass del
            offcanvas, donde no cumple AA (scripts/check-theme-contrast.mjs). -->
-      <h2 id="perfil-titulo" class="px-3 text-xs font-semibold tracking-wide uppercase">
-        Perfil
+      <h2 id="perfil-titulo" class="flex items-center gap-2 px-3 text-xs font-semibold tracking-wide uppercase">
+        <ng-icon name="lucideUser" size="0.875rem" aria-hidden="true" />Perfil
       </h2>
 
       <div class="flex flex-col gap-2 px-3">
         <p class="truncate text-sm font-medium" [title]="email() ?? ''">{{ email() }}</p>
         <button hlmBtn variant="outline" size="sm" type="button" [disabled]="loggingOut()" (click)="logout()">
-          Cerrar sesión
+          <ng-icon name="lucideLogOut" aria-hidden="true" />Cerrar sesión
         </button>
       </div>
 
       <div class="flex flex-col gap-4 px-3">
-        <h3 class="text-sm font-semibold">Apariencia</h3>
+        <h3 class="flex items-center gap-2 text-sm font-semibold">
+          <ng-icon name="lucidePalette" size="1rem" aria-hidden="true" />Apariencia
+        </h3>
 
         <div class="flex flex-col gap-2">
           <span id="tema-titulo" class="text-xs font-semibold">Tema</span>
@@ -106,8 +111,8 @@ export class AdminNav {
   private readonly router = inject(Router);
 
   protected readonly links = [
-    { path: '/posts', label: 'Posts' },
-    { path: '/posts/new', label: 'Nuevo post' },
+    { path: '/posts', label: 'Posts', icon: 'lucideFileText' },
+    { path: '/posts/new', label: 'Nuevo post', icon: 'lucideSquarePen' },
   ] as const;
 
   // Exacto en el path, pero sin mirar la query: /posts?status=draft sigue

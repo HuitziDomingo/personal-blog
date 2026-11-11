@@ -15,6 +15,8 @@ import {
   ViewEncapsulation,
 } from '@angular/core';
 
+import { NgIcon, provideIcons } from '@ng-icons/core';
+import { lucideEye } from '@ng-icons/lucide';
 import { renderMarkdown } from '@personal-blog/markdown';
 
 import type { MilkdownHandle } from './milkdown';
@@ -51,6 +53,8 @@ type EditorState = 'loading' | 'ready' | 'error';
  */
 @Component({
   selector: 'app-markdown-editor',
+  imports: [NgIcon],
+  providers: [provideIcons({ lucideEye })],
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
   styleUrl: './markdown-editor.css',
@@ -82,9 +86,11 @@ type EditorState = 'loading' | 'ready' | 'error';
       </div>
 
       <section class="flex min-w-0 flex-col gap-2" [attr.aria-labelledby]="inputId() + '-preview'">
-        <h2 class="text-sm font-medium" [id]="inputId() + '-preview'">Vista previa</h2>
+        <h2 class="flex items-center gap-2 text-sm font-medium" [id]="inputId() + '-preview'">
+          <ng-icon name="lucideEye" size="1rem" aria-hidden="true" />Vista previa
+        </h2>
         <div
-          class="preview border-input min-h-96 overflow-auto rounded-md border p-4 text-sm"
+          class="preview min-h-96 overflow-auto rounded-lg border p-4 text-sm"
           [innerHTML]="html()"
         ></div>
       </section>
