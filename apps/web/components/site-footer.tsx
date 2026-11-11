@@ -3,6 +3,7 @@ import NextLink from 'next/link';
 
 import { profile, socialLinks } from '@/lib/site';
 
+import { SocialIcon } from './brand-icons';
 import { ExternalLink } from './external-link';
 import { RssIcon } from './icons';
 
@@ -14,7 +15,10 @@ export function SiteFooter() {
           <HStack as="ul" listStyleType="none" gap="4" wrap="wrap" fontSize="sm" aria-label="Redes">
             {socialLinks.map((link) => (
               <li key={link.network}>
-                <ExternalLink href={link.href}>{link.network}</ExternalLink>
+                <ExternalLink href={link.href} display="inline-flex" alignItems="center" gap="1.5">
+                  <SocialIcon network={link.network} />
+                  {link.network}
+                </ExternalLink>
               </li>
             ))}
           </HStack>
