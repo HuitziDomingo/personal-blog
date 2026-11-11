@@ -607,6 +607,39 @@ paths:
         default:
           $ref: "#/components/responses/UnexpectedError"
 
+  /api/v1/admin/comments/{id}/analyze:
+    parameters:
+      - $ref: "#/components/parameters/CommentId"
+    post:
+      tags: [admin-comments]
+      operationId: analyzeComment
+      summary: Pide de nuevo el análisis de un comentario.
+      description: >-
+        Vuelve a pedir al clasificador su sugerencia (ADR-022, punto 5) y la
+        guarda en `moderation`, reemplazando la anterior. No cambia el estado
+        del comentario: el autor sigue decidiendo.
+      security:
+        - accessCookie: []
+      responses:
+        "200":
+          description: Comentario con el análisis nuevo.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Comment"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "503":
+          $ref: "#/components/responses/ModerationUnavailable"
+        default:
+          $ref: "#/components/responses/UnexpectedError"
+
 components:
   securitySchemes:
     accessCookie:
@@ -733,6 +766,16 @@ components:
         El asistente está desactivado (ASSISTANT_ENABLED=false), el proveedor
         falló o agotó su cuota, o devolvió una sugerencia que no cumple las
         reglas. `detail` dice cuál.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+    ModerationUnavailable:
+      description: >-
+        La moderación con LLM está desactivada
+        (`detail`: "comment moderation is disabled") o el clasificador falló,
+        agotó su tiempo o devolvió una salida inválida
+        (`detail`: "comment moderation is unavailable").
       content:
         application/problem+json:
           schema:
@@ -1115,6 +1158,14 @@ components:
           type: string
         postId:
           type: string
+        postTitle:
+          type: string
+          description: >-
+            Título actual del post, para la cola de moderación. Falta si el
+            post ya no existe.
+        postSlug:
+          type: string
+          description: Slug actual del post. Falta si el post ya no existe.
         parentId:
           type: string
         name:

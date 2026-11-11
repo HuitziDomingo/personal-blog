@@ -308,6 +308,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/comments/{id}/analyze": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identificador del comentario. */
+                id: components["parameters"]["CommentId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Pide de nuevo el análisis de un comentario.
+         * @description Vuelve a pedir al clasificador su sugerencia (ADR-022, punto 5) y la guarda en `moderation`, reemplazando la anterior. No cambia el estado del comentario: el autor sigue decidiendo.
+         */
+        post: operations["analyzeComment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -496,6 +519,10 @@ export interface components {
         Comment: {
             id: string;
             postId: string;
+            /** @description Título actual del post, para la cola de moderación. Falta si el post ya no existe. */
+            postTitle?: string;
+            /** @description Slug actual del post. Falta si el post ya no existe. */
+            postSlug?: string;
             parentId?: string;
             name: string;
             /** @description Texto no confiable. Se escapa al mostrarlo. */
@@ -589,6 +616,15 @@ export interface components {
         };
         /** @description El asistente está desactivado (ASSISTANT_ENABLED=false), el proveedor falló o agotó su cuota, o devolvió una sugerencia que no cumple las reglas. `detail` dice cuál. */
         AssistantUnavailable: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["Problem"];
+            };
+        };
+        /** @description La moderación con LLM está desactivada (`detail`: "comment moderation is disabled") o el clasificador falló, agotó su tiempo o devolvió una salida inválida (`detail`: "comment moderation is unavailable"). */
+        ModerationUnavailable: {
             headers: {
                 [name: string]: unknown;
             };
@@ -1183,6 +1219,35 @@ export interface operations {
             404: components["responses"]["NotFound"];
             413: components["responses"]["PayloadTooLarge"];
             429: components["responses"]["TooManyRequests"];
+            default: components["responses"]["UnexpectedError"];
+        };
+    };
+    analyzeComment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identificador del comentario. */
+                id: components["parameters"]["CommentId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Comentario con el análisis nuevo. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Comment"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["TooManyRequests"];
+            503: components["responses"]["ModerationUnavailable"];
             default: components["responses"]["UnexpectedError"];
         };
     };

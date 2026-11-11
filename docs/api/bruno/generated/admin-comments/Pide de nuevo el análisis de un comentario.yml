@@ -1,0 +1,256 @@
+info:
+  name: Pide de nuevo el análisis de un comentario
+  type: http
+  seq: 5
+  tags:
+    - admin-comments
+
+http:
+  method: POST
+  url: "{{baseUrl}}/api/v1/admin/comments/:id/analyze"
+  headers:
+    - name: access_token
+      value: "{{apiKey}}"
+      description: Token de acceso JWT, en cookie HttpOnly (ADR-005).
+  params:
+    - name: id
+      value: ""
+      type: path
+      description: Identificador del comentario.
+  auth:
+    type: apikey
+    key: access_token
+    value: "{{apiKey}}"
+    placement: header
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: true
+
+examples:
+  - name: 200 Response
+    description: Comentario con el análisis nuevo.
+    request:
+      url: "{{baseUrl}}/api/v1/admin/comments/:id/analyze"
+      method: POST
+      headers:
+        - name: access_token
+          value: "{{apiKey}}"
+          description: Token de acceso JWT, en cookie HttpOnly (ADR-005).
+      params:
+        - name: id
+          value: ""
+          type: path
+          description: Identificador del comentario.
+    response:
+      status: 200
+      statusText: OK
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "id": "",
+            "postId": "",
+            "postTitle": "",
+            "postSlug": "",
+            "parentId": "",
+            "name": "",
+            "content": "",
+            "status": "pending",
+            "byAuthor": false,
+            "moderation": {
+              "verdict": "approve",
+              "category": "none",
+              "reason": "",
+              "model": "",
+              "analyzedAt": ""
+            },
+            "createdAt": "",
+            "reviewedAt": ""
+          }
+  - name: 401 Response
+    description: Faltan credenciales o no son válidas.
+    request:
+      url: "{{baseUrl}}/api/v1/admin/comments/:id/analyze"
+      method: POST
+      headers:
+        - name: access_token
+          value: "{{apiKey}}"
+          description: Token de acceso JWT, en cookie HttpOnly (ADR-005).
+      params:
+        - name: id
+          value: ""
+          type: path
+          description: Identificador del comentario.
+    response:
+      status: 401
+      statusText: Unauthorized
+      headers:
+        - name: Content-Type
+          value: application/problem+json
+      body:
+        type: json
+        data: |-
+          {
+            "type": "",
+            "title": "",
+            "status": 0,
+            "detail": "",
+            "instance": ""
+          }
+  - name: 403 Response
+    description: Las credenciales no dan permiso, o el Origin está fuera de la allowlist.
+    request:
+      url: "{{baseUrl}}/api/v1/admin/comments/:id/analyze"
+      method: POST
+      headers:
+        - name: access_token
+          value: "{{apiKey}}"
+          description: Token de acceso JWT, en cookie HttpOnly (ADR-005).
+      params:
+        - name: id
+          value: ""
+          type: path
+          description: Identificador del comentario.
+    response:
+      status: 403
+      statusText: Forbidden
+      headers:
+        - name: Content-Type
+          value: application/problem+json
+      body:
+        type: json
+        data: |-
+          {
+            "type": "",
+            "title": "",
+            "status": 0,
+            "detail": "",
+            "instance": ""
+          }
+  - name: 404 Response
+    description: El recurso no existe.
+    request:
+      url: "{{baseUrl}}/api/v1/admin/comments/:id/analyze"
+      method: POST
+      headers:
+        - name: access_token
+          value: "{{apiKey}}"
+          description: Token de acceso JWT, en cookie HttpOnly (ADR-005).
+      params:
+        - name: id
+          value: ""
+          type: path
+          description: Identificador del comentario.
+    response:
+      status: 404
+      statusText: Not Found
+      headers:
+        - name: Content-Type
+          value: application/problem+json
+      body:
+        type: json
+        data: |-
+          {
+            "type": "",
+            "title": "",
+            "status": 0,
+            "detail": "",
+            "instance": ""
+          }
+  - name: 429 Response
+    description: Se superó el límite de peticiones de la IP, o el de logins fallidos del email.
+    request:
+      url: "{{baseUrl}}/api/v1/admin/comments/:id/analyze"
+      method: POST
+      headers:
+        - name: access_token
+          value: "{{apiKey}}"
+          description: Token de acceso JWT, en cookie HttpOnly (ADR-005).
+      params:
+        - name: id
+          value: ""
+          type: path
+          description: Identificador del comentario.
+    response:
+      status: 429
+      statusText: Too Many Requests
+      headers:
+        - name: Content-Type
+          value: application/problem+json
+      body:
+        type: json
+        data: |-
+          {
+            "type": "",
+            "title": "",
+            "status": 0,
+            "detail": "",
+            "instance": ""
+          }
+  - name: 503 Response
+    description: 'La moderación con LLM está desactivada (`detail`: "comment moderation is disabled") o el clasificador falló, agotó su tiempo o devolvió una salida inválida (`detail`: "comment moderation is unavailable").'
+    request:
+      url: "{{baseUrl}}/api/v1/admin/comments/:id/analyze"
+      method: POST
+      headers:
+        - name: access_token
+          value: "{{apiKey}}"
+          description: Token de acceso JWT, en cookie HttpOnly (ADR-005).
+      params:
+        - name: id
+          value: ""
+          type: path
+          description: Identificador del comentario.
+    response:
+      status: 503
+      statusText: Service Unavailable
+      headers:
+        - name: Content-Type
+          value: application/problem+json
+      body:
+        type: json
+        data: |-
+          {
+            "type": "",
+            "title": "",
+            "status": 0,
+            "detail": "",
+            "instance": ""
+          }
+  - name: default Response
+    description: Error inesperado.
+    request:
+      url: "{{baseUrl}}/api/v1/admin/comments/:id/analyze"
+      method: POST
+      headers:
+        - name: access_token
+          value: "{{apiKey}}"
+          description: Token de acceso JWT, en cookie HttpOnly (ADR-005).
+      params:
+        - name: id
+          value: ""
+          type: path
+          description: Identificador del comentario.
+    response:
+      headers:
+        - name: Content-Type
+          value: application/problem+json
+      body:
+        type: json
+        data: |-
+          {
+            "type": "",
+            "title": "",
+            "status": 0,
+            "detail": "",
+            "instance": ""
+          }
+
+docs: "Vuelve a pedir al clasificador su sugerencia (ADR-022, punto 5) y la guarda en `moderation`, reemplazando la anterior. No cambia el estado del comentario: el autor sigue decidiendo."

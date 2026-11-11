@@ -181,3 +181,12 @@ func isCommentSubmission(method, path string) bool {
 
 	return ok && strings.HasPrefix(path, postsPathPrefix) && slug != "" && !strings.Contains(slug, "/")
 }
+
+// AnalyzeComment pide de nuevo la sugerencia del clasificador.
+func (s server) AnalyzeComment(ctx context.Context, _ gen.AnalyzeCommentRequestObject) (gen.AnalyzeCommentResponseObject, error) {
+	if _, err := requireAdmin(ctx); err != nil {
+		return nil, err
+	}
+
+	return nil, errNotImplemented
+}
