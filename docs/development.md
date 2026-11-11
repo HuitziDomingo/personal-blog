@@ -315,7 +315,7 @@ make web-test       # Vitest de lib/
 - **Rutas:**
   - `/`: portada (presentación, acerca de mí, biografía, últimos 3 posts y redes).
   - `/works` y `/works/[id]`: trabajos, estáticos, con el contenido de `lib/site.ts`. Un id que no está ahí da 404.
-  - `/blog` y `/blog/[slug]`: lista de posts y cada post. `/posts` y `/posts/[slug]` redirigen (308) a `/blog`.
+  - `/blog`, `/blog/page/[n]` y `/blog/[slug]`: lista de posts paginada de 20 en 20 y cada post. La página 1 es `/blog` (`/blog/page/1` redirige con 308) y cada página tiene su canónica; una página fuera de rango responde 404. `/posts` y `/posts/[slug]` redirigen (308) a `/blog`.
   - `/sitemap.xml`, `/robots.txt` y `/feed.xml` (RSS de los últimos 20 publicados), con ISR de 60 s. `/og.png` es la imagen Open Graph por defecto, generada en el build.
 - **Contenido** (`lib/site.ts`): textos, trabajos y redes de la web anterior. Las imágenes van en `assets/img/` (importadas con `next/image`) y las de los posts en `public/img/blog/`. Los 2 artículos de la web anterior están en `docs/web/posts-migrados/`, listos para crearlos desde el admin.
 - **Tema** (`components/theme/system.ts` y `lib/brand.ts`): colores de la marca con contraste AA (lo comprueba `lib/brand.test.ts`). El modo claro, oscuro o sistema lo aplica un script inline en `<head>` (`lib/color-mode.ts`) antes de pintar; la CSP de ADR-017 lo permite sin nonces.
@@ -329,6 +329,7 @@ make web-test       # Vitest de lib/
   - `WEB_PRERENDER_LIMIT` (por defecto `10`): posts que el build pregenera (ADR-020). Debe quedar por debajo de la ráfaga anónima de la API (20) menos las listas; un valor que no sea un entero no negativo hace fallar el build.
 - **ISR:**
   - `/`, `/blog`, el sitemap y el RSS se regeneran como mucho cada 60 s, y comparten las peticiones a la API con la caché de Next.
+  - `/blog/page/[n]` no se pregenera, para no sumar peticiones al build (ADR-020): cada página se genera en su primera visita y se regenera como mucho cada 60 s.
   - `/blog/[slug]` pregenera los N posts más recientes (`WEB_PRERENDER_LIMIT`, por defecto 10; ADR-020). El resto se genera en su primera visita y queda en caché.
   - Un post recién publicado tarda hasta un minuto en aparecer en `/`. Mientras la caché esté vieja, la primera visita sirve la versión anterior y dispara la regeneración.
 - **Riesgos de ADR-017 y cómo se resuelven:**
