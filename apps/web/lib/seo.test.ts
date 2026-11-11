@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { coverImage, DEFAULT_OG_IMAGE, pageMetadata, robotsConfig, RSS_ALTERNATE, sitemapEntries } from './seo';
+import { coverImage, DEFAULT_OG_IMAGE, EN_OG_IMAGE, hreflang, pageMetadata, robotsConfig, RSS_ALTERNATE, sitemapEntries } from './seo';
 
 const SITE = 'https://huitzi.xyz';
 
@@ -53,26 +53,78 @@ describe('pageMetadata', () => {
   });
 });
 
+describe('hreflang', () => {
+  it('lists both languages and x-default in Spanish for a portfolio page', () => {
+    expect(hreflang({ path: '/en/works', locale: 'en', languages: { es: '/works', en: '/en/works' } })).toEqual({
+      es: '/works',
+      en: '/en/works',
+      'x-default': '/works',
+    });
+  });
+
+  it('declares only Spanish for a page that exists only in Spanish', () => {
+    expect(hreflang({ path: '/blog' })).toEqual({ es: '/blog', 'x-default': '/blog' });
+  });
+});
+
+describe('pageMetadata by language', () => {
+  it('uses the English Open Graph locale and image for an English page', () => {
+    const meta = pageMetadata({
+      title: 'Works',
+      description: 'd',
+      path: '/en/works',
+      locale: 'en',
+      ogLocale: 'en_US',
+      languages: { es: '/works', en: '/en/works' },
+    });
+    expect(meta.alternates?.canonical).toBe('/en/works');
+    expect(meta.alternates?.languages).toEqual({ es: '/works', en: '/en/works', 'x-default': '/works' });
+    expect(meta.openGraph).toMatchObject({ locale: 'en_US', images: [EN_OG_IMAGE] });
+  });
+});
+
 describe('sitemapEntries', () => {
-  it('lists fixed pages, works and posts with absolute URLs', () => {
+  it('lists the portfolio in both languages, the blog and its posts', () => {
     const entries = sitemapEntries('https://huitzi.xyz/', ['debred'], [
       { slug: 'b', updatedAt: '2026-11-02T00:00:00Z' },
       { slug: 'a', updatedAt: '2026-11-05T00:00:00Z' },
     ]);
     expect(entries.map((entry) => entry.url)).toEqual([
       'https://huitzi.xyz/',
+      'https://huitzi.xyz/en',
       'https://huitzi.xyz/blog',
       'https://huitzi.xyz/works',
+      'https://huitzi.xyz/en/works',
       'https://huitzi.xyz/works/debred',
+      'https://huitzi.xyz/en/works/debred',
       'https://huitzi.xyz/blog/b',
       'https://huitzi.xyz/blog/a',
     ]);
-    expect(entries[1]?.lastModified).toBe('2026-11-05T00:00:00Z');
-    expect(entries[5]?.lastModified).toBe('2026-11-05T00:00:00Z');
+    const blog = entries.find((entry) => entry.url === 'https://huitzi.xyz/blog');
+    expect(blog?.lastModified).toBe('2026-11-05T00:00:00Z');
+    expect(blog).not.toHaveProperty('alternates');
+    expect(entries.at(-1)?.lastModified).toBe('2026-11-05T00:00:00Z');
+  });
+
+  it('gives each portfolio page its alternates, with x-default in Spanish', () => {
+    const entries = sitemapEntries(SITE, ['debred'], []);
+    const languages = {
+      es: 'https://huitzi.xyz/works/debred',
+      en: 'https://huitzi.xyz/en/works/debred',
+      'x-default': 'https://huitzi.xyz/works/debred',
+    };
+    expect(entries.find((entry) => entry.url === languages.es)?.alternates).toEqual({ languages });
+    expect(entries.find((entry) => entry.url === languages.en)?.alternates).toEqual({ languages });
+    expect(entries[0]?.alternates?.languages).toEqual({
+      es: 'https://huitzi.xyz/',
+      en: 'https://huitzi.xyz/en',
+      'x-default': 'https://huitzi.xyz/',
+    });
   });
 
   it('omits the blog date without posts', () => {
-    expect(sitemapEntries(SITE, [], [])[1]).not.toHaveProperty('lastModified');
+    const blog = sitemapEntries(SITE, [], []).find((entry) => entry.url === `${SITE}/blog`);
+    expect(blog).not.toHaveProperty('lastModified');
   });
 });
 

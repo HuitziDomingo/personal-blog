@@ -1,12 +1,10 @@
 import { Button, Heading, Separator, Stack, Text } from '@chakra-ui/react';
-import type { Metadata } from 'next';
 import NextLink from 'next/link';
 
 import { glassTeal, palette } from '@/lib/brand';
 
-export const metadata: Metadata = { title: 'No encontrado', robots: { index: false } };
-
-export default function NotFound() {
+/** 404 del sitio, en español (el idioma por defecto, ADR-024). */
+export function NotFoundView() {
   return (
     <Stack gap="4" maxW="3xl" mx="auto">
       <Heading as="h1" fontSize={{ base: '3xl', md: '4xl' }} fontWeight="800">

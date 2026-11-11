@@ -1,5 +1,7 @@
 import type { Metadata } from 'next';
 
+import { localizedPath } from './content/routes';
+import type { Locale } from './content/types';
 import { profile } from './site';
 
 /**
@@ -11,11 +13,23 @@ export const RSS_ALTERNATE = { 'application/rss+xml': [{ url: '/feed.xml', title
 /** Imagen Open Graph por defecto (app/og.png/route.tsx), 1200 × 630. */
 export const DEFAULT_OG_IMAGE = { url: '/og.png', width: 1200, height: 630, alt: profile.name } as const;
 
+/** La misma imagen con la descripción en inglés (app/(en)/en/og.png/route.tsx). */
+export const EN_OG_IMAGE = { ...DEFAULT_OG_IMAGE, url: '/en/og.png' } as const;
+
 export interface PageSeo {
   title: string;
   description: string;
   /** Ruta canónica, empezando por `/`. */
   path: string;
+  /** Idioma de la página; por defecto, español. */
+  locale?: Locale;
+  /**
+   * La misma página en cada idioma, para `hreflang` (ADR-024, punto 5). Sin
+   * esto, la página solo existe en su idioma (el blog).
+   */
+  languages?: Readonly<Record<Locale, string>>;
+  /** Locale de Open Graph; por defecto, `es_MX`. */
+  ogLocale?: string;
   type?: 'website' | 'article';
   image?: { url: string; alt: string };
   publishedTime?: string;
@@ -30,19 +44,19 @@ export interface PageSeo {
  * `metadataBase` del layout.
  */
 export function pageMetadata(seo: PageSeo): Metadata {
-  const image = seo.image ?? DEFAULT_OG_IMAGE;
+  const image = seo.image ?? (seo.locale === 'en' ? EN_OG_IMAGE : DEFAULT_OG_IMAGE);
   const isArticle = seo.type === 'article';
 
   return {
     title: seo.title,
     description: seo.description,
-    alternates: { canonical: seo.path, types: RSS_ALTERNATE },
+    alternates: { canonical: seo.path, languages: hreflang(seo), types: RSS_ALTERNATE },
     openGraph: {
       title: seo.title,
       description: seo.description,
       url: seo.path,
       siteName: profile.shortName,
-      locale: 'es_MX',
+      locale: seo.ogLocale ?? 'es_MX',
       images: [image],
       ...(isArticle
         ? {
@@ -61,6 +75,17 @@ export function pageMetadata(seo: PageSeo): Metadata {
       images: [image.url],
     },
   };
+}
+
+/**
+ * Alternativas `hreflang` de una página: cada idioma en que existe, más
+ * `x-default` hacia el español (ADR-024, punto 5).
+ */
+export function hreflang(seo: Pick<PageSeo, 'path' | 'locale' | 'languages'>): Record<string, string> {
+  const languages = seo.languages ?? { [seo.locale ?? 'es']: seo.path };
+  const spanish = languages['es'];
+
+  return { ...languages, ...(spanish ? { 'x-default': spanish } : {}) };
 }
 
 /**
@@ -86,9 +111,15 @@ export interface SitemapEntry {
   lastModified?: string;
   changeFrequency?: 'daily' | 'weekly' | 'monthly' | 'yearly';
   priority?: number;
+  /** La misma página en cada idioma (ADR-024, punto 5). */
+  alternates?: { languages: Record<string, string> };
 }
 
-/** Páginas fijas, trabajos y posts publicados, con URLs absolutas. */
+/**
+ * Páginas fijas, trabajos y posts publicados, con URLs absolutas. Las páginas
+ * del portafolio van en los dos idiomas, cada una con sus alternativas; el
+ * blog solo en español (ADR-024, puntos 1 y 5).
+ */
 export function sitemapEntries(
   site: string,
   workIds: readonly string[],
@@ -97,11 +128,26 @@ export function sitemapEntries(
   const base = site.replace(/\/+$/, '');
   const lastPost = posts.map((post) => post.updatedAt).sort().at(-1);
 
+  const bothLanguages = (
+    path: string,
+    changeFrequency: NonNullable<SitemapEntry['changeFrequency']>,
+    priority: number,
+  ): SitemapEntry[] => {
+    const spanish = path === '/' ? `${base}/` : `${base}${path}`;
+    const english = `${base}${localizedPath('en', path)}`;
+    const alternates = { languages: { es: spanish, en: english, 'x-default': spanish } };
+
+    return [
+      { url: spanish, changeFrequency, priority, alternates },
+      { url: english, changeFrequency, priority, alternates },
+    ];
+  };
+
   return [
-    { url: `${base}/`, changeFrequency: 'weekly', priority: 1 },
+    ...bothLanguages('/', 'weekly', 1),
     { url: `${base}/blog`, changeFrequency: 'daily', priority: 0.9, ...(lastPost ? { lastModified: lastPost } : {}) },
-    { url: `${base}/works`, changeFrequency: 'yearly', priority: 0.6 },
-    ...workIds.map((id) => ({ url: `${base}/works/${id}`, changeFrequency: 'yearly' as const, priority: 0.5 })),
+    ...bothLanguages('/works', 'yearly', 0.6),
+    ...workIds.flatMap((id) => bothLanguages(`/works/${id}`, 'yearly', 0.5)),
     ...posts.map((post) => ({
       url: `${base}/blog/${post.slug}`,
       lastModified: post.updatedAt,

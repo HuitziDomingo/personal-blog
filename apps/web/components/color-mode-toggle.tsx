@@ -5,12 +5,16 @@ import { useEffect, useState } from 'react';
 
 import { COLOR_MODE_KEY, type ColorModePreference, readPreference, resolveMode } from '@/lib/color-mode';
 
+import type { SiteContent } from '@/lib/content/types';
+
 import { MonitorIcon, MoonIcon, SunIcon } from './icons';
 
-const OPTIONS: { value: ColorModePreference; label: string; icon: typeof SunIcon }[] = [
-  { value: 'light', label: 'Claro', icon: SunIcon },
-  { value: 'dark', label: 'Oscuro', icon: MoonIcon },
-  { value: 'system', label: 'Sistema', icon: MonitorIcon },
+type Labels = SiteContent['ui']['colorMode'];
+
+const OPTIONS: { value: ColorModePreference; icon: typeof SunIcon }[] = [
+  { value: 'light', icon: SunIcon },
+  { value: 'dark', icon: MoonIcon },
+  { value: 'system', icon: MonitorIcon },
 ];
 
 const DARK_QUERY = '(prefers-color-scheme: dark)';
@@ -28,7 +32,7 @@ function apply(preference: ColorModePreference): void {
  * (lib/color-mode.ts); este menú solo lo cambia y, en «Sistema», sigue los
  * cambios del sistema operativo.
  */
-export function ColorModeToggle() {
+export function ColorModeToggle({ labels }: { labels: Labels }) {
   // null hasta montar: el servidor no conoce la preferencia, y así el HTML
   // del servidor y el primer render del cliente coinciden.
   const [preference, setPreference] = useState<ColorModePreference | null>(null);
@@ -75,7 +79,7 @@ export function ColorModeToggle() {
         <IconButton
           variant="ghost"
           size="sm"
-          aria-label={current ? `Tema: ${current.label}. Cambiar tema` : 'Cambiar tema'}
+          aria-label={current ? `${labels.current}: ${labels[current.value]}. ${labels.change}` : labels.change}
         >
           <CurrentIcon />
         </IconButton>
@@ -89,11 +93,11 @@ export function ColorModeToggle() {
                 choose(details.value as ColorModePreference);
               }}
             >
-              <Menu.ItemGroupLabel>Tema</Menu.ItemGroupLabel>
-              {OPTIONS.map(({ value, label, icon: Icon }) => (
+              <Menu.ItemGroupLabel>{labels.group}</Menu.ItemGroupLabel>
+              {OPTIONS.map(({ value, icon: Icon }) => (
                 <Menu.RadioItem key={value} value={value}>
                   <Icon />
-                  {label}
+                  {labels[value]}
                   <Menu.ItemIndicator />
                 </Menu.RadioItem>
               ))}

@@ -16,8 +16,10 @@ const nextConfig: NextConfig = {
   transpilePackages: ['@personal-blog/markdown'],
   // jsdom (DOMPurify en el servidor) no se empaqueta: se carga de node_modules.
   serverExternalPackages: ['jsdom'],
-  // Recomendado por Chakra v3: importa solo los componentes que se usan.
-  experimental: { optimizePackageImports: ['@chakra-ui/react'] },
+  // optimizePackageImports, recomendado por Chakra v3: importa solo los
+  // componentes que se usan. globalNotFound: el 404 de app/global-not-found.tsx,
+  // necesario con un layout raíz por idioma (ADR-024, punto 2).
+  experimental: { optimizePackageImports: ['@chakra-ui/react'], globalNotFound: true },
   // Sin AGENTS.md generado por next dev dentro de apps/web.
   agentRules: false,
   // AVIF primero y WebP de respaldo para next/image.
