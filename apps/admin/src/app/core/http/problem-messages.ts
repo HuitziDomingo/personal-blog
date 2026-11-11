@@ -1,6 +1,6 @@
 import { HttpErrorResponse } from '@angular/common/http';
 
-export type ProblemContext = 'login' | 'post' | 'generic';
+export type ProblemContext = 'login' | 'post' | 'assistant' | 'generic';
 
 const UNEXPECTED = 'Error inesperado del servidor. Inténtalo de nuevo.';
 
@@ -17,6 +17,9 @@ export function problemMessage(error: unknown, context: ProblemContext = 'generi
     case 0:
       return 'No se pudo conectar con el servidor. Revisa tu conexión e inténtalo de nuevo.';
     case 400:
+      if (context === 'assistant') {
+        return 'El asistente no aceptó el borrador. Revisa que tenga contenido y que no sea demasiado largo.';
+      }
       return context === 'login' ? 'Revisa el email y la contraseña.' : 'Revisa los datos enviados.';
     case 401:
       return context === 'login'
@@ -35,7 +38,9 @@ export function problemMessage(error: unknown, context: ProblemContext = 'generi
     case 413:
       return 'Los datos enviados son demasiado grandes.';
     case 429:
-      return tooManyRequests(error.headers.get('Retry-After'));
+      return tooManyRequests(error.headers.get('Retry-After'), context === 'assistant');
+    case 503:
+      return context === 'assistant' ? assistantUnavailable(error) : UNEXPECTED;
     default:
       return UNEXPECTED;
   }
@@ -43,13 +48,35 @@ export function problemMessage(error: unknown, context: ProblemContext = 'generi
 
 // Retry-After llega en segundos (ADR-010). Si falta, no es un entero positivo
 // o es una fecha HTTP, el mensaje no da el tiempo.
-function tooManyRequests(retryAfter: string | null): string {
+function tooManyRequests(retryAfter: string | null, assistant = false): string {
+  const prefix = assistant ? 'Pediste demasiadas sugerencias seguidas.' : 'Demasiados intentos.';
   const seconds = retryAfter === null ? Number.NaN : Number(retryAfter);
   if (!Number.isInteger(seconds) || seconds < 1) {
-    return 'Demasiados intentos. Inténtalo de nuevo más tarde.';
+    return `${prefix} Inténtalo de nuevo más tarde.`;
   }
 
-  return `Demasiados intentos. Inténtalo de nuevo en ${formatWait(seconds)}.`;
+  return `${prefix} Inténtalo de nuevo en ${formatWait(seconds)}.`;
+}
+
+// Los `detail` del 503 del asistente (AssistantUnavailable en openapi.yaml,
+// que dice que `detail` distingue el caso). Si llega otro, el mensaje es el
+// de «no disponible».
+const ASSISTANT_DISABLED = 'writing assistant is disabled';
+const ASSISTANT_INVALID_OUTPUT = 'writing assistant returned an invalid suggestion, try again';
+
+function assistantUnavailable(error: HttpErrorResponse): string {
+  const body: unknown = error.error;
+  const detail =
+    typeof body === 'object' && body !== null && 'detail' in body && typeof body.detail === 'string' ? body.detail : '';
+
+  switch (detail) {
+    case ASSISTANT_DISABLED:
+      return 'El asistente está desactivado en la API.';
+    case ASSISTANT_INVALID_OUTPUT:
+      return 'El asistente devolvió una sugerencia que no cumple las reglas. Inténtalo de nuevo.';
+    default:
+      return 'El asistente no está disponible ahora (el proveedor falló o agotó su cuota). Inténtalo de nuevo en unos minutos.';
+  }
 }
 
 function formatWait(seconds: number): string {

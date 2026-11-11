@@ -7,6 +7,8 @@ import { AssistantPanel } from './assistant-panel';
 
 /** Doble del puerto: cada petición responde cuando el test decide. */
 class ControlledAssistant implements WritingAssistant {
+  suggestsCover = true;
+  readonly notice = 'Aviso de prueba.';
   readonly drafts: DraftInput[] = [];
   improve = new Subject<string>();
   metadata = new Subject<MetadataSuggestion>();
@@ -57,6 +59,23 @@ async function renderPanel(assistant = new ControlledAssistant()) {
 const status = () => screen.getByTestId('assistant-announcement');
 
 describe('AssistantPanel', () => {
+  it('muestra el aviso de la implementación y la portada si la ofrece', async () => {
+    await renderPanel();
+
+    expect(screen.getByTestId('assistant-notice').textContent?.trim()).toBe('Aviso de prueba.');
+    expect(screen.getByRole('button', { name: 'Idea de imagen de portada' })).toBeTruthy();
+  });
+
+  it('oculta la portada si la implementación no la ofrece (ADR-021)', async () => {
+    const withoutCover = new ControlledAssistant();
+    withoutCover.suggestsCover = false;
+    await renderPanel(withoutCover);
+
+    expect(screen.queryByRole('button', { name: 'Idea de imagen de portada' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Mejorar redacción' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Sugerir título, extracto y tags' })).toBeTruthy();
+  });
+
   it('muestra la carga, enfoca la sugerencia y al aplicar devuelve el foco', async () => {
     const { assistant, host, fixture } = await renderPanel();
     const improve = screen.getByRole('button', { name: 'Mejorar redacción' });

@@ -27,11 +27,19 @@ export class AssistantError extends Error {
 
 /**
  * Puerto del asistente de escritura: la interfaz del editor solo conoce esta
- * clase. La implementación se elige al proveerla (hoy, FakeWritingAssistant en
- * las rutas de posts). El proveedor real va detrás de la API (ADR-021), nunca
- * llamado desde el navegador; el adaptador HTTP es BLOG-081.
+ * clase. La implementación se elige al proveerla: HttpWritingAssistant en la
+ * ruta del editor, contra la API (ADR-021), y FakeWritingAssistant en los
+ * tests. El proveedor del modelo va detrás de la API, nunca llamado desde el
+ * navegador.
  */
 export abstract class WritingAssistant {
+  /**
+   * Si ofrece la idea de portada. La API no la tiene en la v1 (ADR-021,
+   * punto 1), así que el panel oculta esa acción cuando es false.
+   */
+  abstract readonly suggestsCover: boolean;
+  /** Aviso que el panel muestra bajo su título: de dónde salen las sugerencias. */
+  abstract readonly notice: string;
   /** El Markdown con la redacción mejorada. */
   abstract improveWriting(draft: DraftInput): Observable<string>;
   abstract suggestMetadata(draft: DraftInput): Observable<MetadataSuggestion>;

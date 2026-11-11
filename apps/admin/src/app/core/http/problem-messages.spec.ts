@@ -41,4 +41,35 @@ describe('problemMessage', () => {
     expect(problemMessage(httpError(429, { 'Retry-After': 'Wed, 21 Oct 2026 07:28:00 GMT' }))).toBe(later);
     expect(problemMessage(httpError(429, { 'Retry-After': '0' }))).toBe(later);
   });
+
+  describe('asistente', () => {
+    const unavailable = (detail?: string) =>
+      problemMessage(new HttpErrorResponse({ status: 503, error: detail === undefined ? null : { status: 503, detail } }), 'assistant');
+
+    it('distingue los 503 por el detail del problem', () => {
+      expect(unavailable('writing assistant is disabled')).toBe('El asistente está desactivado en la API.');
+      expect(unavailable('writing assistant returned an invalid suggestion, try again')).toBe(
+        'El asistente devolvió una sugerencia que no cumple las reglas. Inténtalo de nuevo.',
+      );
+      const notAvailable =
+        'El asistente no está disponible ahora (el proveedor falló o agotó su cuota). Inténtalo de nuevo en unos minutos.';
+      expect(unavailable('writing assistant is unavailable, try again later')).toBe(notAvailable);
+      expect(unavailable('something new')).toBe(notAvailable);
+      expect(unavailable()).toBe(notAvailable);
+    });
+
+    it('el 429 dice que fueron demasiadas sugerencias y cuánto esperar', () => {
+      expect(problemMessage(httpError(429, { 'Retry-After': '30' }), 'assistant')).toBe(
+        'Pediste demasiadas sugerencias seguidas. Inténtalo de nuevo en 30 segundos.',
+      );
+      expect(problemMessage(httpError(429), 'assistant')).toBe('Pediste demasiadas sugerencias seguidas. Inténtalo de nuevo más tarde.');
+    });
+
+    it('el 400 explica qué revisar; fuera del asistente, el 503 sigue siendo inesperado', () => {
+      expect(problemMessage(httpError(400), 'assistant')).toBe(
+        'El asistente no aceptó el borrador. Revisa que tenga contenido y que no sea demasiado largo.',
+      );
+      expect(problemMessage(httpError(503))).toBe('Error inesperado del servidor. Inténtalo de nuevo.');
+    });
+  });
 });

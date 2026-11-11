@@ -9,6 +9,7 @@ import { firstValueFrom, Observable, of, Subject, throwError } from 'rxjs';
 import { Post, PostWrite } from '../../core/api/api-types';
 import { PostsApi } from '../../core/api/posts-api';
 import { provideFakeWritingAssistant } from '../../core/assistant/fake-writing-assistant';
+import { provideHttpWritingAssistant } from '../../core/assistant/http-writing-assistant';
 import { ASSISTANT_ENABLED, MetadataSuggestion, WritingAssistant } from '../../core/assistant/writing-assistant';
 import { POSTS_ROUTES } from './posts.routes';
 import { ApiError } from '../../core/http/api-error';
@@ -534,6 +535,8 @@ describe('PostEditorPage', () => {
       const metadata: MetadataSuggestion = { title: 'Título sugerido', excerpt: 'Extracto sugerido', tags: ['ia', 'go'] };
       /** Doble completo del puerto: responde al momento con valores fijos. */
       class InstantAssistant implements WritingAssistant {
+        readonly suggestsCover = true;
+        readonly notice = 'Aviso de prueba.';
         improveWriting() {
           return of('## Redacción sugerida');
         }
@@ -556,10 +559,10 @@ describe('PostEditorPage', () => {
     });
   });
 
-  it('la ruta del editor provee el asistente', () => {
+  it('la ruta del editor provee el asistente de la API', () => {
     const editorRoute = POSTS_ROUTES.find((route) => route.path === ':id');
 
-    expect(editorRoute?.providers).toEqual([provideFakeWritingAssistant()]);
+    expect(editorRoute?.providers).toEqual([provideHttpWritingAssistant()]);
   });
 });
 
