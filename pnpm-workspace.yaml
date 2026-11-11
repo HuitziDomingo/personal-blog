@@ -21,3 +21,12 @@ overrides:
   "axios@>=1.0.0 <1.20.0": 1.20.0
   "form-data@>=4.0.0 <4.0.6": 4.0.6
   "js-yaml@>=4.0.0 <4.3.2": 4.3.2
+
+# Dependencias cuyo script de instalación no se ejecuta, y pnpm deja de avisar.
+# lmdb es una caché opcional de @angular/build y ya trae binarios precompilados
+# (@lmdb/lmdb-*); msgpackr-extract es la extensión nativa opcional de msgpackr,
+# que usa lmdb, también con binarios precompilados. No van en
+# onlyBuiltDependencies.
+ignoredBuiltDependencies:
+  - lmdb
+  - msgpackr-extract

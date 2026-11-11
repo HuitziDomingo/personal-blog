@@ -105,6 +105,7 @@ Ver [ADR-003](docs/adr/003-estrategia-global-de-testing.md), [ADR-006](docs/adr/
 
 - Toda dependencia nueva, de Go o npm, se justifica en el PR.
 - Si no está en un ADR, pregunta antes de añadirla.
+- Los PR de Dependabot con un major son [ALTO]: no se mergean sin la revisión de León.
 
 ## ADRs
 
