@@ -87,10 +87,11 @@
 - [x] BLOG-059: Crear `apps/web` (Next.js, ADR-017): TypeScript estricto, ISR, CSP y `packages/markdown` en el servidor. ([#53](https://github.com/HuitziDomingo/personal-blog/pull/53))
 - [x] BLOG-075: `apps/web` como sitio real: portafolio con el contenido de la web anterior, blog con vista de lectura, modo claro/oscuro/sistema, SEO (canónicas, Open Graph, sitemap, robots y RSS) e imágenes con `next/image`. ([#70](https://github.com/HuitziDomingo/personal-blog/pull/70))
 - [ ] BLOG-076: Crear en el admin los 2 posts de la web anterior (`docs/web/posts-migrados/`), con los slugs `arreglos` y `backend-api`.
-- [ ] BLOG-077: Decidir los pendientes del inventario de la web anterior: perro 3D (three.js), íconos de marca de las redes, resaltado de sintaxis del código y animaciones de entrada.
+- [x] BLOG-077: Decidir los pendientes del inventario de la web anterior: perro 3D (three.js), íconos de marca de las redes, resaltado de sintaxis del código y animaciones de entrada. ([#84](https://github.com/HuitziDomingo/personal-blog/pull/84))
   - Perro 3D: descartado por licencia. El `dog.glb` de la web anterior es el modelo de craftzdog (Takuya Matsuyama), bajo CC BY-NC-ND 4.0, y su README pide no usarlo. Un modelo propio sería una tarea aparte, si se decide.
   - Resaltado de sintaxis: en el servidor con Shiki, después de sanitizar. ([#77](https://github.com/HuitziDomingo/personal-blog/pull/77))
   - Íconos de marca: GitHub, YouTube y Discord de Simple Icons (CC0) en SVG inline, en el footer y en «Yo en la web»; LinkedIn, que no está en Simple Icons, con un ícono genérico. ([#82](https://github.com/HuitziDomingo/personal-blog/pull/82))
+  - Animaciones de entrada: solo CSS, fade y 8 px hacia arriba en las tarjetas de posts y trabajos, desactivadas con `prefers-reduced-motion`; CLS 0 antes y después. ([#84](https://github.com/HuitziDomingo/personal-blog/pull/84))
 - [ ] BLOG-078: Paginación en `/blog`: hoy muestra los 20 posts más recientes y el resto solo se alcanza desde el sitemap.
 - [ ] BLOG-083: Aplicar Trusted Types en el admin requiere políticas para `vue` y `dompurify` por Milkdown (ADR-018): Vue crea la suya, Crepe trae una segunda instancia de DOMPurify y asigna `innerHTML` a sus íconos. Hoy queda en Report-Only.
 - [x] BLOG-086: Pulido visual del admin: íconos de Lucide en navegación, acciones y estado vacío, y la vista previa del editor como panel elevado con tokens propios verificados en WCAG AA. ([#80](https://github.com/HuitziDomingo/personal-blog/pull/80))

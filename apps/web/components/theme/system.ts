@@ -42,6 +42,14 @@ const config = defineConfig({
     },
   },
   theme: {
+    // Entrada de las tarjetas (components/entrance.ts): opacidad y transform,
+    // sin propiedades de layout.
+    keyframes: {
+      entrada: {
+        from: { opacity: '0', transform: 'translateY(0.5rem)' },
+        to: { opacity: '1', transform: 'none' },
+      },
+    },
     tokens: {
       fonts: {
         heading: { value: 'var(--font-heading), ui-rounded, system-ui, sans-serif' },

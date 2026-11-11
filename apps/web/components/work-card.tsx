@@ -4,11 +4,21 @@ import NextLink from 'next/link';
 
 import type { Work } from '@/lib/site';
 
-export function WorkCard({ work, priority = false }: { work: Work; priority?: boolean }) {
+import { entrance } from './entrance';
+
+export function WorkCard({ work, priority = false, index = 0 }: { work: Work; priority?: boolean; index?: number }) {
   const cover = work.sections[0]?.image;
 
   return (
-    <LinkBox as="article" className="group" borderRadius="xl" overflow="hidden" borderWidth="1px" bg="brand.surface">
+    <LinkBox
+      as="article"
+      className="group"
+      borderRadius="xl"
+      overflow="hidden"
+      borderWidth="1px"
+      bg="brand.surface"
+      css={entrance(index)}
+    >
       {cover && (
         <Image
           src={cover.src}

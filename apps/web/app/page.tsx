@@ -129,8 +129,8 @@ export default async function HomePage() {
           <Text color="fg.muted">Todavía no hay posts publicados.</Text>
         ) : (
           <Stack gap="4">
-            {latest.map((post) => (
-              <PostCard key={post.id} post={post} headingLevel="h3" />
+            {latest.map((post, index) => (
+              <PostCard key={post.id} post={post} headingLevel="h3" index={index} />
             ))}
           </Stack>
         )}
