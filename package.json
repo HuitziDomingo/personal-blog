@@ -6,6 +6,6 @@
     "node": ">=24 <25"
   },
   "devDependencies": {
-    "@usebruno/cli": "4.2.1"
+    "@usebruno/cli": "4.3.0"
   }
 }
