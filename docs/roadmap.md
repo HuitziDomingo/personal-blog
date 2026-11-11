@@ -89,6 +89,7 @@
 - [ ] BLOG-076: Crear en el admin los 2 posts de la web anterior (`docs/web/posts-migrados/`), con los slugs `arreglos` y `backend-api`.
 - [ ] BLOG-077: Decidir los pendientes del inventario de la web anterior: perro 3D (three.js), íconos de marca de las redes, resaltado de sintaxis del código y animaciones de entrada.
   - Perro 3D: descartado por licencia. El `dog.glb` de la web anterior es el modelo de craftzdog (Takuya Matsuyama), bajo CC BY-NC-ND 4.0, y su README pide no usarlo. Un modelo propio sería una tarea aparte, si se decide.
+  - Resaltado de sintaxis: en el servidor con Shiki, después de sanitizar. ([#77](https://github.com/HuitziDomingo/personal-blog/pull/77))
 - [ ] BLOG-078: Paginación en `/blog`: hoy muestra los 20 posts más recientes y el resto solo se alcanza desde el sitemap.
 - [ ] BLOG-083: Aplicar Trusted Types en el admin requiere políticas para `vue` y `dompurify` por Milkdown (ADR-018): Vue crea la suya, Crepe trae una segunda instancia de DOMPurify y asigna `innerHTML` a sus íconos. Hoy queda en Report-Only.
 

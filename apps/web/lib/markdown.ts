@@ -1,7 +1,8 @@
-import { createServerRenderer, type MarkdownRenderer } from '@personal-blog/markdown/server';
+import { codeBlocks, createServerRenderer, type MarkdownRenderer } from '@personal-blog/markdown/server';
 import { JSDOM } from 'jsdom';
 
 import { siteUrl } from './config';
+import { highlightCodeBlocks } from './highlight';
 
 let renderer: MarkdownRenderer | undefined;
 let dom: JSDOM | undefined;
@@ -15,13 +16,24 @@ export interface RenderedPost {
 
 /**
  * Markdown de un post a HTML sanitizado, en el servidor (ADR-017, punto 5).
- * Solo los links a otros sitios abren en otra pestaña. Los DOM de jsdom se
- * crean una vez, en el primer uso.
+ * Solo los links a otros sitios abren en otra pestaña. Primero se sanitiza y
+ * después, sobre ese HTML, se resalta el código y se preparan las imágenes.
+ * Los DOM de jsdom se crean una vez, en el primer uso.
  */
 export function renderPost(source: string): RenderedPost {
   renderer ??= createServerRenderer({ siteUrl: siteUrl(), newTab: 'external' });
+  const template = parse(renderer(source));
+  highlightCodeBlocks(template.content, codeBlocks(source));
 
-  return prepareImages(renderer(source));
+  return prepareImagesIn(template);
+}
+
+function parse(html: string): HTMLTemplateElement {
+  dom ??= new JSDOM('');
+  const template = dom.window.document.createElement('template');
+  template.innerHTML = html;
+
+  return template;
 }
 
 /**
@@ -31,10 +43,10 @@ export function renderPost(source: string): RenderedPost {
  * `alt` que contenga `<img` sigue siendo el valor de un atributo.
  */
 export function prepareImages(html: string): RenderedPost {
-  dom ??= new JSDOM('');
-  const template = dom.window.document.createElement('template');
-  template.innerHTML = html;
+  return prepareImagesIn(parse(html));
+}
 
+function prepareImagesIn(template: HTMLTemplateElement): RenderedPost {
   const images = [...template.content.querySelectorAll('img')];
   images.forEach((img, index) => {
     if (index === 0) {

@@ -8,7 +8,7 @@ import type { NewTabPolicy } from './policy.ts';
 import { createRenderer, type MarkdownRenderer } from './renderer.ts';
 
 export { ALLOWED_ATTR, ALLOWED_TAGS, isExternalLink, isSafeUrl, type NewTabPolicy, type UrlAttribute } from './policy.ts';
-export type { MarkdownRenderer } from './renderer.ts';
+export { codeBlocks, type CodeBlock, type MarkdownRenderer } from './renderer.ts';
 
 export interface ServerRendererOptions {
   /** URL pública del sitio, p. ej. `https://huitzi.xyz`: los links relativos solo se conservan si resuelven a su origen. */
