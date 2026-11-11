@@ -117,6 +117,7 @@
 - [x] BLOG-090: Backend de comentarios (ADR-022): contrato, envío anónimo con rate limit y campo trampa, lectura pública de los aprobados, cola y decisiones de moderación para el admin, y `COMMENTS_ENABLED`, con la moderación con LLM apagada. ([#97](https://github.com/HuitziDomingo/personal-blog/pull/97))
 - [x] BLOG-091: Moderación de comentarios con LLM (ADR-022): puerto `CommentModerator`, adaptador de Gemini y fake, con veredicto, categoría y motivo. ([#106](https://github.com/HuitziDomingo/personal-blog/pull/106))
 - [x] BLOG-092: Cola de moderación de comentarios en el admin (ADR-022): aprobar, rechazar, pedir de nuevo el análisis y responder como autor. ([#107](https://github.com/HuitziDomingo/personal-blog/pull/107))
+- [x] BLOG-097: Revisión visual del admin: errores y carga consistentes, tabla de posts en móvil, panel del asistente elevado, objetivos táctiles de 44 px con el dedo y foco visible en todo. ([#108](https://github.com/HuitziDomingo/personal-blog/pull/108))
 - [ ] BLOG-093: Comentarios en la web (ADR-022): lista de aprobados con ISR, formulario de cliente con aviso de privacidad, página de reglas y cambios de CSP y CORS.
 - [x] ~~BLOG-023: Definir `domain/comment.go` e implementar comentarios.~~ Reemplazada por BLOG-090 (ADR-022). ([#91](https://github.com/HuitziDomingo/personal-blog/pull/91))
 - [x] ~~BLOG-024: Crear vista de moderación de comentarios.~~ Reemplazada por BLOG-092 (ADR-022). ([#91](https://github.com/HuitziDomingo/personal-blog/pull/91))
