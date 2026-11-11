@@ -233,6 +233,36 @@ func (r *CommentRepository) UpdateStatus(ctx context.Context, id string, status 
 	return nil
 }
 
+// SetModeration guarda el análisis del clasificador, reemplazando el anterior.
+func (r *CommentRepository) SetModeration(ctx context.Context, id string, moderation domain.Moderation) error {
+	objectID, err := bson.ObjectIDFromHex(id)
+	if err != nil {
+		return fmt.Errorf("set comment moderation: %w", domain.ErrNotFound)
+	}
+
+	document := moderationDocument{
+		Verdict:    string(moderation.Verdict),
+		Category:   string(moderation.Category),
+		Reason:     moderation.Reason,
+		Model:      moderation.Model,
+		AnalyzedAt: moderation.AnalyzedAt,
+	}
+
+	result, err := r.comments.UpdateOne(ctx,
+		bson.D{{Key: "_id", Value: objectID}},
+		bson.D{{Key: "$set", Value: bson.D{{Key: "moderation", Value: document}}}},
+	)
+	if err != nil {
+		return fmt.Errorf("set comment moderation: %w", err)
+	}
+
+	if result.MatchedCount == 0 {
+		return fmt.Errorf("set comment moderation: %w", domain.ErrNotFound)
+	}
+
+	return nil
+}
+
 // commentListQuery construye el filtro solo con los campos tipados de
 // domain.CommentFilter (ADR-010).
 func commentListQuery(filter domain.CommentFilter) bson.D {

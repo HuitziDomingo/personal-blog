@@ -1,7 +1,7 @@
 info:
-  name: 7 Rechazar
+  name: 8 Rechazar
   type: http
-  seq: 7
+  seq: 8
 
 http:
   method: POST

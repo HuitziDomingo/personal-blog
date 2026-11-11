@@ -97,6 +97,8 @@ examples:
               {
                 "id": "",
                 "postId": "",
+                "postTitle": "",
+                "postSlug": "",
                 "parentId": "",
                 "name": "",
                 "content": "",

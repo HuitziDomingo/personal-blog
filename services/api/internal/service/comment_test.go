@@ -99,6 +99,24 @@ func (f *fakeCommentRepository) UpdateStatus(_ context.Context, id string, statu
 	return nil
 }
 
+func (f *fakeCommentRepository) SetModeration(_ context.Context, id string, moderation domain.Moderation) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	if f.err != nil {
+		return f.err
+	}
+
+	comment, ok := f.comments[id]
+	if !ok {
+		return domain.ErrNotFound
+	}
+
+	comment.Moderation = &moderation
+
+	return nil
+}
+
 // insert guarda un comentario tal cual y devuelve su ID.
 func (f *fakeCommentRepository) insert(t *testing.T, comment domain.Comment) string {
 	t.Helper()
@@ -119,7 +137,8 @@ func (f *fakeCommentRepository) all() []*domain.Comment {
 	return all
 }
 
-// fakePublishedPosts encuentra solo los posts publicados que tiene.
+// fakePublishedPosts guarda los posts por slug. GetPublished encuentra solo
+// los publicados; Get, cualquiera por su ID.
 type fakePublishedPosts map[string]*domain.Post
 
 func (f fakePublishedPosts) GetPublished(_ context.Context, slug string) (*domain.Post, error) {
@@ -131,17 +150,33 @@ func (f fakePublishedPosts) GetPublished(_ context.Context, slug string) (*domai
 	return post, nil
 }
 
+func (f fakePublishedPosts) Get(_ context.Context, id string) (*domain.Post, error) {
+	for _, post := range f {
+		if post.ID == id {
+			return post, nil
+		}
+	}
+
+	return nil, fmt.Errorf("get post: %w", domain.ErrNotFound)
+}
+
 var commentNow = time.Date(2026, 11, 11, 12, 0, 0, 123456789, time.UTC)
 
 func newTestCommentService(enabled bool) (*CommentService, *fakeCommentRepository) {
+	return newModeratedCommentService(enabled, nil)
+}
+
+// newModeratedCommentService es newTestCommentService con la moderación del
+// moderador dado; nil la deja apagada.
+func newModeratedCommentService(enabled bool, moderation *ModerationService) (*CommentService, *fakeCommentRepository) {
 	repository := newFakeCommentRepository()
 	posts := fakePublishedPosts{
-		"publicado": {ID: "post-1", Slug: "publicado", Status: domain.PostStatusPublished},
-		"otro":      {ID: "post-2", Slug: "otro", Status: domain.PostStatusPublished},
-		"borrador":  {ID: "post-3", Slug: "borrador", Status: domain.PostStatusDraft},
+		"publicado": {ID: "post-1", Title: "Publicado", Slug: "publicado", Status: domain.PostStatusPublished},
+		"otro":      {ID: "post-2", Title: "Otro", Slug: "otro", Status: domain.PostStatusPublished},
+		"borrador":  {ID: "post-3", Title: "Borrador", Slug: "borrador", Status: domain.PostStatusDraft},
 	}
 
-	return NewCommentService(repository, posts, enabled, func() time.Time { return commentNow }), repository
+	return NewCommentService(repository, posts, moderation, enabled, func() time.Time { return commentNow }), repository
 }
 
 func TestSubmitSavesAPendingCommentWithoutAnalysis(t *testing.T) {
@@ -315,6 +350,8 @@ func TestReplyPublishesAnApprovedAuthorComment(t *testing.T) {
 	assert.Equal(t, &domain.Comment{
 		ID:         reply.ID,
 		PostID:     "post-1",
+		PostTitle:  "Publicado",
+		PostSlug:   "publicado",
 		ParentID:   parent,
 		Name:       AuthorDisplayName,
 		Content:    "Gracias, Ana.",

@@ -1,23 +1,17 @@
 info:
-  name: 9 Responder como autor
+  name: 9 Aprobar
   type: http
   seq: 9
 
 http:
   method: POST
-  url: "{{baseUrl}}/api/v1/admin/comments/{{commentId}}/replies"
-  body:
-    type: json
-    data: |-
-      {
-        "content": "Gracias. Con `make api-test`, que ya lo incluye."
-      }
+  url: "{{baseUrl}}/api/v1/admin/comments/{{commentId}}/approve"
 
 runtime:
   assertions:
     - expression: res.status
       operator: eq
-      value: "201"
+      value: "200"
   scripts:
     - type: before-request
       code: |-
@@ -25,15 +19,10 @@ runtime:
         if (bru.getVar("commentsEnabled") !== "true") {
           bru.runner.skipRequest();
         }
-    - type: after-response
-      code: |-
-        bru.setVar("replyId", res.body.id);
     - type: tests
       code: |-
-        test("is published as the author", function () {
+        test("a rejected comment can still be approved", function () {
           expect(res.body.status).to.equal("approved");
-          expect(res.body.byAuthor).to.equal(true);
-          expect(res.body.parentId).to.equal(bru.getVar("commentId"));
         });
 
 settings:

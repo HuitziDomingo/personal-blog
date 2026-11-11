@@ -97,8 +97,14 @@ func run(logger *slog.Logger) error {
 	}
 
 	posts := service.NewPostService(mongodb.NewPostRepository(client), time.Now)
+
+	moderation, err := newModeration(ctx, cfg, logger)
+	if err != nil {
+		return errors.Join(err, client.Disconnect(ctx))
+	}
+
 	if cfg.Comments.Enabled {
-		slog.Info("comments enabled, without LLM moderation")
+		slog.Info("comments enabled", "llm_moderation", moderation != nil)
 	}
 
 	routerConfig := handler.RouterConfig{
@@ -108,7 +114,7 @@ func run(logger *slog.Logger) error {
 		Sessions:         sessions,
 		Posts:            posts,
 		Assistant:        assistant,
-		Comments:         service.NewCommentService(mongodb.NewCommentRepository(client), posts, cfg.Comments.Enabled, time.Now),
+		Comments:         service.NewCommentService(mongodb.NewCommentRepository(client), posts, moderation, cfg.Comments.Enabled, time.Now),
 		AssistantTimeout: cfg.Assistant.Timeout,
 		Logger:           logger,
 		JSONLogs:         cfg.LogFormat == config.LogFormatJSON,
@@ -202,6 +208,38 @@ func newAssistant(ctx context.Context, cfg config.Assistant, logger *slog.Logger
 	)
 
 	return assistant, nil
+}
+
+// newModeration arma el clasificador de comentarios sobre Gemini, con el mismo
+// nivel de razonamiento y límite de salida que el asistente, o nil si
+// COMMENTS_MODERATION_ENABLED no es true (ADR-022).
+func newModeration(ctx context.Context, cfg config.Config, logger *slog.Logger) (*service.ModerationService, error) {
+	if !cfg.Comments.ModerationEnabled {
+		return nil, nil
+	}
+
+	provider, err := gemini.New(ctx, gemini.Config{
+		APIKey:          cfg.Comments.GeminiAPIKey.Reveal(),
+		Model:           cfg.Comments.ModerationModel,
+		ThinkingLevel:   cfg.Assistant.ThinkingLevel,
+		MaxOutputTokens: cfg.Assistant.MaxOutputTokens,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("create comment moderator: %w", err)
+	}
+
+	moderation, err := service.NewModerationService(provider, cfg.Comments.ModerationTimeout, logger, time.Now)
+	if err != nil {
+		return nil, fmt.Errorf("create comment moderator: %w", err)
+	}
+
+	slog.Info("comment moderation enabled",
+		"model", cfg.Comments.ModerationModel,
+		"timeout", cfg.Comments.ModerationTimeout,
+		"thinking_level", cfg.Assistant.ThinkingLevel,
+	)
+
+	return moderation, nil
 }
 
 // shutdown cierra el servidor y después la base de datos, para que las

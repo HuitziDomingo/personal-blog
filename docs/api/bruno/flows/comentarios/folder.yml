@@ -8,13 +8,16 @@ request:
 docs:
   content: |-
     Comentarios (ADR-022): publicar un post, enviar un comentario anónimo, el
-    campo trampa, la cola de moderación, rechazar, aprobar, responder como
-    autor, la lectura pública sin datos de moderación y el límite de un nivel
-    de respuestas. Al final archiva el post.
+    campo trampa, la cola de moderación con el post, pedir el análisis de
+    nuevo, rechazar, aprobar, responder como autor, la lectura pública sin
+    datos de moderación y el límite de un nivel de respuestas. Al final archiva
+    el post.
 
     Con la configuración por defecto, COMMENTS_ENABLED=false, el envío
-    responde 404 y el flujo salta del paso 3 al 12. Con COMMENTS_ENABLED=true
-    recorre todo. Envía 3 comentarios, el límite por IP por defecto: para
+    responde 404 y el flujo salta del paso 3 al 13. Con COMMENTS_ENABLED=true
+    recorre todo. Con COMMENTS_MODERATION_ENABLED=false (por defecto), pedir el
+    análisis responde 503 sin llamar a ningún modelo; encendida, cada envío y
+    el paso 7 llaman a Gemini y gastan cuota. Envía 3 comentarios, el límite por IP por defecto: para
     repetirlo antes de 10 minutos, sube COMMENTS_RATE_LIMIT_MAX.
 
     Pide adminEmail y adminPassword, variables secretas del environment local.

@@ -43,6 +43,7 @@ type fakeComments struct {
 	reviewed    []string
 	replyParent string
 	replyBody   string
+	analyzed    []string
 }
 
 func newFakeComments() *fakeComments {
@@ -119,6 +120,14 @@ func (f *fakeComments) Reply(_ context.Context, parentID, content string) (*doma
 		Name: service.AuthorDisplayName, Content: content, Status: domain.CommentStatusApproved,
 		ByAuthor: true, CreatedAt: commentTestTime,
 	}, nil
+}
+
+func (f *fakeComments) Analyze(_ context.Context, id string) (*domain.Comment, error) {
+	f.mu.Lock()
+	f.analyzed = append(f.analyzed, id)
+	f.mu.Unlock()
+
+	return f.review(id)
 }
 
 func (f *fakeComments) review(id string) (*domain.Comment, error) {
@@ -434,6 +443,7 @@ func TestCommentModerationNeedsAnAdmin(t *testing.T) {
 		{http.MethodPost, "/api/v1/admin/comments/" + testCommentID + "/approve", ""},
 		{http.MethodPost, "/api/v1/admin/comments/" + testCommentID + "/reject", ""},
 		{http.MethodPost, "/api/v1/admin/comments/" + testCommentID + "/replies", `{"content":"Hola"}`},
+		{http.MethodPost, "/api/v1/admin/comments/" + testCommentID + "/analyze", ""},
 	}
 
 	for _, route := range routes {
@@ -445,6 +455,59 @@ func TestCommentModerationNeedsAnAdmin(t *testing.T) {
 			requireProblem(t, send(router, route.method, route.path, route.body, withCookies(accessCookie(editorAccessToken))), http.StatusForbidden)
 			assert.Empty(t, comments.reviewed)
 			assert.Empty(t, comments.replyBody)
+			assert.Empty(t, comments.analyzed)
 		})
 	}
+}
+
+func TestAnalyzeComment(t *testing.T) {
+	comments := newFakeComments()
+	comments.comments[0].PostTitle = "Métodos de Array"
+	comments.comments[0].PostSlug = "metodos-de-array"
+	router := commentsRouter(t, comments)
+
+	response := send(router, http.MethodPost, "/api/v1/admin/comments/"+testCommentID+"/analyze", "", adminSession())
+
+	require.Equal(t, http.StatusOK, response.Code)
+	assert.Contains(t, response.Body.String(), `"moderation":{"analyzedAt":"2026-11-11T12:00:00Z","category":"none","model":"gemini-test","reason":"on topic","verdict":"approve"}`)
+	assert.Contains(t, response.Body.String(), `"postTitle":"Métodos de Array"`)
+	assert.Contains(t, response.Body.String(), `"postSlug":"metodos-de-array"`)
+	assert.Equal(t, []string{testCommentID}, comments.analyzed)
+
+	requireProblem(t, send(router, http.MethodPost, "/api/v1/admin/comments/no-existe/analyze", "", adminSession()), http.StatusNotFound)
+}
+
+// Los dos 503 de la moderación se distinguen por el detail del contrato, y
+// ganan al error del asistente que envuelven.
+func TestAnalyzeCommentUnavailable(t *testing.T) {
+	for _, tt := range []struct {
+		err    error
+		detail string
+	}{
+		{err: fmt.Errorf("analyze comment: %w", domain.ErrModerationDisabled), detail: "comment moderation is disabled"},
+		{err: fmt.Errorf("analyze comment: %w: %w", domain.ErrModerationUnavailable, domain.ErrAssistantUnavailable), detail: "comment moderation is unavailable"},
+		{err: fmt.Errorf("analyze comment: %w: %w", domain.ErrModerationUnavailable, domain.ErrAssistantInvalidOutput), detail: "comment moderation is unavailable"},
+	} {
+		t.Run(tt.detail, func(t *testing.T) {
+			comments := newFakeComments()
+			comments.err = tt.err
+			router := commentsRouter(t, comments)
+
+			problem := requireProblem(t, send(router, http.MethodPost, "/api/v1/admin/comments/"+testCommentID+"/analyze", "", adminSession()), http.StatusServiceUnavailable)
+			assert.Equal(t, tt.detail, *problem.Detail)
+		})
+	}
+}
+
+// La lectura pública nunca lleva el post ni la moderación.
+func TestListPostCommentsHidesPostData(t *testing.T) {
+	comments := newFakeComments()
+	comments.comments[0].PostTitle = "Métodos de Array"
+	router := commentsRouter(t, comments)
+
+	response := send(router, http.MethodGet, commentsPath, "", nil)
+
+	require.Equal(t, http.StatusOK, response.Code)
+	assert.NotContains(t, response.Body.String(), "Métodos de Array")
+	assert.NotContains(t, response.Body.String(), "moderation")
 }

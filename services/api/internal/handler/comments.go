@@ -16,6 +16,10 @@ const (
 
 	detailInvalidComment = "invalid comment data"
 	detailInvalidParent  = "parent must be an approved top-level comment of the same post"
+	// Los dos detalles de la moderación están en el contrato
+	// (ModerationUnavailable): el admin los distingue.
+	detailModerationDisabled    = "comment moderation is disabled"
+	detailModerationUnavailable = "comment moderation is unavailable"
 )
 
 // Comments es lo que los handlers necesitan del service de comentarios.
@@ -26,6 +30,7 @@ type Comments interface {
 	Approve(ctx context.Context, id string) (*domain.Comment, error)
 	Reject(ctx context.Context, id string) (*domain.Comment, error)
 	Reply(ctx context.Context, parentID, content string) (*domain.Comment, error)
+	Analyze(ctx context.Context, id string) (*domain.Comment, error)
 }
 
 // SubmitComment guarda el comentario de un lector en revisión. La respuesta
@@ -148,6 +153,8 @@ func toComment(comment *domain.Comment) gen.Comment {
 	result := gen.Comment{
 		Id:         comment.ID,
 		PostId:     comment.PostID,
+		PostTitle:  optional(comment.PostTitle),
+		PostSlug:   optional(comment.PostSlug),
 		ParentId:   optional(comment.ParentID),
 		Name:       comment.Name,
 		Content:    comment.Content,
@@ -180,4 +187,18 @@ func isCommentSubmission(method, path string) bool {
 	slug, ok := strings.CutSuffix(strings.TrimPrefix(path, postsPathPrefix), commentsSuffix)
 
 	return ok && strings.HasPrefix(path, postsPathPrefix) && slug != "" && !strings.Contains(slug, "/")
+}
+
+// AnalyzeComment pide de nuevo la sugerencia del clasificador.
+func (s server) AnalyzeComment(ctx context.Context, request gen.AnalyzeCommentRequestObject) (gen.AnalyzeCommentResponseObject, error) {
+	if _, err := requireAdmin(ctx); err != nil {
+		return nil, err
+	}
+
+	comment, err := s.comments.Analyze(ctx, request.Id)
+	if err != nil {
+		return nil, err
+	}
+
+	return gen.AnalyzeComment200JSONResponse(toComment(comment)), nil
 }

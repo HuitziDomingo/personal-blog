@@ -1,7 +1,7 @@
 info:
-  name: 12 Archivar post
+  name: 13 Archivar post
   type: http
-  seq: 12
+  seq: 13
 
 http:
   method: DELETE

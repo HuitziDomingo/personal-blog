@@ -29,11 +29,20 @@ runtime:
       code: |-
         const mine = res.body.items.filter((c) => c.postId === bru.getVar("postId"));
 
-        test("holds the comment, without analysis", function () {
+        test("holds the comment with its post", function () {
           expect(mine).to.have.length(1);
           expect(mine[0].name).to.equal(bru.getVar("readerName"));
           expect(mine[0].status).to.equal("pending");
-          expect(mine[0].moderation).to.equal(undefined);
+          expect(mine[0].postTitle).to.equal(bru.getVar("postTitle"));
+          expect(mine[0].postSlug).to.equal(bru.getVar("postSlug"));
+        });
+
+        // Sin moderación con LLM llega sin análisis; con ella, con la
+        // sugerencia, o sin análisis si el clasificador falló.
+        test("the analysis, if any, never publishes", function () {
+          if (mine[0].moderation !== undefined) {
+            expect(["approve", "reject", "review"]).to.include(mine[0].moderation.verdict);
+          }
         });
 
         test("the trap comment was discarded", function () {
