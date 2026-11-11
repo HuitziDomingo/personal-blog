@@ -37,3 +37,6 @@ dist/
 
 # TypeScript incremental
 *.tsbuildinfo
+
+# Salidas locales de Claude Code
+Claude outputs/
