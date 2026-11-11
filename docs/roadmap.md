@@ -98,6 +98,7 @@
 - [x] BLOG-086: Pulido visual del admin: íconos de Lucide en navegación, acciones y estado vacío, y la vista previa del editor como panel elevado con tokens propios verificados en WCAG AA. ([#80](https://github.com/HuitziDomingo/personal-blog/pull/80))
 - [x] BLOG-094: Íconos de Lucide en las opciones de tema del admin: sol (Claro), luna (Oscuro) y monitor (Sistema). ([#98](https://github.com/HuitziDomingo/personal-blog/pull/98))
 - [x] BLOG-098: `lmdb` y `msgpackr-extract` en `ignoredBuiltDependencies` (traen binarios precompilados), y los PR major de Dependabot son [ALTO] en CLAUDE.md. ([#101](https://github.com/HuitziDomingo/personal-blog/pull/101))
+- [x] BLOG-099: `turbopack.root` fijo en la raíz del monorepo, para que Next no tome como raíz del workspace un lockfile de fuera del repo. ([#102](https://github.com/HuitziDomingo/personal-blog/pull/102))
 
 ## Fase futura (fuera del MVP)
 
