@@ -4,6 +4,7 @@ import NextLink from 'next/link';
 
 import perfil from '@/assets/img/perfil.webp';
 import { ExternalLink } from '@/components/external-link';
+import { SocialIcon } from '@/components/brand-icons';
 import { ChevronRightIcon } from '@/components/icons';
 import { PostCard } from '@/components/post-card';
 import { SectionHeading } from '@/components/section-heading';
@@ -158,6 +159,7 @@ export default async function HomePage() {
                   textDecoration="none"
                   _hover={{ borderColor: 'brand.accent', textDecoration: 'none' }}
                 >
+                  <SocialIcon network={link.network} style={{ flexShrink: 0 }} />
                   <Box as="span" fontWeight="semibold" color="fg">
                     {link.network}
                   </Box>
