@@ -99,6 +99,8 @@
 - [x] BLOG-094: Íconos de Lucide en las opciones de tema del admin: sol (Claro), luna (Oscuro) y monitor (Sistema). ([#98](https://github.com/HuitziDomingo/personal-blog/pull/98))
 - [x] BLOG-098: `lmdb` y `msgpackr-extract` en `ignoredBuiltDependencies` (traen binarios precompilados), y los PR major de Dependabot son [ALTO] en CLAUDE.md. ([#101](https://github.com/HuitziDomingo/personal-blog/pull/101))
 - [x] BLOG-099: `turbopack.root` fijo en la raíz del monorepo, para que Next no tome como raíz del workspace un lockfile de fuera del repo. ([#102](https://github.com/HuitziDomingo/personal-blog/pull/102))
+- [x] BLOG-095: ADR-024: portafolio bilingüe, con el español en la raíz y el inglés bajo `/en`, diccionarios tipados sin librería de i18n, `hreflang` y sin redirección automática; el blog sigue en español. ([#99](https://github.com/HuitziDomingo/personal-blog/pull/99))
+- [ ] BLOG-096: Portafolio bilingüe (ADR-024): inicio, «Acerca de mí» y trabajos en español e inglés, dos layouts raíz con su `lang`, selector ES/EN, SEO con `hreflang` y sitemap, y los textos aprobados por León.
 
 ## Fase futura (fuera del MVP)
 
