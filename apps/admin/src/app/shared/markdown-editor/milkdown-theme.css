@@ -56,6 +56,14 @@ app-markdown-editor .milkdown .ProseMirror {
   padding: 0.5rem 0.75rem 0.5rem 3.5rem;
 }
 
+/* Con el dedo el asa de bloque no aparece (sale con el puntero encima): sin
+   ese hueco, en móvil el texto usa todo el ancho. */
+@media (pointer: coarse) {
+  app-markdown-editor .milkdown .ProseMirror {
+    padding-left: 0.75rem;
+  }
+}
+
 /*
  * Bloques de código: Crepe les da el color de superficie, que en claro es el
  * mismo blanco del fondo. CodeMirror trae colores de tema claro para la línea

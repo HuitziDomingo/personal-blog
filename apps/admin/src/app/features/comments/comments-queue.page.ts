@@ -2,7 +2,14 @@ import { ChangeDetectionStrategy, Component, computed, ElementRef, inject, input
 import { toObservable, toSignal } from '@angular/core/rxjs-interop';
 import { Router, RouterLink } from '@angular/router';
 import { NgIcon, provideIcons } from '@ng-icons/core';
-import { lucideChevronLeft, lucideChevronRight, lucideInbox, lucideRotateCw } from '@ng-icons/lucide';
+import {
+  lucideChevronLeft,
+  lucideChevronRight,
+  lucideCircleAlert,
+  lucideInbox,
+  lucideLoaderCircle,
+  lucideRotateCw,
+} from '@ng-icons/lucide';
 import { HlmButtonImports } from '@spartan-ng/helm/button';
 import { HlmEmptyImports } from '@spartan-ng/helm/empty';
 import { catchError, map, Observable, of, startWith, switchMap } from 'rxjs';
@@ -36,9 +43,9 @@ const EMPTY: Record<CommentStatus, { title: string; description: string }> = {
 @Component({
   selector: 'app-comments-queue-page',
   imports: [RouterLink, NgIcon, HlmButtonImports, HlmEmptyImports, CommentCard],
-  providers: [provideIcons({ lucideChevronLeft, lucideChevronRight, lucideInbox, lucideRotateCw })],
+  providers: [provideIcons({ lucideChevronLeft, lucideChevronRight, lucideCircleAlert, lucideInbox, lucideLoaderCircle, lucideRotateCw })],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  host: { class: 'mx-auto flex w-full max-w-4xl flex-1 flex-col gap-6 p-4 sm:p-6' },
+  host: { class: 'mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 p-4 sm:p-6' },
   template: `
     <header class="flex flex-wrap items-end justify-between gap-4">
       <div class="flex flex-col gap-1">
@@ -50,7 +57,7 @@ const EMPTY: Record<CommentStatus, { title: string; description: string }> = {
       <nav aria-label="Estado de los comentarios" class="bg-muted flex flex-wrap gap-1 rounded-lg p-1">
         @for (tab of statuses; track tab) {
           <a
-            class="focus-visible:ring-ring/50 inline-flex h-8 items-center rounded-md px-3 text-sm font-medium outline-none focus-visible:ring-3"
+            class="focus-visible:ring-ring/50 pointer-coarse:h-11 inline-flex h-8 items-center rounded-md px-3 text-sm font-medium outline-none focus-visible:ring-3"
             [class]="tab === activeStatus() ? 'bg-background text-foreground shadow-xs' : 'text-foreground hover:bg-background/60'"
             [routerLink]="[]"
             [queryParams]="{ status: tab === 'pending' ? null : tab, offset: null }"
@@ -66,11 +73,12 @@ const EMPTY: Record<CommentStatus, { title: string; description: string }> = {
 
     @switch (state().kind) {
       @case ('loading') {
-        <p class="text-muted-foreground text-sm">Cargando comentarios…</p>
+        <p class="text-muted-foreground flex items-center gap-2 text-sm"><ng-icon name="lucideLoaderCircle" class="animate-spin motion-reduce:animate-none" aria-hidden="true" />Cargando comentarios…</p>
       }
       @case ('error') {
-        <div role="alert" class="flex flex-wrap items-center gap-3">
-          <p class="text-destructive text-sm">{{ errorMessage() }}</p>
+        <div role="alert" class="border-destructive/40 bg-destructive/5 flex flex-wrap items-center gap-3 rounded-lg border p-3">
+          <ng-icon name="lucideCircleAlert" class="text-destructive" aria-hidden="true" />
+          <p class="min-w-0 flex-1 text-sm">{{ errorMessage() }}</p>
           <button hlmBtn variant="outline" size="sm" type="button" (click)="retry()">
             <ng-icon name="lucideRotateCw" aria-hidden="true" />Reintentar
           </button>

@@ -51,7 +51,7 @@ import { ThemeService } from '../theme/theme.service';
         @for (link of links; track link.path) {
           <li>
             <a
-              class="text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-ring/50 flex h-9 items-center gap-2 rounded-md border-s-4 border-transparent px-3 text-sm font-medium outline-none focus-visible:ring-3"
+              class="text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-ring/50 pointer-coarse:h-11 flex h-9 items-center gap-2 rounded-md border-s-4 border-transparent px-3 text-sm font-medium outline-none focus-visible:ring-3"
               [routerLink]="link.path"
               routerLinkActive="bg-sidebar-accent text-sidebar-accent-foreground !border-sidebar-primary"
               [routerLinkActiveOptions]="exactPath"
