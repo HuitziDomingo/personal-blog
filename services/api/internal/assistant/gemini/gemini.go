@@ -1,5 +1,6 @@
-// Package gemini implementa domain.WritingAssistant con la API de Gemini y el
-// SDK oficial google.golang.org/genai (ADR-021).
+// Package gemini implementa domain.WritingAssistant (ADR-021) y
+// domain.CommentModerator (ADR-022) con la API de Gemini y el SDK oficial
+// google.golang.org/genai.
 package gemini
 
 import (
@@ -39,7 +40,10 @@ type Assistant struct {
 	maxOutput int32
 }
 
-var _ domain.WritingAssistant = (*Assistant)(nil)
+var (
+	_ domain.WritingAssistant = (*Assistant)(nil)
+	_ domain.CommentModerator = (*Assistant)(nil)
+)
 
 // New crea el cliente. No hace ninguna llamada a la red.
 func New(ctx context.Context, cfg Config) (*Assistant, error) {
@@ -86,7 +90,7 @@ func (a *Assistant) ImproveWriting(ctx context.Context, draft domain.Draft) (dom
 		Content string `json:"content"`
 	}
 
-	usage, err := a.generate(ctx, improveInstruction, improveSchema, draft, &output)
+	usage, err := a.generate(ctx, improveInstruction, improveSchema, draftData(draft), &output)
 	if err != nil {
 		return domain.ImprovedWriting{Usage: usage}, err
 	}
@@ -102,12 +106,43 @@ func (a *Assistant) SuggestMetadata(ctx context.Context, draft domain.Draft) (do
 		Tags    []string `json:"tags"`
 	}
 
-	usage, err := a.generate(ctx, metadataInstruction, metadataSchema, draft, &output)
+	usage, err := a.generate(ctx, metadataInstruction, metadataSchema, draftData(draft), &output)
 	if err != nil {
 		return domain.MetadataSuggestion{Usage: usage}, err
 	}
 
 	return domain.MetadataSuggestion{Title: output.Title, Excerpt: output.Excerpt, Tags: output.Tags, Usage: usage}, nil
+}
+
+// Classify pide la sugerencia de moderación de un comentario. El service
+// valida los enums y aplica la revisión humana obligatoria.
+func (a *Assistant) Classify(ctx context.Context, comment domain.CommentForModeration) (domain.ModerationResult, error) {
+	var output struct {
+		Verdict  string `json:"verdict"`
+		Category string `json:"category"`
+		Reason   string `json:"reason"`
+	}
+
+	usage, err := a.generate(ctx, moderationInstruction, moderationSchema, commentData(comment), &output)
+	if err != nil {
+		return domain.ModerationResult{Usage: usage}, err
+	}
+
+	return domain.ModerationResult{
+		Verdict:  domain.ModerationVerdict(output.Verdict),
+		Category: domain.ModerationCategory(output.Category),
+		Reason:   output.Reason,
+		Usage:    usage,
+	}, nil
+}
+
+// commentData es el comentario como lo ve el clasificador, con el mismo
+// tratamiento que draftData: un objeto JSON en el mensaje del usuario,
+// separado de las instrucciones.
+type commentData struct {
+	PostTitle string `json:"postTitle"`
+	Name      string `json:"name"`
+	Content   string `json:"content"`
 }
 
 // draftData es el borrador como lo ve el modelo: un objeto JSON en el mensaje
@@ -122,15 +157,16 @@ type draftData struct {
 	Content string `json:"content"`
 }
 
-// generate hace la llamada y decodifica la salida estructurada en output. Los
+// generate hace la llamada y decodifica la salida estructurada en output. input
+// es el dato del usuario (draftData o commentData), que viaja como JSON. Los
 // errores nunca llevan el texto del SDK: algunos incluyen el cuerpo de la
 // respuesta, es decir, la salida del modelo.
-func (a *Assistant) generate(ctx context.Context, instruction string, schema map[string]any, draft domain.Draft, output any) (domain.AssistantUsage, error) {
+func (a *Assistant) generate(ctx context.Context, instruction string, schema map[string]any, input any, output any) (domain.AssistantUsage, error) {
 	usage := domain.AssistantUsage{Model: a.model}
 
-	data, err := json.Marshal(draftData(draft))
+	data, err := json.Marshal(input)
 	if err != nil {
-		return usage, fmt.Errorf("gemini: encode draft: %w", err)
+		return usage, fmt.Errorf("gemini: encode input: %w", err)
 	}
 
 	response, err := a.models.GenerateContent(ctx, a.model, []*genai.Content{

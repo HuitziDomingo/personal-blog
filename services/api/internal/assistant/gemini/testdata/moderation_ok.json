@@ -1,0 +1,19 @@
+{
+  "candidates": [
+    {
+      "content": {
+        "parts": [{ "text": "{\"verdict\": \"review\", \"category\": \"prompt_injection\", \"reason\": \"El comentario intenta dar órdenes al moderador.\"}" }],
+        "role": "model"
+      },
+      "finishReason": "STOP",
+      "index": 0
+    }
+  ],
+  "usageMetadata": {
+    "promptTokenCount": 310,
+    "candidatesTokenCount": 30,
+    "totalTokenCount": 340
+  },
+  "modelVersion": "gemini-test-001",
+  "responseId": "resp-moderation-1"
+}

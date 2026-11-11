@@ -211,3 +211,34 @@ func TestCommentIndexes(t *testing.T) {
 	assert.Contains(t, byName, "post_id_1_status_1_created_at_1__id_1")
 	assert.Contains(t, byName, "status_1_created_at_1__id_1")
 }
+
+func TestSetCommentModeration(t *testing.T) {
+	repository, client := newTestCommentRepository(t)
+	comment := newComment(bson.NewObjectID().Hex(), "Ana", domain.CommentStatusPending, commentTestTime)
+	require.NoError(t, repository.Create(t.Context(), comment))
+
+	first := domain.Moderation{
+		Verdict:    domain.ModerationVerdictApprove,
+		Category:   domain.ModerationCategoryNone,
+		Reason:     "Pregunta sobre el post.",
+		Model:      "gemini-test-001",
+		AnalyzedAt: commentTestTime.Add(time.Minute),
+	}
+	require.NoError(t, repository.SetModeration(t.Context(), comment.ID, first))
+
+	second := first
+	second.Verdict, second.Category, second.Reason = domain.ModerationVerdictReview, domain.ModerationCategoryPersonalData, "Incluye un teléfono."
+	second.AnalyzedAt = commentTestTime.Add(time.Hour)
+	require.NoError(t, repository.SetModeration(t.Context(), comment.ID, second))
+
+	got, err := repository.GetByID(t.Context(), comment.ID)
+	require.NoError(t, err)
+	assert.Equal(t, &second, got.Moderation, "el análisis nuevo reemplaza al anterior")
+	assert.Equal(t, domain.CommentStatusPending, got.Status, "guardar el análisis no cambia el estado")
+
+	raw := rawComment(t, client, comment.ID)
+	assert.NotContains(t, raw, "post_title", "el título del post no se guarda con el comentario")
+
+	require.ErrorIs(t, repository.SetModeration(t.Context(), bson.NewObjectID().Hex(), first), domain.ErrNotFound)
+	require.ErrorIs(t, repository.SetModeration(t.Context(), "no-es-un-id", first), domain.ErrNotFound)
+}

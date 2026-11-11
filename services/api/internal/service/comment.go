@@ -40,28 +40,33 @@ type CommentPage struct {
 	Offset   int
 }
 
-// PublishedPosts es lo que el service de comentarios necesita de los posts:
-// encontrar uno publicado por su slug. Lo implementa PostService.
-type PublishedPosts interface {
+// CommentPosts es lo que el service de comentarios necesita de los posts:
+// encontrar uno publicado por su slug y cualquiera por su ID, para mostrar su
+// título en la cola. Lo implementa PostService.
+type CommentPosts interface {
 	GetPublished(ctx context.Context, slug string) (*domain.Post, error)
+	Get(ctx context.Context, id string) (*domain.Post, error)
 }
 
 // CommentService aplica las reglas de los comentarios (ADR-022): envío anónimo
 // con premoderación, lectura pública de los aprobados y la cola del autor.
-// Todavía no hay moderación con LLM: los comentarios llegan a la cola sin
-// análisis.
+// Con la moderación con LLM encendida, cada comentario llega a la cola con la
+// sugerencia del clasificador; si el clasificador falla, llega sin análisis.
 type CommentService struct {
 	comments domain.CommentRepository
-	posts    PublishedPosts
+	posts    CommentPosts
+	// moderation es nil con COMMENTS_MODERATION_ENABLED=false.
+	moderation *ModerationService
 	// enabled es COMMENTS_ENABLED. Con false, el envío responde como si el
 	// recurso no existiera.
 	enabled bool
 	now     func() time.Time
 }
 
-// NewCommentService crea el service.
-func NewCommentService(comments domain.CommentRepository, posts PublishedPosts, enabled bool, now func() time.Time) *CommentService {
-	return &CommentService{comments: comments, posts: posts, enabled: enabled, now: now}
+// NewCommentService crea el service. moderation nil es la moderación con LLM
+// apagada.
+func NewCommentService(comments domain.CommentRepository, posts CommentPosts, moderation *ModerationService, enabled bool, now func() time.Time) *CommentService {
+	return &CommentService{comments: comments, posts: posts, moderation: moderation, enabled: enabled, now: now}
 }
 
 // timestamp devuelve la hora con la precisión de MongoDB (milisegundos), como
@@ -72,7 +77,10 @@ func (s *CommentService) timestamp() time.Time {
 
 // Submit guarda el comentario de un lector como pending. Con los comentarios
 // desactivados devuelve domain.ErrNotFound. Con el campo trampa lleno no
-// guarda nada y devuelve nil: quien lo envió recibe la misma respuesta.
+// guarda nada y devuelve nil: quien lo envió recibe la misma respuesta. Con la
+// moderación encendida, lo analiza antes de guardarlo; si el análisis falla,
+// lo guarda igual, sin análisis (ADR-022, punto 4). El veredicto nunca cambia
+// el estado: todo comentario espera la decisión del autor.
 func (s *CommentService) Submit(ctx context.Context, slug string, input CommentSubmission) error {
 	if !s.enabled {
 		return fmt.Errorf("submit comment: comments are disabled: %w", domain.ErrNotFound)
@@ -99,12 +107,13 @@ func (s *CommentService) Submit(ctx context.Context, slug string, input CommentS
 	}
 
 	comment := &domain.Comment{
-		PostID:    post.ID,
-		ParentID:  input.ParentID,
-		Name:      name,
-		Content:   content,
-		Status:    domain.CommentStatusPending,
-		CreatedAt: s.timestamp(),
+		PostID:     post.ID,
+		ParentID:   input.ParentID,
+		Name:       name,
+		Content:    content,
+		Status:     domain.CommentStatusPending,
+		Moderation: s.analyzeOrNil(ctx, post.Title, name, content),
+		CreatedAt:  s.timestamp(),
 	}
 
 	if err := s.comments.Create(ctx, comment); err != nil {
@@ -131,7 +140,14 @@ func (s *CommentService) List(ctx context.Context, status domain.CommentStatus, 
 		return CommentPage{}, fmt.Errorf("list comments: %w: unknown status %q", domain.ErrInvalidInput, status)
 	}
 
-	return s.list(ctx, domain.CommentFilter{Status: status, Limit: limit, Offset: offset})
+	page, err := s.list(ctx, domain.CommentFilter{Status: status, Limit: limit, Offset: offset})
+	if err != nil {
+		return CommentPage{}, err
+	}
+
+	s.withPosts(ctx, page.Comments...)
+
+	return page, nil
 }
 
 func (s *CommentService) list(ctx context.Context, filter domain.CommentFilter) (CommentPage, error) {
@@ -173,7 +189,84 @@ func (s *CommentService) review(ctx context.Context, id string, status domain.Co
 		return nil, fmt.Errorf("set comment %s: %w", status, err)
 	}
 
+	s.withPosts(ctx, comment)
+
 	return comment, nil
+}
+
+// Analyze pide de nuevo la sugerencia del clasificador y la guarda,
+// reemplazando la anterior. No cambia el estado del comentario. Con la
+// moderación apagada devuelve domain.ErrModerationDisabled, sin buscar el
+// comentario.
+func (s *CommentService) Analyze(ctx context.Context, id string) (*domain.Comment, error) {
+	if s.moderation == nil {
+		return nil, fmt.Errorf("analyze comment: %w", domain.ErrModerationDisabled)
+	}
+
+	comment, err := s.comments.GetByID(ctx, id)
+	if err != nil {
+		return nil, fmt.Errorf("analyze comment: %w", err)
+	}
+
+	s.withPosts(ctx, comment)
+
+	moderation, err := s.moderation.Analyze(ctx, domain.CommentForModeration{
+		PostTitle: comment.PostTitle,
+		Name:      comment.Name,
+		Content:   comment.Content,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("analyze comment: %w", err)
+	}
+
+	if err := s.comments.SetModeration(ctx, id, *moderation); err != nil {
+		return nil, fmt.Errorf("analyze comment: %w", err)
+	}
+
+	comment.Moderation = moderation
+
+	return comment, nil
+}
+
+// analyzeOrNil clasifica un comentario nuevo. Sin moderación, o si el
+// clasificador falla, devuelve nil: el comentario se guarda sin análisis. El
+// fallo ya quedó en el log de ModerationService.
+func (s *CommentService) analyzeOrNil(ctx context.Context, postTitle, name, content string) *domain.Moderation {
+	if s.moderation == nil {
+		return nil
+	}
+
+	moderation, err := s.moderation.Analyze(ctx, domain.CommentForModeration{PostTitle: postTitle, Name: name, Content: content})
+	if err != nil {
+		return nil
+	}
+
+	return moderation
+}
+
+// withPosts completa el título y el slug actuales del post de cada
+// comentario, para la cola del admin. Busca cada post una sola vez. Si un post
+// ya no existe o falla la búsqueda, deja los campos vacíos: la cola se puede
+// moderar igual.
+func (s *CommentService) withPosts(ctx context.Context, comments ...*domain.Comment) {
+	found := map[string]*domain.Post{}
+
+	for _, comment := range comments {
+		post, seen := found[comment.PostID]
+		if !seen {
+			var err error
+			if post, err = s.posts.Get(ctx, comment.PostID); err != nil {
+				post = nil
+			}
+
+			found[comment.PostID] = post
+		}
+
+		if post != nil {
+			comment.PostTitle = post.Title
+			comment.PostSlug = post.Slug
+		}
+	}
 }
 
 // Reply publica una respuesta del autor a un comentario aprobado que no es
@@ -209,6 +302,8 @@ func (s *CommentService) Reply(ctx context.Context, parentID, content string) (*
 	if err := s.comments.Create(ctx, reply); err != nil {
 		return nil, fmt.Errorf("reply to comment: %w", err)
 	}
+
+	s.withPosts(ctx, reply)
 
 	return reply, nil
 }
