@@ -124,6 +124,8 @@ export function sitemapEntries(
   site: string,
   workIds: readonly string[],
   posts: readonly { slug: string; updatedAt: string }[],
+  /** Ruta de las reglas de los comentarios; solo con los comentarios encendidos. */
+  commentRulesPath?: string,
 ): SitemapEntry[] {
   const base = site.replace(/\/+$/, '');
   const lastPost = posts.map((post) => post.updatedAt).sort().at(-1);
@@ -154,6 +156,7 @@ export function sitemapEntries(
       changeFrequency: 'monthly' as const,
       priority: 0.8,
     })),
+    ...(commentRulesPath ? [{ url: `${base}${commentRulesPath}`, changeFrequency: 'yearly' as const, priority: 0.3 }] : []),
   ];
 }
 

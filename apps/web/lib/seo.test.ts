@@ -84,6 +84,12 @@ describe('pageMetadata by language', () => {
 });
 
 describe('sitemapEntries', () => {
+  it('lists the comment rules only when a path is given, outside /blog', () => {
+    expect(sitemapEntries(SITE, [], []).some((entry) => entry.url.includes('comentarios'))).toBe(false);
+    const entries = sitemapEntries(SITE, [], [], '/comentarios/reglas');
+    expect(entries.at(-1)?.url).toBe('https://huitzi.xyz/comentarios/reglas');
+  });
+
   it('lists the portfolio in both languages, the blog and its posts', () => {
     const entries = sitemapEntries('https://huitzi.xyz/', ['debred'], [
       { slug: 'b', updatedAt: '2026-11-02T00:00:00Z' },

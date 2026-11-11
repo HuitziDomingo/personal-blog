@@ -7,7 +7,7 @@ import { pageMetadata } from '@/lib/seo';
 export const metadata = pageMetadata({
   title: 'Reglas de los comentarios',
   description: 'Cómo se moderan los comentarios del blog y qué datos se guardan.',
-  path: '/blog/reglas-de-comentarios',
+  path: '/comentarios/reglas',
 });
 
 /** Reglas y privacidad de los comentarios (ADR-022, puntos 2, 3, 5 y 9). */
