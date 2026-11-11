@@ -118,6 +118,8 @@
 - [x] BLOG-091: Moderación de comentarios con LLM (ADR-022): puerto `CommentModerator`, adaptador de Gemini y fake, con veredicto, categoría y motivo. ([#106](https://github.com/HuitziDomingo/personal-blog/pull/106))
 - [ ] BLOG-092: Cola de moderación de comentarios en el admin (ADR-022): aprobar, rechazar, pedir de nuevo el análisis y responder como autor.
 - [x] BLOG-093: Comentarios en la web (ADR-022): lista de aprobados con ISR, formulario de cliente con aviso de privacidad, página de reglas y cambios de CSP y CORS. ([#105](https://github.com/HuitziDomingo/personal-blog/pull/105))
+- [x] BLOG-092: Cola de moderación de comentarios en el admin (ADR-022): aprobar, rechazar, pedir de nuevo el análisis y responder como autor. ([#107](https://github.com/HuitziDomingo/personal-blog/pull/107))
+- [ ] BLOG-093: Comentarios en la web (ADR-022): lista de aprobados con ISR, formulario de cliente con aviso de privacidad, página de reglas y cambios de CSP y CORS.
 - [x] ~~BLOG-023: Definir `domain/comment.go` e implementar comentarios.~~ Reemplazada por BLOG-090 (ADR-022). ([#91](https://github.com/HuitziDomingo/personal-blog/pull/91))
 - [x] ~~BLOG-024: Crear vista de moderación de comentarios.~~ Reemplazada por BLOG-092 (ADR-022). ([#91](https://github.com/HuitziDomingo/personal-blog/pull/91))
 - [x] ~~BLOG-025: Agregar `AIModeration` a la moderación de comentarios.~~ Reemplazada por BLOG-091 (ADR-022). ([#91](https://github.com/HuitziDomingo/personal-blog/pull/91))
