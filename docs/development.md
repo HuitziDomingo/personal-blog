@@ -159,6 +159,9 @@ npx @modelcontextprotocol/inspector@2.13.0 \
 | `RATE_LIMIT_ASSISTANT_PER_MINUTE` / `_BURST` | No | `5` / `5` | Límite extra por usuario en `/api/v1/admin/assistant/*`, además del de usuario (ADR-021) |
 | `COMMENTS_ENABLED` | No | `false` | `true` acepta comentarios de los lectores (ADR-022). Con `false`, `POST /api/v1/posts/{slug}/comments` responde 404; la lectura pública y la cola del admin siguen respondiendo. Otro valor detiene la API |
 | `COMMENTS_RATE_LIMIT_MAX` / `COMMENTS_RATE_LIMIT_WINDOW_MINUTES` | No | `3` / `10` | Límite extra por IP del envío de comentarios, además del global, aunque haya sesión (ADR-022). Es un token bucket: 3 seguidos y después uno cada 3 min 20 s |
+| `COMMENTS_MODERATION_ENABLED` | No | `false` | `true` clasifica cada comentario nuevo con Gemini (ADR-022, punto 4). Exige `GEMINI_API_KEY` y un modelo; si falta alguno, la API no arranca. No depende de `ASSISTANT_ENABLED` |
+| `COMMENTS_MODERATION_MODEL` | No | `GEMINI_MODEL` | Modelo del clasificador. Usa el nivel de razonamiento y el límite de salida del asistente |
+| `COMMENTS_MODERATION_TIMEOUT_SECONDS` | No | `10` | Timeout de cada análisis. Si vence, el comentario se guarda sin análisis |
 | `ASSISTANT_ENABLED` | No | `false` | `true` enciende el asistente de escritura (ADR-021). Con `false`, sus operaciones responden 503 `writing assistant is disabled` y nada llega a Gemini. Otro valor detiene la API |
 | `GEMINI_API_KEY` | Con el asistente encendido | | API key de Gemini, de un proyecto de Google sin facturación. Con `ASSISTANT_ENABLED=true` y sin key, la API no arranca. Nunca aparece en logs ni en errores |
 | `GEMINI_MODEL` | Con el asistente encendido | | Modelo de Gemini, uno incluido en el plan gratuito. Con `ASSISTANT_ENABLED=true` y sin modelo, la API no arranca |
@@ -200,6 +203,7 @@ La API arranca con cualquier configuración válida, pero algunas la dejan inút
 | `PORT` | `8080` | La que asigna Cloud Run |
 | `ASSISTANT_ENABLED`, `GEMINI_API_KEY` y `GEMINI_MODEL` | Apagado; para probarlo, una key propia en `.env` | La key desde Secret Manager, de un proyecto de Google sin facturación y separado del de la API (ADR-021) |
 | `COMMENTS_ENABLED` | `false`; `true` para probar los comentarios | `true` cuando la web tenga el formulario (BLOG-093). `ALLOWED_ORIGINS` debe incluir el origen de la web, porque el navegador envía los comentarios directo a la API |
+| `COMMENTS_MODERATION_ENABLED` y `COMMENTS_MODERATION_MODEL` | Apagada; para probarla, la misma key del asistente | Encendida con un modelo rápido del plan gratuito (`gemini-3.6-flash`), la key desde Secret Manager |
 
 Los valores de producción son los previstos; el despliegue está pendiente (BLOG-054 y BLOG-022).
 
@@ -528,7 +532,7 @@ La colección está en `docs/api/bruno/`, en formato OpenCollection (YAML):
 - `flows/`: flujos escritos a mano, con aserciones:
   - `flows/posts/` recorre el ciclo de vida de un post: login, crear borrador, editar, publicar, verlo en la API pública, intentar cambiar el slug ya publicado (409), archivar y comprobar que ya no aparece. Cada corrida crea un post nuevo con la hora en el título, que queda archivado en tu base.
   - `flows/sesion/` recorre login, `/me`, refresh, logout y `/me` sin sesión.
-  - `flows/comentarios/` publica un post y recorre los comentarios: enviar uno, el campo trampa, que no aparezca sin aprobar, la cola de moderación, rechazar, aprobar, responder como autor, la lectura pública sin datos de moderación y el rechazo de una respuesta de segundo nivel; al final archiva el post. Con `COMMENTS_ENABLED=false`, el valor por defecto, el envío responde 404 y el flujo salta al final. Envía 3 comentarios, el límite por IP por defecto: para repetirlo antes de 10 minutos, sube `COMMENTS_RATE_LIMIT_MAX` o reinicia la API.
+  - `flows/comentarios/` publica un post y recorre los comentarios: enviar uno, el campo trampa, que no aparezca sin aprobar, la cola de moderación con el título del post, pedir el análisis (503 con la moderación apagada), rechazar, aprobar, responder como autor, la lectura pública sin datos de moderación y el rechazo de una respuesta de segundo nivel; al final archiva el post. Con `COMMENTS_ENABLED=false`, el valor por defecto, el envío responde 404 y el flujo salta al final. Envía 3 comentarios, el límite por IP por defecto: para repetirlo antes de 10 minutos, sube `COMMENTS_RATE_LIMIT_MAX` o reinicia la API.
   - `flows/asistente/` comprueba el asistente apagado (`ASSISTANT_ENABLED=false`, el valor por defecto): las dos operaciones responden 503 y un borrador de más de 50 000 caracteres responde 400. Con el asistente encendido falla a propósito, para no gastar la cuota de Gemini.
 - `environments/local.yml`: `baseUrl` apunta a `http://localhost:8080`. `adminEmail` y `adminPassword` son variables secretas sin valor.
 
@@ -634,11 +638,23 @@ Las dos reciben `{ "title", "content" }`: hasta 200 y 50 000 caracteres. Solo es
 ADR-022. Los lectores comentan los posts publicados sin cuenta, y nada se publica sin la aprobación del autor. Apagados por defecto (`COMMENTS_ENABLED=false`).
 
 - **Públicas:**
-  - `POST /api/v1/posts/{slug}/comments` recibe `{ "name", "content", "parentId"?, "website"? }`: nombre de 1 a 50 caracteres y contenido de 1 a 2000, solo texto. Responde siempre 202 `{ "status": "pending" }`, sin ningún análisis. `website` es el campo trampa: la web lo oculta, y si llega con valor el comentario se descarta en silencio con la misma respuesta. `parentId` responde a un comentario aprobado del mismo post que no sea una respuesta (un solo nivel); si no, 400.
+  - `POST /api/v1/posts/{slug}/comments` recibe `{ "name", "content", "parentId"?, "website"? }`: nombre de 1 a 50 caracteres y contenido de 1 a 2000, solo texto. Responde siempre 202 `{ "status": "pending" }`, sin revelar el análisis. `website` es el campo trampa: la web lo oculta, y si llega con valor el comentario se descarta en silencio con la misma respuesta. `parentId` responde a un comentario aprobado del mismo post que no sea una respuesta (un solo nivel); si no, 400.
   - `GET /api/v1/posts/{slug}/comments` devuelve los aprobados, del más antiguo al más reciente, paginados y sin datos de moderación.
 - **Admin:**
-  - `GET /api/v1/admin/comments?status=` es la cola, de todos los posts.
+  - `GET /api/v1/admin/comments?status=` es la cola, de todos los posts. Cada comentario lleva `postTitle` y `postSlug`, los actuales del post, que no se guardan con el comentario.
   - `POST /api/v1/admin/comments/{id}/approve` y `/reject` deciden. Un rechazado se borra a los 30 días con un índice TTL sobre `rejected_at`; aprobarlo antes lo conserva.
   - `POST /api/v1/admin/comments/{id}/replies` publica una respuesta del autor, aprobada y con `byAuthor: true`.
+  - `POST /api/v1/admin/comments/{id}/analyze` pide de nuevo la sugerencia del clasificador y reemplaza la anterior, sin cambiar el estado. Con la moderación apagada responde 503 `comment moderation is disabled`; si el clasificador falla, 503 `comment moderation is unavailable`, y el análisis anterior se conserva.
 - **Datos:** colección `comments`, sin IP, correo, user agent ni ningún identificador del lector. El rate limit por IP vive solo en memoria.
-- **Moderación con LLM:** todavía no está conectada (BLOG-091). Los comentarios llegan a la cola sin `moderation`.
+- **Moderación con LLM (BLOG-091):** con `COMMENTS_MODERATION_ENABLED=true`, el envío pide a Gemini una sugerencia antes de guardar: `verdict` (`approve`, `reject` o `review`), `category` (`none`, `spam`, `abuse`, `off_topic`, `prompt_injection` o `personal_data`) y `reason`, una frase corta. Se guarda en `moderation`.
+  - **Nunca publica:** el comentario queda `pending` diga lo que diga el modelo. `prompt_injection` y `personal_data` se guardan siempre como `review`.
+  - **Si falla:** con un error, una salida inválida o el timeout (10 s, sin reintentos), el comentario se guarda sin `moderation` y el log dice la causa, nunca el texto del comentario.
+  - **Datos al modelo:** solo el título del post, el nombre y el texto, como JSON separado de las instrucciones. El puerto es `domain.CommentModerator`; el adaptador es el mismo de Gemini del asistente.
+  - **Calidad con el modelo real:** `internal/assistant/gemini/testdata/moderation_samples.json` tiene comentarios de ejemplo con su categoría esperada. Nunca corre en CI; para revisarlo a mano, con tu key exportada en el shell:
+
+    ```sh
+    cd services/api && MODERATION_LIVE_OUT=/tmp/moderacion.json \
+      go test -tags gemini_live -run TestModerationSamplesAgainstGemini -count=1 -v ./internal/assistant/gemini/
+    ```
+
+    Hace una llamada cada 6 s y se detiene en el primer 429, sin reintentos.

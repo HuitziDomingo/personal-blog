@@ -1,0 +1,40 @@
+info:
+  name: 7 Pedir el analisis
+  type: http
+  seq: 7
+
+http:
+  method: POST
+  url: "{{baseUrl}}/api/v1/admin/comments/{{commentId}}/analyze"
+
+runtime:
+  scripts:
+    - type: before-request
+      code: |-
+        // Con COMMENTS_ENABLED=false el flujo termina en el paso 3.
+        if (bru.getVar("commentsEnabled") !== "true") {
+          bru.runner.skipRequest();
+        }
+    - type: tests
+      code: |-
+        // Con COMMENTS_MODERATION_ENABLED=false (por defecto) responde 503
+        // sin llamar a ningún modelo. Encendida, devuelve el análisis, o 503
+        // si el clasificador falla.
+        test("returns the analysis or a moderation 503", function () {
+          if (res.status === 200) {
+            expect(res.body.id).to.equal(bru.getVar("commentId"));
+            expect(res.body.status).to.equal("pending");
+            expect(["approve", "reject", "review"]).to.include(res.body.moderation.verdict);
+            expect(res.body.moderation.reason).to.be.a("string");
+          } else {
+            expect(res.status).to.equal(503);
+            expect(["comment moderation is disabled", "comment moderation is unavailable"]).to.include(res.body.detail);
+          }
+        });
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: true

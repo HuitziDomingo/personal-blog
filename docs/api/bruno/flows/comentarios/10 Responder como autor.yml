@@ -1,25 +1,23 @@
 info:
-  name: 11 Responder a una respuesta
+  name: 10 Responder como autor
   type: http
-  seq: 11
+  seq: 10
 
 http:
   method: POST
-  url: "{{baseUrl}}/api/v1/posts/{{postSlug}}/comments"
+  url: "{{baseUrl}}/api/v1/admin/comments/{{commentId}}/replies"
   body:
     type: json
     data: |-
       {
-        "name": "Ana",
-        "content": "Una respuesta de segundo nivel",
-        "parentId": "{{replyId}}"
+        "content": "Gracias. Con `make api-test`, que ya lo incluye."
       }
 
 runtime:
   assertions:
     - expression: res.status
       operator: eq
-      value: "400"
+      value: "201"
   scripts:
     - type: before-request
       code: |-
@@ -27,10 +25,15 @@ runtime:
         if (bru.getVar("commentsEnabled") !== "true") {
           bru.runner.skipRequest();
         }
+    - type: after-response
+      code: |-
+        bru.setVar("replyId", res.body.id);
     - type: tests
       code: |-
-        test("there is a single level of replies", function () {
-          expect(res.body.detail).to.equal("parent must be an approved top-level comment of the same post");
+        test("is published as the author", function () {
+          expect(res.body.status).to.equal("approved");
+          expect(res.body.byAuthor).to.equal(true);
+          expect(res.body.parentId).to.equal(bru.getVar("commentId"));
         });
 
 settings:

@@ -1,7 +1,7 @@
 info:
-  name: 10 Ver en la lectura publica
+  name: 11 Ver en la lectura publica
   type: http
-  seq: 10
+  seq: 11
 
 http:
   method: GET
