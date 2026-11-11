@@ -1,0 +1,44 @@
+info:
+  name: 9 Responder como autor
+  type: http
+  seq: 9
+
+http:
+  method: POST
+  url: "{{baseUrl}}/api/v1/admin/comments/{{commentId}}/replies"
+  body:
+    type: json
+    data: |-
+      {
+        "content": "Gracias. Con `make api-test`, que ya lo incluye."
+      }
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "201"
+  scripts:
+    - type: before-request
+      code: |-
+        // Con COMMENTS_ENABLED=false el flujo termina en el paso 3.
+        if (bru.getVar("commentsEnabled") !== "true") {
+          bru.runner.skipRequest();
+        }
+    - type: after-response
+      code: |-
+        bru.setVar("replyId", res.body.id);
+    - type: tests
+      code: |-
+        test("is published as the author", function () {
+          expect(res.body.status).to.equal("approved");
+          expect(res.body.byAuthor).to.equal(true);
+          expect(res.body.parentId).to.equal(bru.getVar("commentId"));
+        });
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: true

@@ -1,0 +1,38 @@
+info:
+  name: 2 Crear post publicado
+  type: http
+  seq: 2
+
+http:
+  method: POST
+  url: "{{baseUrl}}/api/v1/admin/posts"
+  body:
+    type: json
+    data: |-
+      {
+        "title": "{{postTitle}}",
+        "content": "# Comentarios\n\nUn post para el flujo de comentarios.",
+        "status": "published"
+      }
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "201"
+  scripts:
+    - type: before-request
+      code: |-
+        // Un título distinto en cada corrida, como en el flujo de posts.
+        bru.setVar("postTitle", "Comentarios de Bruno " + Date.now());
+    - type: after-response
+      code: |-
+        bru.setVar("postId", res.body.id);
+        bru.setVar("postSlug", res.body.slug);
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: true

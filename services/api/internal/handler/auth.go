@@ -15,6 +15,7 @@ type server struct {
 	sessions  Sessions
 	posts     Posts
 	assistant Assistant
+	comments  Comments
 }
 
 var _ gen.StrictServerInterface = server{}

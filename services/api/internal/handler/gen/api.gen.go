@@ -23,6 +23,93 @@ import (
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
+// Defines values for CommentReceiptStatus.
+const (
+	CommentReceiptStatusPending CommentReceiptStatus = "pending"
+)
+
+// Valid indicates whether the value is a known member of the CommentReceiptStatus enum.
+func (e CommentReceiptStatus) Valid() bool {
+	switch e {
+	case CommentReceiptStatusPending:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for CommentStatus.
+const (
+	CommentStatusApproved CommentStatus = "approved"
+	CommentStatusPending  CommentStatus = "pending"
+	CommentStatusRejected CommentStatus = "rejected"
+)
+
+// Valid indicates whether the value is a known member of the CommentStatus enum.
+func (e CommentStatus) Valid() bool {
+	switch e {
+	case CommentStatusApproved:
+		return true
+	case CommentStatusPending:
+		return true
+	case CommentStatusRejected:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ModerationCategory.
+const (
+	Abuse           ModerationCategory = "abuse"
+	None            ModerationCategory = "none"
+	OffTopic        ModerationCategory = "off_topic"
+	PersonalData    ModerationCategory = "personal_data"
+	PromptInjection ModerationCategory = "prompt_injection"
+	Spam            ModerationCategory = "spam"
+)
+
+// Valid indicates whether the value is a known member of the ModerationCategory enum.
+func (e ModerationCategory) Valid() bool {
+	switch e {
+	case Abuse:
+		return true
+	case None:
+		return true
+	case OffTopic:
+		return true
+	case PersonalData:
+		return true
+	case PromptInjection:
+		return true
+	case Spam:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ModerationVerdict.
+const (
+	Approve ModerationVerdict = "approve"
+	Reject  ModerationVerdict = "reject"
+	Review  ModerationVerdict = "review"
+)
+
+// Valid indicates whether the value is a known member of the ModerationVerdict enum.
+func (e ModerationVerdict) Valid() bool {
+	switch e {
+	case Approve:
+		return true
+	case Reject:
+		return true
+	case Review:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for PostStatus.
 const (
 	Archived  PostStatus = "archived"
@@ -68,6 +155,67 @@ type AssistantDraft struct {
 	Title string `json:"title"`
 }
 
+// AuthorReply defines model for AuthorReply.
+type AuthorReply struct {
+	// Content Solo texto, como un comentario.
+	Content string `json:"content"`
+}
+
+// Comment Comentario completo, para el admin.
+type Comment struct {
+	ByAuthor bool `json:"byAuthor"`
+
+	// Content Texto no confiable. Se escapa al mostrarlo.
+	Content   string    `json:"content"`
+	CreatedAt time.Time `json:"createdAt"`
+	Id        string    `json:"id"`
+
+	// Moderation Sugerencia del clasificador (ADR-022). Solo orienta: el autor decide.
+	Moderation *Moderation `json:"moderation,omitempty"`
+	Name       string      `json:"name"`
+	ParentId   *string     `json:"parentId,omitempty"`
+	PostId     string      `json:"postId"`
+
+	// ReviewedAt Cuándo el autor lo aprobó o rechazó por última vez.
+	ReviewedAt *time.Time    `json:"reviewedAt,omitempty"`
+	Status     CommentStatus `json:"status"`
+}
+
+// CommentPage defines model for CommentPage.
+type CommentPage struct {
+	Items  []Comment `json:"items"`
+	Limit  int32     `json:"limit"`
+	Offset int32     `json:"offset"`
+	Total  int64     `json:"total"`
+}
+
+// CommentReceipt defines model for CommentReceipt.
+type CommentReceipt struct {
+	// Status Siempre pending. No revela ningún análisis.
+	Status CommentReceiptStatus `json:"status"`
+}
+
+// CommentReceiptStatus Siempre pending. No revela ningún análisis.
+type CommentReceiptStatus string
+
+// CommentStatus defines model for CommentStatus.
+type CommentStatus string
+
+// CommentSubmission Comentario de un lector. Solo texto: la web lo escapa al mostrarlo. No se guarda IP, correo ni ningún identificador del lector (ADR-022).
+type CommentSubmission struct {
+	// Content Solo texto, sin Markdown ni HTML.
+	Content string `json:"content"`
+
+	// Name Nombre que se muestra. No se verifica.
+	Name string `json:"name"`
+
+	// ParentId Comentario al que responde. Debe ser un comentario aprobado del mismo post que no sea una respuesta.
+	ParentId *string `json:"parentId,omitempty"`
+
+	// Website Campo trampa: la web lo oculta y una persona lo deja vacío. Si llega con valor, el comentario se descarta en silencio con la misma respuesta.
+	Website *string `json:"website,omitempty"`
+}
+
 // ImprovedWriting defines model for ImprovedWriting.
 type ImprovedWriting struct {
 	// Content Contenido sugerido en Markdown. Es texto no confiable: se renderiza con el mismo sanitizado que cualquier post (packages/markdown).
@@ -88,6 +236,21 @@ type MetadataSuggestion struct {
 	Tags  []string `json:"tags"`
 	Title string   `json:"title"`
 }
+
+// Moderation Sugerencia del clasificador (ADR-022). Solo orienta: el autor decide.
+type Moderation struct {
+	AnalyzedAt time.Time          `json:"analyzedAt"`
+	Category   ModerationCategory `json:"category"`
+	Model      string             `json:"model"`
+	Reason     string             `json:"reason"`
+	Verdict    ModerationVerdict  `json:"verdict"`
+}
+
+// ModerationCategory defines model for ModerationCategory.
+type ModerationCategory string
+
+// ModerationVerdict defines model for ModerationVerdict.
+type ModerationVerdict string
 
 // Post Post completo.
 type Post struct {
@@ -172,6 +335,31 @@ type Problem struct {
 	Type *string `json:"type,omitempty"`
 }
 
+// PublicComment Comentario aprobado, sin datos de moderación.
+type PublicComment struct {
+	// ByAuthor Respuesta del autor del blog.
+	ByAuthor bool `json:"byAuthor"`
+
+	// Content Texto no confiable. Se escapa al mostrarlo.
+	Content   string    `json:"content"`
+	CreatedAt time.Time `json:"createdAt"`
+	Id        string    `json:"id"`
+	Name      string    `json:"name"`
+
+	// ParentId Comentario al que responde, si es una respuesta.
+	ParentId *string `json:"parentId,omitempty"`
+}
+
+// PublicCommentPage defines model for PublicCommentPage.
+type PublicCommentPage struct {
+	Items  []PublicComment `json:"items"`
+	Limit  int32           `json:"limit"`
+	Offset int32           `json:"offset"`
+
+	// Total Total de comentarios aprobados del post.
+	Total int64 `json:"total"`
+}
+
 // Seo defines model for Seo.
 type Seo struct {
 	CanonicalUrl *string   `json:"canonicalUrl,omitempty"`
@@ -193,6 +381,9 @@ type User struct {
 
 // UserRole defines model for UserRole.
 type UserRole string
+
+// CommentId defines model for CommentId.
+type CommentId = string
 
 // Limit defines model for Limit.
 type Limit = int32
@@ -230,6 +421,18 @@ type Unauthorized = Problem
 // UnexpectedError Detalle de un error según RFC 9457.
 type UnexpectedError = Problem
 
+// ListCommentsParams defines parameters for ListComments.
+type ListCommentsParams struct {
+	// Status Filtra por estado. Sin él, lista todos.
+	Status *CommentStatus `form:"status,omitempty" json:"status,omitempty"`
+
+	// Limit Tamaño de la página.
+	Limit *Limit `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Offset Elementos que se saltan antes de la página.
+	Offset *Offset `form:"offset,omitempty" json:"offset,omitempty"`
+}
+
 // ListPostsParams defines parameters for ListPosts.
 type ListPostsParams struct {
 	// Status Filtra por estado.
@@ -241,7 +444,7 @@ type ListPostsParams struct {
 	// Limit Tamaño de la página.
 	Limit *Limit `form:"limit,omitempty" json:"limit,omitempty"`
 
-	// Offset Posts que se saltan antes de la página.
+	// Offset Elementos que se saltan antes de la página.
 	Offset *Offset `form:"offset,omitempty" json:"offset,omitempty"`
 }
 
@@ -253,7 +456,16 @@ type ListPublishedPostsParams struct {
 	// Limit Tamaño de la página.
 	Limit *Limit `form:"limit,omitempty" json:"limit,omitempty"`
 
-	// Offset Posts que se saltan antes de la página.
+	// Offset Elementos que se saltan antes de la página.
+	Offset *Offset `form:"offset,omitempty" json:"offset,omitempty"`
+}
+
+// ListPostCommentsParams defines parameters for ListPostComments.
+type ListPostCommentsParams struct {
+	// Limit Tamaño de la página.
+	Limit *Limit `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Offset Elementos que se saltan antes de la página.
 	Offset *Offset `form:"offset,omitempty" json:"offset,omitempty"`
 }
 
@@ -262,6 +474,9 @@ type ImproveWritingJSONRequestBody = AssistantDraft
 
 // SuggestMetadataJSONRequestBody defines body for SuggestMetadata for application/json ContentType.
 type SuggestMetadataJSONRequestBody = AssistantDraft
+
+// ReplyToCommentJSONRequestBody defines body for ReplyToComment for application/json ContentType.
+type ReplyToCommentJSONRequestBody = AuthorReply
 
 // CreatePostJSONRequestBody defines body for CreatePost for application/json ContentType.
 type CreatePostJSONRequestBody = PostWrite
@@ -272,6 +487,9 @@ type UpdatePostJSONRequestBody = PostWrite
 // LoginJSONRequestBody defines body for Login for application/json ContentType.
 type LoginJSONRequestBody = LoginRequest
 
+// SubmitCommentJSONRequestBody defines body for SubmitComment for application/json ContentType.
+type SubmitCommentJSONRequestBody = CommentSubmission
+
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
 	// ImproveWriting Mejora la redacción de un borrador.
@@ -280,6 +498,18 @@ type ServerInterface interface {
 	// SuggestMetadata Sugiere título, extracto y etiquetas para un borrador.
 	// (POST /api/v1/admin/assistant/suggest-metadata)
 	SuggestMetadata(c *gin.Context)
+	// ListComments Lista los comentarios para moderar.
+	// (GET /api/v1/admin/comments)
+	ListComments(c *gin.Context, params ListCommentsParams)
+	// ApproveComment Aprueba un comentario.
+	// (POST /api/v1/admin/comments/{id}/approve)
+	ApproveComment(c *gin.Context, id CommentId)
+	// RejectComment Rechaza un comentario.
+	// (POST /api/v1/admin/comments/{id}/reject)
+	RejectComment(c *gin.Context, id CommentId)
+	// ReplyToComment Responde a un comentario como autor.
+	// (POST /api/v1/admin/comments/{id}/replies)
+	ReplyToComment(c *gin.Context, id CommentId)
 	// ListPosts Lista los posts en cualquier estado.
 	// (GET /api/v1/admin/posts)
 	ListPosts(c *gin.Context, params ListPostsParams)
@@ -313,6 +543,12 @@ type ServerInterface interface {
 	// GetPublishedPost Devuelve un post publicado por su slug.
 	// (GET /api/v1/posts/{slug})
 	GetPublishedPost(c *gin.Context, slug Slug)
+	// ListPostComments Lista los comentarios aprobados de un post.
+	// (GET /api/v1/posts/{slug}/comments)
+	ListPostComments(c *gin.Context, slug Slug, params ListPostCommentsParams)
+	// SubmitComment Envía un comentario anónimo a un post publicado.
+	// (POST /api/v1/posts/{slug}/comments)
+	SubmitComment(c *gin.Context, slug Slug)
 }
 
 // ServerInterfaceWrapper converts contexts to parameters.
@@ -348,6 +584,124 @@ func (siw *ServerInterfaceWrapper) SuggestMetadata(c *gin.Context) {
 	}
 
 	siw.Handler.SuggestMetadata(c)
+}
+
+// ListComments operation middleware
+func (siw *ServerInterfaceWrapper) ListComments(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListCommentsParams
+
+	// ------------- Optional query parameter "status" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "status", c.Request.URL.Query(), &params.Status, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter status: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", c.Request.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: "int32"})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter limit: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Optional query parameter "offset" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "offset", c.Request.URL.Query(), &params.Offset, runtime.BindQueryParameterOptions{Type: "integer", Format: "int32"})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter offset: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.ListComments(c, params)
+}
+
+// ApproveComment operation middleware
+func (siw *ServerInterfaceWrapper) ApproveComment(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id CommentId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.ApproveComment(c, id)
+}
+
+// RejectComment operation middleware
+func (siw *ServerInterfaceWrapper) RejectComment(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id CommentId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.RejectComment(c, id)
+}
+
+// ReplyToComment operation middleware
+func (siw *ServerInterfaceWrapper) ReplyToComment(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id CommentId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.ReplyToComment(c, id)
 }
 
 // ListPosts operation middleware
@@ -609,6 +963,75 @@ func (siw *ServerInterfaceWrapper) GetPublishedPost(c *gin.Context) {
 	siw.Handler.GetPublishedPost(c, slug)
 }
 
+// ListPostComments operation middleware
+func (siw *ServerInterfaceWrapper) ListPostComments(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "slug" -------------
+	var slug Slug
+
+	err = runtime.BindStyledParameterWithOptions("simple", "slug", c.Param("slug"), &slug, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter slug: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListPostCommentsParams
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", c.Request.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: "int32"})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter limit: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Optional query parameter "offset" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "offset", c.Request.URL.Query(), &params.Offset, runtime.BindQueryParameterOptions{Type: "integer", Format: "int32"})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter offset: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.ListPostComments(c, slug, params)
+}
+
+// SubmitComment operation middleware
+func (siw *ServerInterfaceWrapper) SubmitComment(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "slug" -------------
+	var slug Slug
+
+	err = runtime.BindStyledParameterWithOptions("simple", "slug", c.Param("slug"), &slug, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter slug: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.SubmitComment(c, slug)
+}
+
 // GinServerOptions provides options for the Gin server.
 type GinServerOptions struct {
 	BaseURL      string
@@ -642,6 +1065,8 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	router.GET(options.BaseURL+"/api/v1/auth/me", wrapper.GetCurrentUser)
 	router.GET(options.BaseURL+"/api/v1/posts", wrapper.ListPublishedPosts)
 	router.GET(options.BaseURL+"/api/v1/posts/:slug", wrapper.GetPublishedPost)
+	router.GET(options.BaseURL+"/api/v1/posts/:slug/comments", wrapper.ListPostComments)
+	router.POST(options.BaseURL+"/api/v1/posts/:slug/comments", wrapper.SubmitComment)
 	router.GET(options.BaseURL+"/api/v1/admin/posts", wrapper.ListPosts)
 	router.POST(options.BaseURL+"/api/v1/admin/posts", wrapper.CreatePost)
 	router.POST(options.BaseURL+"/api/v1/admin/assistant/improve-writing", wrapper.ImproveWriting)
@@ -649,6 +1074,10 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	router.DELETE(options.BaseURL+"/api/v1/admin/posts/:id", wrapper.DeletePost)
 	router.GET(options.BaseURL+"/api/v1/admin/posts/:id", wrapper.GetPost)
 	router.PUT(options.BaseURL+"/api/v1/admin/posts/:id", wrapper.UpdatePost)
+	router.GET(options.BaseURL+"/api/v1/admin/comments", wrapper.ListComments)
+	router.POST(options.BaseURL+"/api/v1/admin/comments/:id/approve", wrapper.ApproveComment)
+	router.POST(options.BaseURL+"/api/v1/admin/comments/:id/reject", wrapper.RejectComment)
+	router.POST(options.BaseURL+"/api/v1/admin/comments/:id/replies", wrapper.ReplyToComment)
 }
 
 type AssistantUnavailableApplicationProblemPlusJSONResponse Problem
@@ -941,6 +1370,463 @@ type SuggestMetadatadefaultApplicationProblemPlusJSONResponse struct {
 }
 
 func (response SuggestMetadatadefaultApplicationProblemPlusJSONResponse) VisitSuggestMetadataResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListCommentsRequestObject struct {
+	Params ListCommentsParams
+}
+
+type ListCommentsResponseObject interface {
+	VisitListCommentsResponse(w http.ResponseWriter) error
+}
+
+type ListComments200JSONResponse CommentPage
+
+func (response ListComments200JSONResponse) VisitListCommentsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListComments400ApplicationProblemPlusJSONResponse struct {
+	BadRequestApplicationProblemPlusJSONResponse
+}
+
+func (response ListComments400ApplicationProblemPlusJSONResponse) VisitListCommentsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListComments401ApplicationProblemPlusJSONResponse struct {
+	UnauthorizedApplicationProblemPlusJSONResponse
+}
+
+func (response ListComments401ApplicationProblemPlusJSONResponse) VisitListCommentsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListComments403ApplicationProblemPlusJSONResponse struct {
+	ForbiddenApplicationProblemPlusJSONResponse
+}
+
+func (response ListComments403ApplicationProblemPlusJSONResponse) VisitListCommentsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListComments429ApplicationProblemPlusJSONResponse struct {
+	TooManyRequestsApplicationProblemPlusJSONResponse
+}
+
+func (response ListComments429ApplicationProblemPlusJSONResponse) VisitListCommentsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	if response.Headers.RetryAfter != nil {
+		w.Header().Set("Retry-After", fmt.Sprint(*response.Headers.RetryAfter))
+	}
+	w.WriteHeader(429)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListCommentsdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response ListCommentsdefaultApplicationProblemPlusJSONResponse) VisitListCommentsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ApproveCommentRequestObject struct {
+	Id CommentId `json:"id"`
+}
+
+type ApproveCommentResponseObject interface {
+	VisitApproveCommentResponse(w http.ResponseWriter) error
+}
+
+type ApproveComment200JSONResponse Comment
+
+func (response ApproveComment200JSONResponse) VisitApproveCommentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ApproveComment401ApplicationProblemPlusJSONResponse struct {
+	UnauthorizedApplicationProblemPlusJSONResponse
+}
+
+func (response ApproveComment401ApplicationProblemPlusJSONResponse) VisitApproveCommentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ApproveComment403ApplicationProblemPlusJSONResponse struct {
+	ForbiddenApplicationProblemPlusJSONResponse
+}
+
+func (response ApproveComment403ApplicationProblemPlusJSONResponse) VisitApproveCommentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ApproveComment404ApplicationProblemPlusJSONResponse struct {
+	NotFoundApplicationProblemPlusJSONResponse
+}
+
+func (response ApproveComment404ApplicationProblemPlusJSONResponse) VisitApproveCommentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ApproveComment429ApplicationProblemPlusJSONResponse struct {
+	TooManyRequestsApplicationProblemPlusJSONResponse
+}
+
+func (response ApproveComment429ApplicationProblemPlusJSONResponse) VisitApproveCommentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	if response.Headers.RetryAfter != nil {
+		w.Header().Set("Retry-After", fmt.Sprint(*response.Headers.RetryAfter))
+	}
+	w.WriteHeader(429)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ApproveCommentdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response ApproveCommentdefaultApplicationProblemPlusJSONResponse) VisitApproveCommentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RejectCommentRequestObject struct {
+	Id CommentId `json:"id"`
+}
+
+type RejectCommentResponseObject interface {
+	VisitRejectCommentResponse(w http.ResponseWriter) error
+}
+
+type RejectComment200JSONResponse Comment
+
+func (response RejectComment200JSONResponse) VisitRejectCommentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RejectComment401ApplicationProblemPlusJSONResponse struct {
+	UnauthorizedApplicationProblemPlusJSONResponse
+}
+
+func (response RejectComment401ApplicationProblemPlusJSONResponse) VisitRejectCommentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RejectComment403ApplicationProblemPlusJSONResponse struct {
+	ForbiddenApplicationProblemPlusJSONResponse
+}
+
+func (response RejectComment403ApplicationProblemPlusJSONResponse) VisitRejectCommentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RejectComment404ApplicationProblemPlusJSONResponse struct {
+	NotFoundApplicationProblemPlusJSONResponse
+}
+
+func (response RejectComment404ApplicationProblemPlusJSONResponse) VisitRejectCommentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RejectComment429ApplicationProblemPlusJSONResponse struct {
+	TooManyRequestsApplicationProblemPlusJSONResponse
+}
+
+func (response RejectComment429ApplicationProblemPlusJSONResponse) VisitRejectCommentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	if response.Headers.RetryAfter != nil {
+		w.Header().Set("Retry-After", fmt.Sprint(*response.Headers.RetryAfter))
+	}
+	w.WriteHeader(429)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RejectCommentdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response RejectCommentdefaultApplicationProblemPlusJSONResponse) VisitRejectCommentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ReplyToCommentRequestObject struct {
+	Id   CommentId `json:"id"`
+	Body *ReplyToCommentJSONRequestBody
+}
+
+type ReplyToCommentResponseObject interface {
+	VisitReplyToCommentResponse(w http.ResponseWriter) error
+}
+
+type ReplyToComment201JSONResponse Comment
+
+func (response ReplyToComment201JSONResponse) VisitReplyToCommentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ReplyToComment400ApplicationProblemPlusJSONResponse struct {
+	BadRequestApplicationProblemPlusJSONResponse
+}
+
+func (response ReplyToComment400ApplicationProblemPlusJSONResponse) VisitReplyToCommentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ReplyToComment401ApplicationProblemPlusJSONResponse struct {
+	UnauthorizedApplicationProblemPlusJSONResponse
+}
+
+func (response ReplyToComment401ApplicationProblemPlusJSONResponse) VisitReplyToCommentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ReplyToComment403ApplicationProblemPlusJSONResponse struct {
+	ForbiddenApplicationProblemPlusJSONResponse
+}
+
+func (response ReplyToComment403ApplicationProblemPlusJSONResponse) VisitReplyToCommentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ReplyToComment404ApplicationProblemPlusJSONResponse struct {
+	NotFoundApplicationProblemPlusJSONResponse
+}
+
+func (response ReplyToComment404ApplicationProblemPlusJSONResponse) VisitReplyToCommentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ReplyToComment413ApplicationProblemPlusJSONResponse struct {
+	PayloadTooLargeApplicationProblemPlusJSONResponse
+}
+
+func (response ReplyToComment413ApplicationProblemPlusJSONResponse) VisitReplyToCommentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(413)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ReplyToComment429ApplicationProblemPlusJSONResponse struct {
+	TooManyRequestsApplicationProblemPlusJSONResponse
+}
+
+func (response ReplyToComment429ApplicationProblemPlusJSONResponse) VisitReplyToCommentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	if response.Headers.RetryAfter != nil {
+		w.Header().Set("Retry-After", fmt.Sprint(*response.Headers.RetryAfter))
+	}
+	w.WriteHeader(429)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ReplyToCommentdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response ReplyToCommentdefaultApplicationProblemPlusJSONResponse) VisitReplyToCommentResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
@@ -2092,6 +2978,220 @@ func (response GetPublishedPostdefaultApplicationProblemPlusJSONResponse) VisitG
 	return err
 }
 
+type ListPostCommentsRequestObject struct {
+	Slug   Slug `json:"slug"`
+	Params ListPostCommentsParams
+}
+
+type ListPostCommentsResponseObject interface {
+	VisitListPostCommentsResponse(w http.ResponseWriter) error
+}
+
+type ListPostComments200JSONResponse PublicCommentPage
+
+func (response ListPostComments200JSONResponse) VisitListPostCommentsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListPostComments400ApplicationProblemPlusJSONResponse struct {
+	BadRequestApplicationProblemPlusJSONResponse
+}
+
+func (response ListPostComments400ApplicationProblemPlusJSONResponse) VisitListPostCommentsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListPostComments404ApplicationProblemPlusJSONResponse struct {
+	NotFoundApplicationProblemPlusJSONResponse
+}
+
+func (response ListPostComments404ApplicationProblemPlusJSONResponse) VisitListPostCommentsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListPostComments429ApplicationProblemPlusJSONResponse struct {
+	TooManyRequestsApplicationProblemPlusJSONResponse
+}
+
+func (response ListPostComments429ApplicationProblemPlusJSONResponse) VisitListPostCommentsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	if response.Headers.RetryAfter != nil {
+		w.Header().Set("Retry-After", fmt.Sprint(*response.Headers.RetryAfter))
+	}
+	w.WriteHeader(429)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListPostCommentsdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response ListPostCommentsdefaultApplicationProblemPlusJSONResponse) VisitListPostCommentsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SubmitCommentRequestObject struct {
+	Slug Slug `json:"slug"`
+	Body *SubmitCommentJSONRequestBody
+}
+
+type SubmitCommentResponseObject interface {
+	VisitSubmitCommentResponse(w http.ResponseWriter) error
+}
+
+type SubmitComment202JSONResponse CommentReceipt
+
+func (response SubmitComment202JSONResponse) VisitSubmitCommentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(202)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SubmitComment400ApplicationProblemPlusJSONResponse struct {
+	BadRequestApplicationProblemPlusJSONResponse
+}
+
+func (response SubmitComment400ApplicationProblemPlusJSONResponse) VisitSubmitCommentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SubmitComment403ApplicationProblemPlusJSONResponse struct {
+	ForbiddenApplicationProblemPlusJSONResponse
+}
+
+func (response SubmitComment403ApplicationProblemPlusJSONResponse) VisitSubmitCommentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SubmitComment404ApplicationProblemPlusJSONResponse struct {
+	NotFoundApplicationProblemPlusJSONResponse
+}
+
+func (response SubmitComment404ApplicationProblemPlusJSONResponse) VisitSubmitCommentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SubmitComment413ApplicationProblemPlusJSONResponse struct {
+	PayloadTooLargeApplicationProblemPlusJSONResponse
+}
+
+func (response SubmitComment413ApplicationProblemPlusJSONResponse) VisitSubmitCommentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(413)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SubmitComment429ApplicationProblemPlusJSONResponse struct {
+	TooManyRequestsApplicationProblemPlusJSONResponse
+}
+
+func (response SubmitComment429ApplicationProblemPlusJSONResponse) VisitSubmitCommentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	if response.Headers.RetryAfter != nil {
+		w.Header().Set("Retry-After", fmt.Sprint(*response.Headers.RetryAfter))
+	}
+	w.WriteHeader(429)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SubmitCommentdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response SubmitCommentdefaultApplicationProblemPlusJSONResponse) VisitSubmitCommentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
 	// ImproveWriting Mejora la redacción de un borrador.
@@ -2100,6 +3200,18 @@ type StrictServerInterface interface {
 	// SuggestMetadata Sugiere título, extracto y etiquetas para un borrador.
 	// (POST /api/v1/admin/assistant/suggest-metadata)
 	SuggestMetadata(ctx context.Context, request SuggestMetadataRequestObject) (SuggestMetadataResponseObject, error)
+	// ListComments Lista los comentarios para moderar.
+	// (GET /api/v1/admin/comments)
+	ListComments(ctx context.Context, request ListCommentsRequestObject) (ListCommentsResponseObject, error)
+	// ApproveComment Aprueba un comentario.
+	// (POST /api/v1/admin/comments/{id}/approve)
+	ApproveComment(ctx context.Context, request ApproveCommentRequestObject) (ApproveCommentResponseObject, error)
+	// RejectComment Rechaza un comentario.
+	// (POST /api/v1/admin/comments/{id}/reject)
+	RejectComment(ctx context.Context, request RejectCommentRequestObject) (RejectCommentResponseObject, error)
+	// ReplyToComment Responde a un comentario como autor.
+	// (POST /api/v1/admin/comments/{id}/replies)
+	ReplyToComment(ctx context.Context, request ReplyToCommentRequestObject) (ReplyToCommentResponseObject, error)
 	// ListPosts Lista los posts en cualquier estado.
 	// (GET /api/v1/admin/posts)
 	ListPosts(ctx context.Context, request ListPostsRequestObject) (ListPostsResponseObject, error)
@@ -2133,6 +3245,12 @@ type StrictServerInterface interface {
 	// GetPublishedPost Devuelve un post publicado por su slug.
 	// (GET /api/v1/posts/{slug})
 	GetPublishedPost(ctx context.Context, request GetPublishedPostRequestObject) (GetPublishedPostResponseObject, error)
+	// ListPostComments Lista los comentarios aprobados de un post.
+	// (GET /api/v1/posts/{slug}/comments)
+	ListPostComments(ctx context.Context, request ListPostCommentsRequestObject) (ListPostCommentsResponseObject, error)
+	// SubmitComment Envía un comentario anónimo a un post publicado.
+	// (POST /api/v1/posts/{slug}/comments)
+	SubmitComment(ctx context.Context, request SubmitCommentRequestObject) (SubmitCommentResponseObject, error)
 }
 
 type StrictHandlerFunc func(ctx *gin.Context, request any) (any, error)
@@ -2269,6 +3387,128 @@ func (sh *strictHandler) SuggestMetadata(ctx *gin.Context) {
 		sh.options.HandlerErrorFunc(ctx, err)
 	} else if validResponse, ok := response.(SuggestMetadataResponseObject); ok {
 		if err := validResponse.VisitSuggestMetadataResponse(ctx.Writer); err != nil {
+			sh.options.ResponseErrorHandlerFunc(ctx, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(ctx, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListComments operation middleware
+func (sh *strictHandler) ListComments(ctx *gin.Context, params ListCommentsParams) {
+	var request ListCommentsRequestObject
+
+	request.Params = params
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.ListComments(ctx, request.(ListCommentsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListComments")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		sh.options.HandlerErrorFunc(ctx, err)
+	} else if validResponse, ok := response.(ListCommentsResponseObject); ok {
+		if err := validResponse.VisitListCommentsResponse(ctx.Writer); err != nil {
+			sh.options.ResponseErrorHandlerFunc(ctx, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(ctx, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ApproveComment operation middleware
+func (sh *strictHandler) ApproveComment(ctx *gin.Context, id CommentId) {
+	var request ApproveCommentRequestObject
+
+	request.Id = id
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.ApproveComment(ctx, request.(ApproveCommentRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ApproveComment")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		sh.options.HandlerErrorFunc(ctx, err)
+	} else if validResponse, ok := response.(ApproveCommentResponseObject); ok {
+		if err := validResponse.VisitApproveCommentResponse(ctx.Writer); err != nil {
+			sh.options.ResponseErrorHandlerFunc(ctx, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(ctx, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// RejectComment operation middleware
+func (sh *strictHandler) RejectComment(ctx *gin.Context, id CommentId) {
+	var request RejectCommentRequestObject
+
+	request.Id = id
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.RejectComment(ctx, request.(RejectCommentRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "RejectComment")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		sh.options.HandlerErrorFunc(ctx, err)
+	} else if validResponse, ok := response.(RejectCommentResponseObject); ok {
+		if err := validResponse.VisitRejectCommentResponse(ctx.Writer); err != nil {
+			sh.options.ResponseErrorHandlerFunc(ctx, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(ctx, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ReplyToComment operation middleware
+func (sh *strictHandler) ReplyToComment(ctx *gin.Context, id CommentId) {
+	var request ReplyToCommentRequestObject
+
+	request.Id = id
+
+	var body ReplyToCommentJSONRequestBody
+	var err error
+	// A request validator built on kin-openapi's openapi3filter with
+	// KeepValidatedValue leaves the value it validated on the body. Bind
+	// that value, matching member names exactly, so the handler receives
+	// what was validated instead of a second, case-insensitive decode.
+	if vb, ok := ctx.Request.Body.(interface{ ValidatedValue() any }); !ok || runtime.BindJSONValue(vb.ValidatedValue(), &body) != nil {
+		err = ctx.ShouldBindJSON(&body)
+	} else if binding.Validator != nil {
+		// ShouldBindJSON runs the struct validator after decoding; keep that.
+		err = binding.Validator.ValidateStruct(&body)
+	}
+	if err != nil {
+		sh.options.RequestErrorHandlerFunc(ctx, err)
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.ReplyToComment(ctx, request.(ReplyToCommentRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ReplyToComment")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		sh.options.HandlerErrorFunc(ctx, err)
+	} else if validResponse, ok := response.(ReplyToCommentResponseObject); ok {
+		if err := validResponse.VisitReplyToCommentResponse(ctx.Writer); err != nil {
 			sh.options.ResponseErrorHandlerFunc(ctx, err)
 		}
 	} else if response != nil {
@@ -2606,71 +3846,165 @@ func (sh *strictHandler) GetPublishedPost(ctx *gin.Context, slug Slug) {
 	}
 }
 
+// ListPostComments operation middleware
+func (sh *strictHandler) ListPostComments(ctx *gin.Context, slug Slug, params ListPostCommentsParams) {
+	var request ListPostCommentsRequestObject
+
+	request.Slug = slug
+	request.Params = params
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.ListPostComments(ctx, request.(ListPostCommentsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListPostComments")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		sh.options.HandlerErrorFunc(ctx, err)
+	} else if validResponse, ok := response.(ListPostCommentsResponseObject); ok {
+		if err := validResponse.VisitListPostCommentsResponse(ctx.Writer); err != nil {
+			sh.options.ResponseErrorHandlerFunc(ctx, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(ctx, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// SubmitComment operation middleware
+func (sh *strictHandler) SubmitComment(ctx *gin.Context, slug Slug) {
+	var request SubmitCommentRequestObject
+
+	request.Slug = slug
+
+	var body SubmitCommentJSONRequestBody
+	var err error
+	// A request validator built on kin-openapi's openapi3filter with
+	// KeepValidatedValue leaves the value it validated on the body. Bind
+	// that value, matching member names exactly, so the handler receives
+	// what was validated instead of a second, case-insensitive decode.
+	if vb, ok := ctx.Request.Body.(interface{ ValidatedValue() any }); !ok || runtime.BindJSONValue(vb.ValidatedValue(), &body) != nil {
+		err = ctx.ShouldBindJSON(&body)
+	} else if binding.Validator != nil {
+		// ShouldBindJSON runs the struct validator after decoding; keep that.
+		err = binding.Validator.ValidateStruct(&body)
+	}
+	if err != nil {
+		sh.options.RequestErrorHandlerFunc(ctx, err)
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.SubmitComment(ctx, request.(SubmitCommentRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "SubmitComment")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		sh.options.HandlerErrorFunc(ctx, err)
+	} else if validResponse, ok := response.(SubmitCommentResponseObject); ok {
+		if err := validResponse.VisitSubmitCommentResponse(ctx.Writer); err != nil {
+			sh.options.ResponseErrorHandlerFunc(ctx, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(ctx, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // Base64 encoded, compressed with deflate, json marshaled OpenAPI spec.
 // Stored as a slice of fixed-width chunks rather than one concatenated
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
+	"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",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

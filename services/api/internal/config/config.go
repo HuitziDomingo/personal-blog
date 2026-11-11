@@ -73,6 +73,8 @@ type Config struct {
 
 	Assistant Assistant
 
+	Comments Comments
+
 	// Opcionales: solo se usan para crear el administrador inicial.
 	InitialAdminEmail    string
 	InitialAdminPassword string
@@ -136,6 +138,11 @@ func Load() (Config, error) {
 		return Config{}, err
 	}
 
+	comments, err := loadComments()
+	if err != nil {
+		return Config{}, err
+	}
+
 	var limits [len(rateLimitSpecs)]RateLimit
 	for i, spec := range rateLimitSpecs {
 		if limits[i], err = loadRateLimit(spec); err != nil {
@@ -152,6 +159,7 @@ func Load() (Config, error) {
 		UserRateLimit:        limits[4],
 		AssistantRateLimit:   limits[5],
 		Assistant:            assistant,
+		Comments:             comments,
 		Port:                 port,
 		MongoURI:             mongoURI,
 		MongoDBName:          mongoDBName,
@@ -503,4 +511,44 @@ func loadBool(key string) (bool, error) {
 	default:
 		return false, fmt.Errorf("invalid %s %q: must be true or false", key, value)
 	}
+}
+
+// Comments es la configuración de los comentarios (ADR-022).
+type Comments struct {
+	// Enabled es false por defecto. Con false, el envío responde 404.
+	Enabled bool
+	// RateLimitMax envíos por IP cada RateLimitWindow.
+	RateLimitMax    int
+	RateLimitWindow time.Duration
+}
+
+// Valores por defecto del límite de envío de comentarios (ADR-022, punto 3).
+const (
+	defaultCommentsRateLimitMax           = 3
+	defaultCommentsRateLimitWindowMinutes = 10
+)
+
+// loadComments lee COMMENTS_ENABLED, COMMENTS_RATE_LIMIT_MAX y
+// COMMENTS_RATE_LIMIT_WINDOW_MINUTES.
+func loadComments() (Comments, error) {
+	enabled, err := loadBool("COMMENTS_ENABLED")
+	if err != nil {
+		return Comments{}, err
+	}
+
+	maxSubmissions, err := positiveInt("COMMENTS_RATE_LIMIT_MAX", defaultCommentsRateLimitMax)
+	if err != nil {
+		return Comments{}, err
+	}
+
+	windowMinutes, err := positiveInt("COMMENTS_RATE_LIMIT_WINDOW_MINUTES", defaultCommentsRateLimitWindowMinutes)
+	if err != nil {
+		return Comments{}, err
+	}
+
+	return Comments{
+		Enabled:         enabled,
+		RateLimitMax:    maxSubmissions,
+		RateLimitWindow: time.Duration(windowMinutes) * time.Minute,
+	}, nil
 }

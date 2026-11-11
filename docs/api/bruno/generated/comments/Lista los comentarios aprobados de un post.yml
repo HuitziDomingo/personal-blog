@@ -1,0 +1,211 @@
+info:
+  name: Lista los comentarios aprobados de un post
+  type: http
+  seq: 1
+  tags:
+    - comments
+
+http:
+  method: GET
+  url: "{{baseUrl}}/api/v1/posts/:slug/comments"
+  params:
+    - name: slug
+      value: ""
+      type: path
+      description: Identificador del post en la URL.
+    - name: limit
+      value: "20"
+      type: query
+      description: Tamaño de la página.
+    - name: offset
+      value: "0"
+      type: query
+      description: Elementos que se saltan antes de la página.
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: true
+
+examples:
+  - name: 200 Response
+    description: Página de comentarios aprobados.
+    request:
+      url: "{{baseUrl}}/api/v1/posts/:slug/comments"
+      method: GET
+      params:
+        - name: slug
+          value: ""
+          type: path
+          description: Identificador del post en la URL.
+        - name: limit
+          value: "20"
+          type: query
+          description: Tamaño de la página.
+        - name: offset
+          value: "0"
+          type: query
+          description: Elementos que se saltan antes de la página.
+    response:
+      status: 200
+      statusText: OK
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "items": [
+              {
+                "id": "",
+                "parentId": "",
+                "name": "",
+                "content": "",
+                "byAuthor": false,
+                "createdAt": ""
+              }
+            ],
+            "total": 0,
+            "limit": 0,
+            "offset": 0
+          }
+  - name: 400 Response
+    description: La petición no cumple el contrato.
+    request:
+      url: "{{baseUrl}}/api/v1/posts/:slug/comments"
+      method: GET
+      params:
+        - name: slug
+          value: ""
+          type: path
+          description: Identificador del post en la URL.
+        - name: limit
+          value: "20"
+          type: query
+          description: Tamaño de la página.
+        - name: offset
+          value: "0"
+          type: query
+          description: Elementos que se saltan antes de la página.
+    response:
+      status: 400
+      statusText: Bad Request
+      headers:
+        - name: Content-Type
+          value: application/problem+json
+      body:
+        type: json
+        data: |-
+          {
+            "type": "",
+            "title": "",
+            "status": 0,
+            "detail": "",
+            "instance": ""
+          }
+  - name: 404 Response
+    description: El recurso no existe.
+    request:
+      url: "{{baseUrl}}/api/v1/posts/:slug/comments"
+      method: GET
+      params:
+        - name: slug
+          value: ""
+          type: path
+          description: Identificador del post en la URL.
+        - name: limit
+          value: "20"
+          type: query
+          description: Tamaño de la página.
+        - name: offset
+          value: "0"
+          type: query
+          description: Elementos que se saltan antes de la página.
+    response:
+      status: 404
+      statusText: Not Found
+      headers:
+        - name: Content-Type
+          value: application/problem+json
+      body:
+        type: json
+        data: |-
+          {
+            "type": "",
+            "title": "",
+            "status": 0,
+            "detail": "",
+            "instance": ""
+          }
+  - name: 429 Response
+    description: Se superó el límite de peticiones de la IP, o el de logins fallidos del email.
+    request:
+      url: "{{baseUrl}}/api/v1/posts/:slug/comments"
+      method: GET
+      params:
+        - name: slug
+          value: ""
+          type: path
+          description: Identificador del post en la URL.
+        - name: limit
+          value: "20"
+          type: query
+          description: Tamaño de la página.
+        - name: offset
+          value: "0"
+          type: query
+          description: Elementos que se saltan antes de la página.
+    response:
+      status: 429
+      statusText: Too Many Requests
+      headers:
+        - name: Content-Type
+          value: application/problem+json
+      body:
+        type: json
+        data: |-
+          {
+            "type": "",
+            "title": "",
+            "status": 0,
+            "detail": "",
+            "instance": ""
+          }
+  - name: default Response
+    description: Error inesperado.
+    request:
+      url: "{{baseUrl}}/api/v1/posts/:slug/comments"
+      method: GET
+      params:
+        - name: slug
+          value: ""
+          type: path
+          description: Identificador del post en la URL.
+        - name: limit
+          value: "20"
+          type: query
+          description: Tamaño de la página.
+        - name: offset
+          value: "0"
+          type: query
+          description: Elementos que se saltan antes de la página.
+    response:
+      headers:
+        - name: Content-Type
+          value: application/problem+json
+      body:
+        type: json
+        data: |-
+          {
+            "type": "",
+            "title": "",
+            "status": 0,
+            "detail": "",
+            "instance": ""
+          }
+
+docs: Solo los comentarios aprobados de un post publicado, del más antiguo al más reciente, sin datos de moderación. Una respuesta tiene `parentId`.

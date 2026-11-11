@@ -157,6 +157,8 @@ npx @modelcontextprotocol/inspector@2.13.0 \
 | `RATE_LIMIT_LOGIN_PER_MINUTE` / `_BURST` | No | `5` / `5` | Límite extra en `POST /api/v1/auth/login` |
 | `RATE_LIMIT_REFRESH_PER_MINUTE` / `_BURST` | No | `10` / `10` | Límite extra en `POST /api/v1/auth/refresh` |
 | `RATE_LIMIT_ASSISTANT_PER_MINUTE` / `_BURST` | No | `5` / `5` | Límite extra por usuario en `/api/v1/admin/assistant/*`, además del de usuario (ADR-021) |
+| `COMMENTS_ENABLED` | No | `false` | `true` acepta comentarios de los lectores (ADR-022). Con `false`, `POST /api/v1/posts/{slug}/comments` responde 404; la lectura pública y la cola del admin siguen respondiendo. Otro valor detiene la API |
+| `COMMENTS_RATE_LIMIT_MAX` / `COMMENTS_RATE_LIMIT_WINDOW_MINUTES` | No | `3` / `10` | Límite extra por IP del envío de comentarios, además del global, aunque haya sesión (ADR-022). Es un token bucket: 3 seguidos y después uno cada 3 min 20 s |
 | `ASSISTANT_ENABLED` | No | `false` | `true` enciende el asistente de escritura (ADR-021). Con `false`, sus operaciones responden 503 `writing assistant is disabled` y nada llega a Gemini. Otro valor detiene la API |
 | `GEMINI_API_KEY` | Con el asistente encendido | | API key de Gemini, de un proyecto de Google sin facturación. Con `ASSISTANT_ENABLED=true` y sin key, la API no arranca. Nunca aparece en logs ni en errores |
 | `GEMINI_MODEL` | Con el asistente encendido | | Modelo de Gemini, uno incluido en el plan gratuito. Con `ASSISTANT_ENABLED=true` y sin modelo, la API no arranca |
@@ -197,6 +199,7 @@ La API arranca con cualquier configuración válida, pero algunas la dejan inút
 | `INITIAL_ADMIN_EMAIL` e `INITIAL_ADMIN_PASSWORD` | Solo la primera vez, con `users` vacía | Solo en el primer despliegue; después se quitan |
 | `PORT` | `8080` | La que asigna Cloud Run |
 | `ASSISTANT_ENABLED`, `GEMINI_API_KEY` y `GEMINI_MODEL` | Apagado; para probarlo, una key propia en `.env` | La key desde Secret Manager, de un proyecto de Google sin facturación y separado del de la API (ADR-021) |
+| `COMMENTS_ENABLED` | `false`; `true` para probar los comentarios | `true` cuando la web tenga el formulario (BLOG-093). `ALLOWED_ORIGINS` debe incluir el origen de la web, porque el navegador envía los comentarios directo a la API |
 
 Los valores de producción son los previstos; el despliegue está pendiente (BLOG-054 y BLOG-022).
 
@@ -525,6 +528,7 @@ La colección está en `docs/api/bruno/`, en formato OpenCollection (YAML):
 - `flows/`: flujos escritos a mano, con aserciones:
   - `flows/posts/` recorre el ciclo de vida de un post: login, crear borrador, editar, publicar, verlo en la API pública, intentar cambiar el slug ya publicado (409), archivar y comprobar que ya no aparece. Cada corrida crea un post nuevo con la hora en el título, que queda archivado en tu base.
   - `flows/sesion/` recorre login, `/me`, refresh, logout y `/me` sin sesión.
+  - `flows/comentarios/` publica un post y recorre los comentarios: enviar uno, el campo trampa, que no aparezca sin aprobar, la cola de moderación, rechazar, aprobar, responder como autor, la lectura pública sin datos de moderación y el rechazo de una respuesta de segundo nivel; al final archiva el post. Con `COMMENTS_ENABLED=false`, el valor por defecto, el envío responde 404 y el flujo salta al final. Envía 3 comentarios, el límite por IP por defecto: para repetirlo antes de 10 minutos, sube `COMMENTS_RATE_LIMIT_MAX` o reinicia la API.
   - `flows/asistente/` comprueba el asistente apagado (`ASSISTANT_ENABLED=false`, el valor por defecto): las dos operaciones responden 503 y un borrador de más de 50 000 caracteres responde 400. Con el asistente encendido falla a propósito, para no gastar la cuota de Gemini.
 - `environments/local.yml`: `baseUrl` apunta a `http://localhost:8080`. `adminEmail` y `adminPassword` son variables secretas sin valor.
 
@@ -538,7 +542,7 @@ make api-flows
 
 Toma el email y la contraseña de `INITIAL_ADMIN_EMAIL` e `INITIAL_ADMIN_PASSWORD` de `.env` y se los pasa al CLI como variables, sin escribirlos en ningún archivo. Deben ser los del administrador que existe en tu base.
 
-Los flujos hacen unas 20 peticiones. Si los corres dos veces seguidas, la segunda puede chocar con el rate limit global de la API (429); espera un minuto.
+Los flujos hacen unas 30 peticiones. Si los corres dos veces seguidas, la segunda puede chocar con el rate limit global de la API (429); espera un minuto.
 
 El generador de Bruno convierte los esquemas de seguridad en cookie (`accessCookie`, `refreshCookie`) en una cabecera `access_token: {{apiKey}}`, no en una cookie. Las peticiones protegidas funcionan igual después del login, porque Bruno guarda las cookies de la respuesta y las reenvía; la API ignora esa cabecera de más. `generated/` se deja tal como sale del CLI.
 
@@ -624,3 +628,17 @@ Las dos reciben `{ "title", "content" }`: hasta 200 y 50 000 caracteres. Solo es
   - el proveedor falló, venció el timeout o se agotó la cuota: `writing assistant is unavailable, try again later`;
   - el modelo respondió algo que no cumple las reglas: `writing assistant returned an invalid suggestion, try again`.
 - **Tests:** nunca llaman a Gemini. El adaptador se prueba contra `httptest` con las respuestas de `internal/assistant/gemini/testdata/`. Para probarlo a mano, pon tu key y un modelo en `.env`, `ASSISTANT_ENABLED=true`, y usa las peticiones de `docs/api/bruno/generated/admin-assistant/` después del login.
+
+## Comentarios
+
+ADR-022. Los lectores comentan los posts publicados sin cuenta, y nada se publica sin la aprobación del autor. Apagados por defecto (`COMMENTS_ENABLED=false`).
+
+- **Públicas:**
+  - `POST /api/v1/posts/{slug}/comments` recibe `{ "name", "content", "parentId"?, "website"? }`: nombre de 1 a 50 caracteres y contenido de 1 a 2000, solo texto. Responde siempre 202 `{ "status": "pending" }`, sin ningún análisis. `website` es el campo trampa: la web lo oculta, y si llega con valor el comentario se descarta en silencio con la misma respuesta. `parentId` responde a un comentario aprobado del mismo post que no sea una respuesta (un solo nivel); si no, 400.
+  - `GET /api/v1/posts/{slug}/comments` devuelve los aprobados, del más antiguo al más reciente, paginados y sin datos de moderación.
+- **Admin:**
+  - `GET /api/v1/admin/comments?status=` es la cola, de todos los posts.
+  - `POST /api/v1/admin/comments/{id}/approve` y `/reject` deciden. Un rechazado se borra a los 30 días con un índice TTL sobre `rejected_at`; aprobarlo antes lo conserva.
+  - `POST /api/v1/admin/comments/{id}/replies` publica una respuesta del autor, aprobada y con `byAuthor: true`.
+- **Datos:** colección `comments`, sin IP, correo, user agent ni ningún identificador del lector. El rate limit por IP vive solo en memoria.
+- **Moderación con LLM:** todavía no está conectada (BLOG-091). Los comentarios llegan a la cola sin `moderation`.

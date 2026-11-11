@@ -28,10 +28,11 @@ func testRouterConfig() RouterConfig {
 	return RouterConfig{
 		AllowedOrigins: []string{testOrigin},
 		MaxBodyBytes:   testMaxBodyBytes,
-		RateLimits:     RateLimits{Global: generous, Login: generous, Refresh: generous, Preflight: generous, User: generous, Assistant: generous},
+		RateLimits:     RateLimits{Global: generous, Login: generous, Refresh: generous, Preflight: generous, User: generous, Assistant: generous, Comments: generousWindow},
 		Sessions:       newFakeSessions(),
 		Posts:          newFakePosts(),
 		Assistant:      &fakeAssistant{},
+		Comments:       newFakeComments(),
 	}
 }
 

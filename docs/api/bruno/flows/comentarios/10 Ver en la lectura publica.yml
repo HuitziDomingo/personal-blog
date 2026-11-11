@@ -1,0 +1,43 @@
+info:
+  name: 10 Ver en la lectura publica
+  type: http
+  seq: 10
+
+http:
+  method: GET
+  url: "{{baseUrl}}/api/v1/posts/{{postSlug}}/comments"
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "200"
+  scripts:
+    - type: before-request
+      code: |-
+        // Con COMMENTS_ENABLED=false el flujo termina en el paso 3.
+        if (bru.getVar("commentsEnabled") !== "true") {
+          bru.runner.skipRequest();
+        }
+    - type: tests
+      code: |-
+        test("shows the comment and the reply, oldest first", function () {
+          expect(res.body.total).to.equal(2);
+          expect(res.body.items.map((c) => c.id)).to.eql([bru.getVar("commentId"), bru.getVar("replyId")]);
+          expect(res.body.items[0].content).to.include("`go test -race`");
+        });
+
+        test("without moderation data", function () {
+          for (const comment of res.body.items) {
+            expect(comment).to.not.have.property("status");
+            expect(comment).to.not.have.property("moderation");
+            expect(comment).to.not.have.property("postId");
+          }
+        });
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: true

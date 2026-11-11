@@ -12,6 +12,12 @@ tags:
     description: Lectura pública de posts publicados.
   - name: admin-posts
     description: Gestión de posts desde el dashboard.
+  - name: comments
+    description: >-
+      Comentarios de los lectores en los posts publicados (ADR-022). Envío
+      anónimo con premoderación: nada se publica sin la aprobación del autor.
+  - name: admin-comments
+    description: Cola de moderación de comentarios y respuestas del autor (ADR-022).
   - name: admin-assistant
     description: >-
       Asistente de escritura con IA (ADR-021). Sus respuestas son sugerencias:
@@ -161,6 +167,71 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "404":
           $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        default:
+          $ref: "#/components/responses/UnexpectedError"
+
+  /api/v1/posts/{slug}/comments:
+    parameters:
+      - $ref: "#/components/parameters/Slug"
+    get:
+      tags: [comments]
+      operationId: listPostComments
+      summary: Lista los comentarios aprobados de un post.
+      description: >-
+        Solo los comentarios aprobados de un post publicado, del más antiguo al
+        más reciente, sin datos de moderación. Una respuesta tiene `parentId`.
+      security: []
+      parameters:
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+      responses:
+        "200":
+          description: Página de comentarios aprobados.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublicCommentPage"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        default:
+          $ref: "#/components/responses/UnexpectedError"
+    post:
+      tags: [comments]
+      operationId: submitComment
+      summary: Envía un comentario anónimo a un post publicado.
+      description: >-
+        El comentario queda en revisión hasta que el autor lo aprueba. La
+        respuesta siempre es la misma y no revela ningún análisis. Con
+        COMMENTS_ENABLED=false responde 404. Tiene su propio límite por IP, más
+        estricto que el general (ADR-022).
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CommentSubmission"
+      responses:
+        "202":
+          description: Comentario recibido y en revisión.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CommentReceipt"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "413":
+          $ref: "#/components/responses/PayloadTooLarge"
         "429":
           $ref: "#/components/responses/TooManyRequests"
         default:
@@ -400,6 +471,142 @@ paths:
         default:
           $ref: "#/components/responses/UnexpectedError"
 
+  /api/v1/admin/comments:
+    get:
+      tags: [admin-comments]
+      operationId: listComments
+      summary: Lista los comentarios para moderar.
+      description: >-
+        Comentarios de todos los posts, del más antiguo al más reciente, con el
+        resultado de la moderación si lo hay.
+      security:
+        - accessCookie: []
+      parameters:
+        - name: status
+          in: query
+          required: false
+          description: Filtra por estado. Sin él, lista todos.
+          schema:
+            $ref: "#/components/schemas/CommentStatus"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+      responses:
+        "200":
+          description: Página de comentarios.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CommentPage"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        default:
+          $ref: "#/components/responses/UnexpectedError"
+
+  /api/v1/admin/comments/{id}/approve:
+    parameters:
+      - $ref: "#/components/parameters/CommentId"
+    post:
+      tags: [admin-comments]
+      operationId: approveComment
+      summary: Aprueba un comentario.
+      description: El comentario se publica. Aprobar uno aprobado no cambia nada.
+      security:
+        - accessCookie: []
+      responses:
+        "200":
+          description: Comentario aprobado.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Comment"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        default:
+          $ref: "#/components/responses/UnexpectedError"
+
+  /api/v1/admin/comments/{id}/reject:
+    parameters:
+      - $ref: "#/components/parameters/CommentId"
+    post:
+      tags: [admin-comments]
+      operationId: rejectComment
+      summary: Rechaza un comentario.
+      description: >-
+        El comentario deja de verse y se borra a los 30 días, salvo que se
+        apruebe antes. Rechazar uno rechazado no cambia nada.
+      security:
+        - accessCookie: []
+      responses:
+        "200":
+          description: Comentario rechazado.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Comment"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        default:
+          $ref: "#/components/responses/UnexpectedError"
+
+  /api/v1/admin/comments/{id}/replies:
+    parameters:
+      - $ref: "#/components/parameters/CommentId"
+    post:
+      tags: [admin-comments]
+      operationId: replyToComment
+      summary: Responde a un comentario como autor.
+      description: >-
+        La respuesta se publica aprobada y marcada como del autor. Solo se
+        responde a un comentario aprobado que no es respuesta de otro: hay un
+        solo nivel de respuestas.
+      security:
+        - accessCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AuthorReply"
+      responses:
+        "201":
+          description: Respuesta publicada.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Comment"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "413":
+          $ref: "#/components/responses/PayloadTooLarge"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        default:
+          $ref: "#/components/responses/UnexpectedError"
+
 components:
   securitySchemes:
     accessCookie:
@@ -429,6 +636,15 @@ components:
       description: Identificador del post en la URL.
       schema:
         $ref: "#/components/schemas/Slug"
+    CommentId:
+      name: id
+      in: path
+      required: true
+      description: Identificador del comentario.
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 24
     Tag:
       name: tag
       in: query
@@ -453,7 +669,7 @@ components:
       name: offset
       in: query
       required: false
-      description: Posts que se saltan antes de la página.
+      description: Elementos que se saltan antes de la página.
       schema:
         type: integer
         format: int32
@@ -761,6 +977,176 @@ components:
           type: integer
           format: int64
           description: Total de posts que cumplen el filtro.
+        limit:
+          type: integer
+          format: int32
+        offset:
+          type: integer
+          format: int32
+
+    CommentStatus:
+      type: string
+      enum: [pending, approved, rejected]
+
+    CommentSubmission:
+      type: object
+      description: >-
+        Comentario de un lector. Solo texto: la web lo escapa al mostrarlo. No
+        se guarda IP, correo ni ningún identificador del lector (ADR-022).
+      required: [name, content]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 50
+          description: Nombre que se muestra. No se verifica.
+        content:
+          type: string
+          minLength: 1
+          maxLength: 2000
+          description: Solo texto, sin Markdown ni HTML.
+        parentId:
+          type: string
+          minLength: 1
+          maxLength: 24
+          description: >-
+            Comentario al que responde. Debe ser un comentario aprobado del
+            mismo post que no sea una respuesta.
+        website:
+          type: string
+          maxLength: 200
+          description: >-
+            Campo trampa: la web lo oculta y una persona lo deja vacío. Si
+            llega con valor, el comentario se descarta en silencio con la misma
+            respuesta.
+
+    CommentReceipt:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [pending]
+          description: Siempre pending. No revela ningún análisis.
+
+    AuthorReply:
+      type: object
+      required: [content]
+      properties:
+        content:
+          type: string
+          minLength: 1
+          maxLength: 2000
+          description: Solo texto, como un comentario.
+
+    PublicComment:
+      type: object
+      description: Comentario aprobado, sin datos de moderación.
+      required: [id, name, content, byAuthor, createdAt]
+      properties:
+        id:
+          type: string
+        parentId:
+          type: string
+          description: Comentario al que responde, si es una respuesta.
+        name:
+          type: string
+        content:
+          type: string
+          description: Texto no confiable. Se escapa al mostrarlo.
+        byAuthor:
+          type: boolean
+          description: Respuesta del autor del blog.
+        createdAt:
+          type: string
+          format: date-time
+
+    PublicCommentPage:
+      type: object
+      required: [items, total, limit, offset]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/PublicComment"
+        total:
+          type: integer
+          format: int64
+          description: Total de comentarios aprobados del post.
+        limit:
+          type: integer
+          format: int32
+        offset:
+          type: integer
+          format: int32
+
+    ModerationVerdict:
+      type: string
+      enum: [approve, reject, review]
+
+    ModerationCategory:
+      type: string
+      enum: [none, spam, abuse, off_topic, prompt_injection, personal_data]
+
+    Moderation:
+      type: object
+      description: >-
+        Sugerencia del clasificador (ADR-022). Solo orienta: el autor decide.
+      required: [verdict, category, reason, model, analyzedAt]
+      properties:
+        verdict:
+          $ref: "#/components/schemas/ModerationVerdict"
+        category:
+          $ref: "#/components/schemas/ModerationCategory"
+        reason:
+          type: string
+        model:
+          type: string
+        analyzedAt:
+          type: string
+          format: date-time
+
+    Comment:
+      type: object
+      description: Comentario completo, para el admin.
+      required: [id, postId, name, content, status, byAuthor, createdAt]
+      properties:
+        id:
+          type: string
+        postId:
+          type: string
+        parentId:
+          type: string
+        name:
+          type: string
+        content:
+          type: string
+          description: Texto no confiable. Se escapa al mostrarlo.
+        status:
+          $ref: "#/components/schemas/CommentStatus"
+        byAuthor:
+          type: boolean
+        moderation:
+          $ref: "#/components/schemas/Moderation"
+        createdAt:
+          type: string
+          format: date-time
+        reviewedAt:
+          type: string
+          format: date-time
+          description: Cuándo el autor lo aprobó o rechazó por última vez.
+
+    CommentPage:
+      type: object
+      required: [items, total, limit, offset]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Comment"
+        total:
+          type: integer
+          format: int64
         limit:
           type: integer
           format: int32

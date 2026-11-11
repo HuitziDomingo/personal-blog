@@ -1,0 +1,10 @@
+info:
+  name: comments
+  type: folder
+
+request:
+  auth: inherit
+
+docs:
+  content: "Comentarios de los lectores en los posts publicados (ADR-022). Envío anónimo con premoderación: nada se publica sin la aprobación del autor."
+  type: text/markdown
