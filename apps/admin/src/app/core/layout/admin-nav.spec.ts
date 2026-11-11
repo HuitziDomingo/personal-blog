@@ -2,6 +2,7 @@ import { Component } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter, Router } from '@angular/router';
 import { fireEvent, render, screen, waitFor } from '@testing-library/angular';
+import { lucideMonitor, lucideMoon, lucideSun } from '@ng-icons/lucide';
 
 import { FakeMatchMedia, FakeStorage } from '../browser/browser-fakes';
 import { MATCH_MEDIA } from '../browser/match-media';
@@ -101,6 +102,21 @@ describe('AdminNav', () => {
 
     expect(options.every((option) => group.contains(option))).toBe(true);
     expect((screen.getByRole('radio', { name: 'Sistema' }) as HTMLInputElement).checked).toBe(true);
+  });
+
+  it('cada tema lleva su ícono, oculto al lector de pantalla', async () => {
+    await renderNav();
+
+    for (const [name, svg] of [
+      ['Claro', lucideSun],
+      ['Oscuro', lucideMoon],
+      ['Sistema', lucideMonitor],
+    ]) {
+      const icon = screen.getByRole('radio', { name }).closest('label')?.querySelector('ng-icon');
+      expect(icon?.getAttribute('aria-hidden'), name).toBe('true');
+      // El contenido del <svg> de Lucide identifica el ícono.
+      expect(icon?.innerHTML, name).toContain(svg.slice(svg.indexOf('>') + 1, svg.lastIndexOf('</svg>')));
+    }
   });
 
   it('cambia y guarda el tema', async () => {

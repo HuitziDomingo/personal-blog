@@ -96,6 +96,7 @@
 - [x] BLOG-078: Paginación en `/blog`: 20 posts por página en `/blog/page/N`, con ISR, canónica por página y controles accesibles. ([#85](https://github.com/HuitziDomingo/personal-blog/pull/85))
 - [ ] BLOG-083: Aplicar Trusted Types en el admin requiere políticas para `vue` y `dompurify` por Milkdown (ADR-018): Vue crea la suya, Crepe trae una segunda instancia de DOMPurify y asigna `innerHTML` a sus íconos. Hoy queda en Report-Only.
 - [x] BLOG-086: Pulido visual del admin: íconos de Lucide en navegación, acciones y estado vacío, y la vista previa del editor como panel elevado con tokens propios verificados en WCAG AA. ([#80](https://github.com/HuitziDomingo/personal-blog/pull/80))
+- [x] BLOG-094: Íconos de Lucide en las opciones de tema del admin: sol (Claro), luna (Oscuro) y monitor (Sistema). ([#98](https://github.com/HuitziDomingo/personal-blog/pull/98))
 
 ## Fase futura (fuera del MVP)
 

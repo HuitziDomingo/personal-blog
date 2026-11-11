@@ -1,13 +1,22 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { Router, RouterLink, RouterLinkActive } from '@angular/router';
 import { NgIcon, provideIcons } from '@ng-icons/core';
-import { lucideFileText, lucideLogOut, lucidePalette, lucideSquarePen, lucideUser } from '@ng-icons/lucide';
+import {
+  lucideFileText,
+  lucideLogOut,
+  lucideMonitor,
+  lucideMoon,
+  lucidePalette,
+  lucideSquarePen,
+  lucideSun,
+  lucideUser,
+} from '@ng-icons/lucide';
 import { HlmButtonImports } from '@spartan-ng/helm/button';
 import { HlmLabelImports } from '@spartan-ng/helm/label';
 import { HlmRadioGroupImports } from '@spartan-ng/helm/radio-group';
 
 import { SessionService } from '../session/session.service';
-import { ACCENT_LABELS, ACCENTS, isAccent, isThemeMode, THEME_MODE_LABELS, THEME_MODES } from '../theme/theme';
+import { ACCENT_LABELS, ACCENTS, isAccent, isThemeMode, THEME_MODE_LABELS, THEME_MODES, ThemeMode } from '../theme/theme';
 import { ThemeService } from '../theme/theme.service';
 
 /**
@@ -19,7 +28,9 @@ import { ThemeService } from '../theme/theme.service';
 @Component({
   selector: 'app-admin-nav',
   imports: [RouterLink, RouterLinkActive, NgIcon, HlmButtonImports, HlmLabelImports, HlmRadioGroupImports],
-  providers: [provideIcons({ lucideFileText, lucideLogOut, lucidePalette, lucideSquarePen, lucideUser })],
+  providers: [
+    provideIcons({ lucideFileText, lucideLogOut, lucideMonitor, lucideMoon, lucidePalette, lucideSquarePen, lucideSun, lucideUser }),
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'flex flex-col gap-6' },
   template: `
@@ -71,6 +82,7 @@ import { ThemeService } from '../theme/theme.service';
             @for (mode of modes; track mode) {
               <label hlmLabel class="font-normal">
                 <hlm-radio [value]="mode"><hlm-radio-indicator indicator /></hlm-radio>
+                <ng-icon [name]="modeIcons[mode]" size="1rem" aria-hidden="true" />
                 {{ modeLabels[mode] }}
               </label>
             }
@@ -126,6 +138,12 @@ export class AdminNav {
 
   protected readonly modes = THEME_MODES;
   protected readonly modeLabels = THEME_MODE_LABELS;
+  // Aquí y no en theme.ts, que no importa nada (lo leen los scripts con Node).
+  protected readonly modeIcons: Readonly<Record<ThemeMode, string>> = {
+    light: 'lucideSun',
+    dark: 'lucideMoon',
+    system: 'lucideMonitor',
+  };
   protected readonly accents = ACCENTS;
   protected readonly accentLabels = ACCENT_LABELS;
 
