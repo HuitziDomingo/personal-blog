@@ -16,9 +16,9 @@ function html(node: ReactNode): string {
   return renderToStaticMarkup(<ChakraProvider value={system}>{node}</ChakraProvider>);
 }
 
-/** Solo el marcado, sin las etiquetas <style> que Emotion inserta en el SSR. */
+/** El marcado completo, con el CSS que Emotion inserta en el SSR. */
 function markup(node: ReactNode): string {
-  return html(node).replace(/<style[^>]*>[\s\S]*?<\/style>/g, '');
+  return html(node);
 }
 
 function comment(id: string, fields: Partial<PublicComment> = {}): PublicComment {
@@ -37,7 +37,7 @@ describe('CommentList: solo texto (ADR-022, punto 2)', () => {
   it.each(attacks)('escapa %s y no crea etiquetas ni links', (content) => {
     const out = markup(<CommentList comments={[comment('a', { content, name: '<b>Mallory</b>' })]} />);
 
-    expect(out).not.toMatch(/<script|<img|<svg onload|<a\s|<b>Mallory/);
+    expect(out).not.toMatch(/<script|<img|<svg\s+onload|<a\s|<b>Mallory/i);
     expect(out).toContain('&lt;b&gt;Mallory&lt;/b&gt;');
   });
 
