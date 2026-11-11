@@ -1,3 +1,5 @@
+import path from 'node:path';
+
 import type { NextConfig } from 'next';
 
 import { securityHeaders } from './lib/security-headers';
@@ -6,6 +8,9 @@ const isDev = process.env.NODE_ENV === 'development';
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  // Raíz del monorepo, fija: sin esto, Next la infiere buscando lockfiles hacia
+  // arriba y puede elegir uno fuera del repo (por ejemplo, en el home).
+  turbopack: { root: path.join(__dirname, '..', '..') },
   poweredByHeader: false,
   // packages/markdown se publica como TypeScript sin compilar.
   transpilePackages: ['@personal-blog/markdown'],
