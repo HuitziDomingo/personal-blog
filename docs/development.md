@@ -653,8 +653,7 @@ ADR-022. Los lectores comentan los posts publicados sin cuenta, y nada se public
   - **Calidad con el modelo real:** `internal/assistant/gemini/testdata/moderation_samples.json` tiene comentarios de ejemplo con su categoría esperada. Nunca corre en CI; para revisarlo a mano, con tu key exportada en el shell:
 
     ```sh
-    cd services/api && MODERATION_LIVE_OUT=/tmp/moderacion.json \
-      go test -tags gemini_live -run TestModerationSamplesAgainstGemini -count=1 -v ./internal/assistant/gemini/
+    cd services/api && go test -tags gemini_live -run TestModerationSamplesAgainstGemini -count=1 -v ./internal/assistant/gemini/
     ```
 
-    Hace una llamada cada 6 s y se detiene en el primer 429, sin reintentos.
+    Hace una llamada cada 6 s, se detiene en el primer 429 sin reintentar e imprime los resultados como JSON.

@@ -21,11 +21,11 @@ import (
 // en CI: necesita el build tag gemini_live y GEMINI_API_KEY. Es para revisar a
 // mano la calidad del clasificador (ADR-022, punto 11).
 //
-//	GEMINI_API_KEY=... MODERATION_LIVE_OUT=/ruta/resultados.json \
-//	  go test -tags gemini_live -run TestModerationSamplesAgainstGemini -count=1 -v ./internal/assistant/gemini/
+//	GEMINI_API_KEY=... go test -tags gemini_live -run TestModerationSamplesAgainstGemini -count=1 -v ./internal/assistant/gemini/
 //
 // MODERATION_LIVE_MODEL cambia el modelo (por defecto gemini-3.6-flash). Un
-// 429 detiene la corrida: no se reintenta.
+// 429 detiene la corrida: no se reintenta. Al final imprime los resultados
+// como JSON en el log del test.
 func TestModerationSamplesAgainstGemini(t *testing.T) {
 	key := os.Getenv("GEMINI_API_KEY")
 	if key == "" {
@@ -99,9 +99,7 @@ func TestModerationSamplesAgainstGemini(t *testing.T) {
 		}
 	}
 
-	if out := os.Getenv("MODERATION_LIVE_OUT"); out != "" {
-		data, err := json.MarshalIndent(results, "", "  ")
-		require.NoError(t, err)
-		require.NoError(t, os.WriteFile(out, data, 0o600))
-	}
+	data, err := json.MarshalIndent(results, "", "  ")
+	require.NoError(t, err)
+	t.Logf("results:\n%s", data)
 }
