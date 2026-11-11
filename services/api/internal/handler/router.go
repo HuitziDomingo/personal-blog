@@ -36,6 +36,9 @@ type RouterConfig struct {
 	// Assistant implementa el asistente de escritura; es obligatorio, aunque
 	// esté desactivado (ADR-021).
 	Assistant Assistant
+	// Comments implementa los comentarios; es obligatorio, aunque estén
+	// desactivados (ADR-022).
+	Comments Comments
 	// AssistantTimeout es el timeout de una llamada al proveedor. Las rutas
 	// del asistente alargan el WriteTimeout del servidor a lo que haga falta.
 	AssistantTimeout time.Duration
@@ -68,6 +71,10 @@ func NewRouter(pinger Pinger, spec *openapi3.T, cfg RouterConfig) (*gin.Engine, 
 
 	if cfg.Assistant == nil {
 		return nil, errors.New("router needs an assistant")
+	}
+
+	if cfg.Comments == nil {
+		return nil, errors.New("router needs comments")
 	}
 
 	if err := cfg.RateLimits.validate(); err != nil {
@@ -118,7 +125,7 @@ func NewRouter(pinger Pinger, spec *openapi3.T, cfg RouterConfig) (*gin.Engine, 
 			AuthenticationFunc: authenticateRequest,
 		},
 	})
-	handlers := gen.NewStrictHandlerWithOptions(server{sessions: cfg.Sessions, posts: cfg.Posts, assistant: cfg.Assistant}, nil, gen.StrictGinServerOptions{
+	handlers := gen.NewStrictHandlerWithOptions(server{sessions: cfg.Sessions, posts: cfg.Posts, assistant: cfg.Assistant, comments: cfg.Comments}, nil, gen.StrictGinServerOptions{
 		RequestErrorHandlerFunc:  requestError,
 		HandlerErrorFunc:         handlerError,
 		ResponseErrorHandlerFunc: responseError,

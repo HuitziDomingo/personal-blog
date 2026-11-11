@@ -1,0 +1,33 @@
+info:
+  name: 8 Aprobar
+  type: http
+  seq: 8
+
+http:
+  method: POST
+  url: "{{baseUrl}}/api/v1/admin/comments/{{commentId}}/approve"
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "200"
+  scripts:
+    - type: before-request
+      code: |-
+        // Con COMMENTS_ENABLED=false el flujo termina en el paso 3.
+        if (bru.getVar("commentsEnabled") !== "true") {
+          bru.runner.skipRequest();
+        }
+    - type: tests
+      code: |-
+        test("a rejected comment can still be approved", function () {
+          expect(res.body.status).to.equal("approved");
+        });
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: true

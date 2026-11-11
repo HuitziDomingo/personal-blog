@@ -37,6 +37,14 @@ type RateLimit struct {
 	Burst     int
 }
 
+// WindowLimit es un límite por clave de Max peticiones cada Window, para los
+// que son demasiado bajos para expresarse por minuto. Es un token bucket: Max
+// seguidas y después una cada Window/Max.
+type WindowLimit struct {
+	Max    int
+	Window time.Duration
+}
+
 // RateLimits son los límites de ADR-010 y ADR-016.
 type RateLimits struct {
 	// Global es por IP, para /api/v1 sin un access token válido.
@@ -50,6 +58,9 @@ type RateLimits struct {
 	// Assistant es por usuario, solo para el asistente de escritura y además
 	// de User (ADR-021).
 	Assistant RateLimit
+	// Comments es por IP, solo para enviar comentarios y además de Global o
+	// User (ADR-022).
+	Comments WindowLimit
 }
 
 // accessVerifier valida un access token con las reglas de ADR-011 y devuelve
@@ -77,12 +88,19 @@ type keyedLimiter struct {
 }
 
 func newKeyedLimiter(limit RateLimit, now func() time.Time) *keyedLimiter {
-	perSecond := rate.Limit(float64(limit.PerMinute) / time.Minute.Seconds())
-	fill := time.Duration(float64(limit.Burst) / float64(perSecond) * float64(time.Second))
+	return newKeyedLimiterRate(rate.Limit(float64(limit.PerMinute)/time.Minute.Seconds()), limit.Burst, now)
+}
+
+func newWindowLimiter(limit WindowLimit, now func() time.Time) *keyedLimiter {
+	return newKeyedLimiterRate(rate.Limit(float64(limit.Max)/limit.Window.Seconds()), limit.Max, now)
+}
+
+func newKeyedLimiterRate(perSecond rate.Limit, burst int, now func() time.Time) *keyedLimiter {
+	fill := time.Duration(float64(burst) / float64(perSecond) * float64(time.Second))
 
 	return &keyedLimiter{
 		limit:       perSecond,
-		burst:       limit.Burst,
+		burst:       burst,
 		idleTTL:     max(minIdleTTL, fill),
 		now:         now,
 		visitors:    make(map[string]*visitor),
@@ -141,8 +159,8 @@ func (l *keyedLimiter) size() int {
 }
 
 // rateLimiter aplica a /api/v1 el límite por usuario o el global por IP, uno
-// extra por IP a login y refresh, uno extra por usuario al asistente y uno
-// propio por IP a los preflight CORS.
+// extra por IP a login, refresh y el envío de comentarios, uno extra por
+// usuario al asistente y uno propio por IP a los preflight CORS.
 type rateLimiter struct {
 	global     *keyedLimiter
 	login      *keyedLimiter
@@ -150,6 +168,7 @@ type rateLimiter struct {
 	preflights *keyedLimiter
 	users      *keyedLimiter
 	assistant  *keyedLimiter
+	comments   *keyedLimiter
 	verify     accessVerifier
 }
 
@@ -165,6 +184,10 @@ func (limits RateLimits) validate() error {
 		}
 	}
 
+	if limits.Comments.Max <= 0 || limits.Comments.Window <= 0 {
+		return fmt.Errorf("comments rate limit must be positive: %+v", limits.Comments)
+	}
+
 	return nil
 }
 
@@ -176,6 +199,7 @@ func newRateLimiter(limits RateLimits, verify accessVerifier, now func() time.Ti
 		preflights: newKeyedLimiter(limits.Preflight, now),
 		users:      newKeyedLimiter(limits.User, now),
 		assistant:  newKeyedLimiter(limits.Assistant, now),
+		comments:   newWindowLimiter(limits.Comments, now),
 		verify:     verify,
 	}
 }
@@ -224,6 +248,14 @@ func (r *rateLimiter) handle(c *gin.Context) {
 	}
 
 	if c.Request.Method != http.MethodPost {
+		return
+	}
+
+	// Por IP aunque haya sesión: el autor responde desde el admin, no por
+	// esta ruta.
+	if isCommentSubmission(c.Request.Method, path) {
+		admit(c, r.comments, ip)
+
 		return
 	}
 

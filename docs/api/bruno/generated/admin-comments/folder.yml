@@ -1,0 +1,10 @@
+info:
+  name: admin-comments
+  type: folder
+
+request:
+  auth: inherit
+
+docs:
+  content: Cola de moderación de comentarios y respuestas del autor (ADR-022).
+  type: text/markdown

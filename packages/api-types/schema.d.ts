@@ -109,6 +109,33 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/posts/{slug}/comments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identificador del post en la URL. */
+                slug: components["parameters"]["Slug"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Lista los comentarios aprobados de un post.
+         * @description Solo los comentarios aprobados de un post publicado, del más antiguo al más reciente, sin datos de moderación. Una respuesta tiene `parentId`.
+         */
+        get: operations["listPostComments"];
+        put?: never;
+        /**
+         * Envía un comentario anónimo a un post publicado.
+         * @description El comentario queda en revisión hasta que el autor lo aprueba. La respuesta siempre es la misma y no revela ningún análisis. Con COMMENTS_ENABLED=false responde 404. Tiene su propio límite por IP, más estricto que el general (ADR-022).
+         */
+        post: operations["submitComment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/posts": {
         parameters: {
             query?: never;
@@ -187,6 +214,95 @@ export interface paths {
          * @description No hay borrado físico. El post pasa a `archived`, deja de verse en la API pública y conserva su slug y su `publishedAt`. Archivar un post archivado no cambia nada.
          */
         delete: operations["deletePost"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/comments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Lista los comentarios para moderar.
+         * @description Comentarios de todos los posts, del más antiguo al más reciente, con el resultado de la moderación si lo hay.
+         */
+        get: operations["listComments"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/comments/{id}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identificador del comentario. */
+                id: components["parameters"]["CommentId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Aprueba un comentario.
+         * @description El comentario se publica. Aprobar uno aprobado no cambia nada.
+         */
+        post: operations["approveComment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/comments/{id}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identificador del comentario. */
+                id: components["parameters"]["CommentId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Rechaza un comentario.
+         * @description El comentario deja de verse y se borra a los 30 días, salvo que se apruebe antes. Rechazar uno rechazado no cambia nada.
+         */
+        post: operations["rejectComment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/comments/{id}/replies": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identificador del comentario. */
+                id: components["parameters"]["CommentId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Responde a un comentario como autor.
+         * @description La respuesta se publica aprobada y marcada como del autor. Solo se responde a un comentario aprobado que no es respuesta de otro: hay un solo nivel de respuestas.
+         */
+        post: operations["replyToComment"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -314,6 +430,96 @@ export interface components {
             /** Format: int32 */
             offset: number;
         };
+        /** @enum {string} */
+        CommentStatus: "pending" | "approved" | "rejected";
+        /** @description Comentario de un lector. Solo texto: la web lo escapa al mostrarlo. No se guarda IP, correo ni ningún identificador del lector (ADR-022). */
+        CommentSubmission: {
+            /** @description Nombre que se muestra. No se verifica. */
+            name: string;
+            /** @description Solo texto, sin Markdown ni HTML. */
+            content: string;
+            /** @description Comentario al que responde. Debe ser un comentario aprobado del mismo post que no sea una respuesta. */
+            parentId?: string;
+            /** @description Campo trampa: la web lo oculta y una persona lo deja vacío. Si llega con valor, el comentario se descarta en silencio con la misma respuesta. */
+            website?: string;
+        };
+        CommentReceipt: {
+            /**
+             * @description Siempre pending. No revela ningún análisis.
+             * @enum {string}
+             */
+            status: "pending";
+        };
+        AuthorReply: {
+            /** @description Solo texto, como un comentario. */
+            content: string;
+        };
+        /** @description Comentario aprobado, sin datos de moderación. */
+        PublicComment: {
+            id: string;
+            /** @description Comentario al que responde, si es una respuesta. */
+            parentId?: string;
+            name: string;
+            /** @description Texto no confiable. Se escapa al mostrarlo. */
+            content: string;
+            /** @description Respuesta del autor del blog. */
+            byAuthor: boolean;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        PublicCommentPage: {
+            items: components["schemas"]["PublicComment"][];
+            /**
+             * Format: int64
+             * @description Total de comentarios aprobados del post.
+             */
+            total: number;
+            /** Format: int32 */
+            limit: number;
+            /** Format: int32 */
+            offset: number;
+        };
+        /** @enum {string} */
+        ModerationVerdict: "approve" | "reject" | "review";
+        /** @enum {string} */
+        ModerationCategory: "none" | "spam" | "abuse" | "off_topic" | "prompt_injection" | "personal_data";
+        /** @description Sugerencia del clasificador (ADR-022). Solo orienta: el autor decide. */
+        Moderation: {
+            verdict: components["schemas"]["ModerationVerdict"];
+            category: components["schemas"]["ModerationCategory"];
+            reason: string;
+            model: string;
+            /** Format: date-time */
+            analyzedAt: string;
+        };
+        /** @description Comentario completo, para el admin. */
+        Comment: {
+            id: string;
+            postId: string;
+            parentId?: string;
+            name: string;
+            /** @description Texto no confiable. Se escapa al mostrarlo. */
+            content: string;
+            status: components["schemas"]["CommentStatus"];
+            byAuthor: boolean;
+            moderation?: components["schemas"]["Moderation"];
+            /** Format: date-time */
+            createdAt: string;
+            /**
+             * Format: date-time
+             * @description Cuándo el autor lo aprobó o rechazó por última vez.
+             */
+            reviewedAt?: string;
+        };
+        CommentPage: {
+            items: components["schemas"]["Comment"][];
+            /** Format: int64 */
+            total: number;
+            /** Format: int32 */
+            limit: number;
+            /** Format: int32 */
+            offset: number;
+        };
     };
     responses: {
         /** @description La petición no cumple el contrato. */
@@ -403,11 +609,13 @@ export interface components {
     parameters: {
         /** @description Identificador del post en la URL. */
         Slug: components["schemas"]["Slug"];
+        /** @description Identificador del comentario. */
+        CommentId: string;
         /** @description Filtra por etiqueta. Se compara en minúsculas y con los espacios colapsados. */
         Tag: string;
         /** @description Tamaño de la página. */
         Limit: number;
-        /** @description Posts que se saltan antes de la página. */
+        /** @description Elementos que se saltan antes de la página. */
         Offset: number;
     };
     requestBodies: never;
@@ -525,7 +733,7 @@ export interface operations {
                 tag?: components["parameters"]["Tag"];
                 /** @description Tamaño de la página. */
                 limit?: components["parameters"]["Limit"];
-                /** @description Posts que se saltan antes de la página. */
+                /** @description Elementos que se saltan antes de la página. */
                 offset?: components["parameters"]["Offset"];
             };
             header?: never;
@@ -575,6 +783,71 @@ export interface operations {
             default: components["responses"]["UnexpectedError"];
         };
     };
+    listPostComments: {
+        parameters: {
+            query?: {
+                /** @description Tamaño de la página. */
+                limit?: components["parameters"]["Limit"];
+                /** @description Elementos que se saltan antes de la página. */
+                offset?: components["parameters"]["Offset"];
+            };
+            header?: never;
+            path: {
+                /** @description Identificador del post en la URL. */
+                slug: components["parameters"]["Slug"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Página de comentarios aprobados. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicCommentPage"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["TooManyRequests"];
+            default: components["responses"]["UnexpectedError"];
+        };
+    };
+    submitComment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identificador del post en la URL. */
+                slug: components["parameters"]["Slug"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CommentSubmission"];
+            };
+        };
+        responses: {
+            /** @description Comentario recibido y en revisión. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CommentReceipt"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            413: components["responses"]["PayloadTooLarge"];
+            429: components["responses"]["TooManyRequests"];
+            default: components["responses"]["UnexpectedError"];
+        };
+    };
     listPosts: {
         parameters: {
             query?: {
@@ -584,7 +857,7 @@ export interface operations {
                 tag?: components["parameters"]["Tag"];
                 /** @description Tamaño de la página. */
                 limit?: components["parameters"]["Limit"];
-                /** @description Posts que se saltan antes de la página. */
+                /** @description Elementos que se saltan antes de la página. */
                 offset?: components["parameters"]["Offset"];
             };
             header?: never;
@@ -787,6 +1060,128 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+            429: components["responses"]["TooManyRequests"];
+            default: components["responses"]["UnexpectedError"];
+        };
+    };
+    listComments: {
+        parameters: {
+            query?: {
+                /** @description Filtra por estado. Sin él, lista todos. */
+                status?: components["schemas"]["CommentStatus"];
+                /** @description Tamaño de la página. */
+                limit?: components["parameters"]["Limit"];
+                /** @description Elementos que se saltan antes de la página. */
+                offset?: components["parameters"]["Offset"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Página de comentarios. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CommentPage"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["TooManyRequests"];
+            default: components["responses"]["UnexpectedError"];
+        };
+    };
+    approveComment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identificador del comentario. */
+                id: components["parameters"]["CommentId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Comentario aprobado. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Comment"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["TooManyRequests"];
+            default: components["responses"]["UnexpectedError"];
+        };
+    };
+    rejectComment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identificador del comentario. */
+                id: components["parameters"]["CommentId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Comentario rechazado. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Comment"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["TooManyRequests"];
+            default: components["responses"]["UnexpectedError"];
+        };
+    };
+    replyToComment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identificador del comentario. */
+                id: components["parameters"]["CommentId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AuthorReply"];
+            };
+        };
+        responses: {
+            /** @description Respuesta publicada. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Comment"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            413: components["responses"]["PayloadTooLarge"];
             429: components["responses"]["TooManyRequests"];
             default: components["responses"]["UnexpectedError"];
         };

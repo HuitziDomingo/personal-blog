@@ -76,8 +76,8 @@ func requestError(c *gin.Context, err error) {
 
 // handlerError responde a los errores que devuelven las operaciones.
 // Los errores del login y la sesión se traducen a 401 o 429 sin decir el
-// motivo concreto. Los del dominio de posts, a 400, 403, 404 o 409, y los del
-// asistente, a 503.
+// motivo concreto. Los del dominio de posts y comentarios, a 400, 403, 404 o
+// 409, y los del asistente, a 503.
 func handlerError(c *gin.Context, err error) {
 	var tooMany *service.TooManyAttemptsError
 
@@ -103,6 +103,10 @@ func handlerError(c *gin.Context, err error) {
 		writeProblem(c, http.StatusConflict, detailDuplicateSlug)
 	case errors.Is(err, domain.ErrSlugLocked):
 		writeProblem(c, http.StatusConflict, detailSlugLocked)
+	case errors.Is(err, domain.ErrInvalidComment):
+		writeProblem(c, http.StatusBadRequest, detailInvalidComment)
+	case errors.Is(err, domain.ErrInvalidParent):
+		writeProblem(c, http.StatusBadRequest, detailInvalidParent)
 	case errors.Is(err, domain.ErrAssistantDisabled):
 		writeProblem(c, http.StatusServiceUnavailable, detailAssistantDisabled)
 	case errors.Is(err, domain.ErrAssistantInvalidOutput):

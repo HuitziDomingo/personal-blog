@@ -1,0 +1,41 @@
+info:
+  name: 11 Responder a una respuesta
+  type: http
+  seq: 11
+
+http:
+  method: POST
+  url: "{{baseUrl}}/api/v1/posts/{{postSlug}}/comments"
+  body:
+    type: json
+    data: |-
+      {
+        "name": "Ana",
+        "content": "Una respuesta de segundo nivel",
+        "parentId": "{{replyId}}"
+      }
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "400"
+  scripts:
+    - type: before-request
+      code: |-
+        // Con COMMENTS_ENABLED=false el flujo termina en el paso 3.
+        if (bru.getVar("commentsEnabled") !== "true") {
+          bru.runner.skipRequest();
+        }
+    - type: tests
+      code: |-
+        test("there is a single level of replies", function () {
+          expect(res.body.detail).to.equal("parent must be an approved top-level comment of the same post");
+        });
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: true

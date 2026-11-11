@@ -1,0 +1,41 @@
+info:
+  name: 4 Campo trampa
+  type: http
+  seq: 4
+
+http:
+  method: POST
+  url: "{{baseUrl}}/api/v1/posts/{{postSlug}}/comments"
+  body:
+    type: json
+    data: |-
+      {
+        "name": "Bot",
+        "content": "Compra seguidores",
+        "website": "https://spam.example"
+      }
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "202"
+  scripts:
+    - type: before-request
+      code: |-
+        // Con COMMENTS_ENABLED=false el flujo termina en el paso 3.
+        if (bru.getVar("commentsEnabled") !== "true") {
+          bru.runner.skipRequest();
+        }
+    - type: tests
+      code: |-
+        test("answers like a saved comment", function () {
+          expect(res.body).to.eql({ status: "pending" });
+        });
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: true

@@ -1,0 +1,44 @@
+info:
+  name: 3 Enviar comentario
+  type: http
+  seq: 3
+
+http:
+  method: POST
+  url: "{{baseUrl}}/api/v1/posts/{{postSlug}}/comments"
+  body:
+    type: json
+    data: |-
+      {
+        "name": "{{readerName}}",
+        "content": "Muy útil. ¿Cómo se prueba con `go test -race`? https://spam.example"
+      }
+
+runtime:
+  scripts:
+    - type: before-request
+      code: |-
+        bru.setVar("readerName", "Lectora " + Date.now());
+    - type: after-response
+      code: |-
+        bru.setVar("commentsEnabled", res.status === 202 ? "true" : "false");
+    - type: tests
+      code: |-
+        test("is pending, or 404 with comments disabled (the default)", function () {
+          expect([202, 404]).to.include(res.status);
+        });
+
+        test("never reveals an analysis", function () {
+          if (res.status === 202) {
+            expect(res.body).to.eql({ status: "pending" });
+          } else {
+            expect(res.getHeader("content-type")).to.include("application/problem+json");
+          }
+        });
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: true

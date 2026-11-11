@@ -96,13 +96,19 @@ func run(logger *slog.Logger) error {
 		return errors.Join(err, client.Disconnect(ctx))
 	}
 
+	posts := service.NewPostService(mongodb.NewPostRepository(client), time.Now)
+	if cfg.Comments.Enabled {
+		slog.Info("comments enabled, without LLM moderation")
+	}
+
 	routerConfig := handler.RouterConfig{
 		AllowedOrigins:   cfg.AllowedOrigins,
 		MaxBodyBytes:     cfg.MaxBodyBytes,
 		TrustedProxies:   cfg.TrustedProxies,
 		Sessions:         sessions,
-		Posts:            service.NewPostService(mongodb.NewPostRepository(client), time.Now),
+		Posts:            posts,
 		Assistant:        assistant,
+		Comments:         service.NewCommentService(mongodb.NewCommentRepository(client), posts, cfg.Comments.Enabled, time.Now),
 		AssistantTimeout: cfg.Assistant.Timeout,
 		Logger:           logger,
 		JSONLogs:         cfg.LogFormat == config.LogFormatJSON,
@@ -113,6 +119,7 @@ func run(logger *slog.Logger) error {
 			Preflight: handler.RateLimit(cfg.PreflightRateLimit),
 			User:      handler.RateLimit(cfg.UserRateLimit),
 			Assistant: handler.RateLimit(cfg.AssistantRateLimit),
+			Comments:  handler.WindowLimit{Max: cfg.Comments.RateLimitMax, Window: cfg.Comments.RateLimitWindow},
 		},
 	}
 

@@ -1,0 +1,364 @@
+info:
+  name: Lista los comentarios para moderar
+  type: http
+  seq: 1
+  tags:
+    - admin-comments
+
+http:
+  method: GET
+  url: "{{baseUrl}}/api/v1/admin/comments"
+  headers:
+    - name: access_token
+      value: "{{apiKey}}"
+      description: Token de acceso JWT, en cookie HttpOnly (ADR-005).
+  params:
+    - name: status
+      value: pending
+      type: query
+      description: Filtra por estado. Sin él, lista todos.
+      disabled: true
+    - name: status
+      value: approved
+      type: query
+      description: Filtra por estado. Sin él, lista todos.
+      disabled: true
+    - name: status
+      value: rejected
+      type: query
+      description: Filtra por estado. Sin él, lista todos.
+      disabled: true
+    - name: limit
+      value: "20"
+      type: query
+      description: Tamaño de la página.
+    - name: offset
+      value: "0"
+      type: query
+      description: Elementos que se saltan antes de la página.
+  auth:
+    type: apikey
+    key: access_token
+    value: "{{apiKey}}"
+    placement: header
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: true
+
+examples:
+  - name: 200 Response
+    description: Página de comentarios.
+    request:
+      url: "{{baseUrl}}/api/v1/admin/comments"
+      method: GET
+      headers:
+        - name: access_token
+          value: "{{apiKey}}"
+          description: Token de acceso JWT, en cookie HttpOnly (ADR-005).
+      params:
+        - name: status
+          value: pending
+          type: query
+          description: Filtra por estado. Sin él, lista todos.
+          disabled: true
+        - name: status
+          value: approved
+          type: query
+          description: Filtra por estado. Sin él, lista todos.
+          disabled: true
+        - name: status
+          value: rejected
+          type: query
+          description: Filtra por estado. Sin él, lista todos.
+          disabled: true
+        - name: limit
+          value: "20"
+          type: query
+          description: Tamaño de la página.
+        - name: offset
+          value: "0"
+          type: query
+          description: Elementos que se saltan antes de la página.
+    response:
+      status: 200
+      statusText: OK
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "items": [
+              {
+                "id": "",
+                "postId": "",
+                "parentId": "",
+                "name": "",
+                "content": "",
+                "status": "pending",
+                "byAuthor": false,
+                "moderation": {
+                  "verdict": "approve",
+                  "category": "none",
+                  "reason": "",
+                  "model": "",
+                  "analyzedAt": ""
+                },
+                "createdAt": "",
+                "reviewedAt": ""
+              }
+            ],
+            "total": 0,
+            "limit": 0,
+            "offset": 0
+          }
+  - name: 400 Response
+    description: La petición no cumple el contrato.
+    request:
+      url: "{{baseUrl}}/api/v1/admin/comments"
+      method: GET
+      headers:
+        - name: access_token
+          value: "{{apiKey}}"
+          description: Token de acceso JWT, en cookie HttpOnly (ADR-005).
+      params:
+        - name: status
+          value: pending
+          type: query
+          description: Filtra por estado. Sin él, lista todos.
+          disabled: true
+        - name: status
+          value: approved
+          type: query
+          description: Filtra por estado. Sin él, lista todos.
+          disabled: true
+        - name: status
+          value: rejected
+          type: query
+          description: Filtra por estado. Sin él, lista todos.
+          disabled: true
+        - name: limit
+          value: "20"
+          type: query
+          description: Tamaño de la página.
+        - name: offset
+          value: "0"
+          type: query
+          description: Elementos que se saltan antes de la página.
+    response:
+      status: 400
+      statusText: Bad Request
+      headers:
+        - name: Content-Type
+          value: application/problem+json
+      body:
+        type: json
+        data: |-
+          {
+            "type": "",
+            "title": "",
+            "status": 0,
+            "detail": "",
+            "instance": ""
+          }
+  - name: 401 Response
+    description: Faltan credenciales o no son válidas.
+    request:
+      url: "{{baseUrl}}/api/v1/admin/comments"
+      method: GET
+      headers:
+        - name: access_token
+          value: "{{apiKey}}"
+          description: Token de acceso JWT, en cookie HttpOnly (ADR-005).
+      params:
+        - name: status
+          value: pending
+          type: query
+          description: Filtra por estado. Sin él, lista todos.
+          disabled: true
+        - name: status
+          value: approved
+          type: query
+          description: Filtra por estado. Sin él, lista todos.
+          disabled: true
+        - name: status
+          value: rejected
+          type: query
+          description: Filtra por estado. Sin él, lista todos.
+          disabled: true
+        - name: limit
+          value: "20"
+          type: query
+          description: Tamaño de la página.
+        - name: offset
+          value: "0"
+          type: query
+          description: Elementos que se saltan antes de la página.
+    response:
+      status: 401
+      statusText: Unauthorized
+      headers:
+        - name: Content-Type
+          value: application/problem+json
+      body:
+        type: json
+        data: |-
+          {
+            "type": "",
+            "title": "",
+            "status": 0,
+            "detail": "",
+            "instance": ""
+          }
+  - name: 403 Response
+    description: Las credenciales no dan permiso, o el Origin está fuera de la allowlist.
+    request:
+      url: "{{baseUrl}}/api/v1/admin/comments"
+      method: GET
+      headers:
+        - name: access_token
+          value: "{{apiKey}}"
+          description: Token de acceso JWT, en cookie HttpOnly (ADR-005).
+      params:
+        - name: status
+          value: pending
+          type: query
+          description: Filtra por estado. Sin él, lista todos.
+          disabled: true
+        - name: status
+          value: approved
+          type: query
+          description: Filtra por estado. Sin él, lista todos.
+          disabled: true
+        - name: status
+          value: rejected
+          type: query
+          description: Filtra por estado. Sin él, lista todos.
+          disabled: true
+        - name: limit
+          value: "20"
+          type: query
+          description: Tamaño de la página.
+        - name: offset
+          value: "0"
+          type: query
+          description: Elementos que se saltan antes de la página.
+    response:
+      status: 403
+      statusText: Forbidden
+      headers:
+        - name: Content-Type
+          value: application/problem+json
+      body:
+        type: json
+        data: |-
+          {
+            "type": "",
+            "title": "",
+            "status": 0,
+            "detail": "",
+            "instance": ""
+          }
+  - name: 429 Response
+    description: Se superó el límite de peticiones de la IP, o el de logins fallidos del email.
+    request:
+      url: "{{baseUrl}}/api/v1/admin/comments"
+      method: GET
+      headers:
+        - name: access_token
+          value: "{{apiKey}}"
+          description: Token de acceso JWT, en cookie HttpOnly (ADR-005).
+      params:
+        - name: status
+          value: pending
+          type: query
+          description: Filtra por estado. Sin él, lista todos.
+          disabled: true
+        - name: status
+          value: approved
+          type: query
+          description: Filtra por estado. Sin él, lista todos.
+          disabled: true
+        - name: status
+          value: rejected
+          type: query
+          description: Filtra por estado. Sin él, lista todos.
+          disabled: true
+        - name: limit
+          value: "20"
+          type: query
+          description: Tamaño de la página.
+        - name: offset
+          value: "0"
+          type: query
+          description: Elementos que se saltan antes de la página.
+    response:
+      status: 429
+      statusText: Too Many Requests
+      headers:
+        - name: Content-Type
+          value: application/problem+json
+      body:
+        type: json
+        data: |-
+          {
+            "type": "",
+            "title": "",
+            "status": 0,
+            "detail": "",
+            "instance": ""
+          }
+  - name: default Response
+    description: Error inesperado.
+    request:
+      url: "{{baseUrl}}/api/v1/admin/comments"
+      method: GET
+      headers:
+        - name: access_token
+          value: "{{apiKey}}"
+          description: Token de acceso JWT, en cookie HttpOnly (ADR-005).
+      params:
+        - name: status
+          value: pending
+          type: query
+          description: Filtra por estado. Sin él, lista todos.
+          disabled: true
+        - name: status
+          value: approved
+          type: query
+          description: Filtra por estado. Sin él, lista todos.
+          disabled: true
+        - name: status
+          value: rejected
+          type: query
+          description: Filtra por estado. Sin él, lista todos.
+          disabled: true
+        - name: limit
+          value: "20"
+          type: query
+          description: Tamaño de la página.
+        - name: offset
+          value: "0"
+          type: query
+          description: Elementos que se saltan antes de la página.
+    response:
+      headers:
+        - name: Content-Type
+          value: application/problem+json
+      body:
+        type: json
+        data: |-
+          {
+            "type": "",
+            "title": "",
+            "status": 0,
+            "detail": "",
+            "instance": ""
+          }
+
+docs: Comentarios de todos los posts, del más antiguo al más reciente, con el resultado de la moderación si lo hay.

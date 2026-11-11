@@ -1,0 +1,48 @@
+info:
+  name: 6 Cola de moderacion
+  type: http
+  seq: 6
+
+http:
+  method: GET
+  url: "{{baseUrl}}/api/v1/admin/comments?status=pending&limit=100"
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "200"
+  scripts:
+    - type: before-request
+      code: |-
+        // Con COMMENTS_ENABLED=false el flujo termina en el paso 3.
+        if (bru.getVar("commentsEnabled") !== "true") {
+          bru.runner.skipRequest();
+        }
+    - type: after-response
+      code: |-
+        const mine = res.body.items.filter((c) => c.postId === bru.getVar("postId"));
+        if (mine.length > 0) {
+          bru.setVar("commentId", mine[0].id);
+        }
+    - type: tests
+      code: |-
+        const mine = res.body.items.filter((c) => c.postId === bru.getVar("postId"));
+
+        test("holds the comment, without analysis", function () {
+          expect(mine).to.have.length(1);
+          expect(mine[0].name).to.equal(bru.getVar("readerName"));
+          expect(mine[0].status).to.equal("pending");
+          expect(mine[0].moderation).to.equal(undefined);
+        });
+
+        test("the trap comment was discarded", function () {
+          expect(mine.filter((c) => c.name === "Bot")).to.have.length(0);
+        });
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: true

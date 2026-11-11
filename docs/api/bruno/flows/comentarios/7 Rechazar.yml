@@ -1,0 +1,34 @@
+info:
+  name: 7 Rechazar
+  type: http
+  seq: 7
+
+http:
+  method: POST
+  url: "{{baseUrl}}/api/v1/admin/comments/{{commentId}}/reject"
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "200"
+  scripts:
+    - type: before-request
+      code: |-
+        // Con COMMENTS_ENABLED=false el flujo termina en el paso 3.
+        if (bru.getVar("commentsEnabled") !== "true") {
+          bru.runner.skipRequest();
+        }
+    - type: tests
+      code: |-
+        test("is rejected and reviewed", function () {
+          expect(res.body.status).to.equal("rejected");
+          expect(res.body.reviewedAt).to.be.a("string");
+        });
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: true

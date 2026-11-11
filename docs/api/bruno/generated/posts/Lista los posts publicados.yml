@@ -21,7 +21,7 @@ http:
     - name: offset
       value: "0"
       type: query
-      description: Posts que se saltan antes de la página.
+      description: Elementos que se saltan antes de la página.
   auth: inherit
 
 settings:
@@ -50,7 +50,7 @@ examples:
         - name: offset
           value: "0"
           type: query
-          description: Posts que se saltan antes de la página.
+          description: Elementos que se saltan antes de la página.
     response:
       status: 200
       statusText: OK
@@ -97,7 +97,7 @@ examples:
         - name: offset
           value: "0"
           type: query
-          description: Posts que se saltan antes de la página.
+          description: Elementos que se saltan antes de la página.
     response:
       status: 400
       statusText: Bad Request
@@ -132,7 +132,7 @@ examples:
         - name: offset
           value: "0"
           type: query
-          description: Posts que se saltan antes de la página.
+          description: Elementos que se saltan antes de la página.
     response:
       status: 429
       statusText: Too Many Requests
@@ -167,7 +167,7 @@ examples:
         - name: offset
           value: "0"
           type: query
-          description: Posts que se saltan antes de la página.
+          description: Elementos que se saltan antes de la página.
     response:
       headers:
         - name: Content-Type

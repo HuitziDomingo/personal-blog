@@ -25,4 +25,13 @@ var (
 
 	// ErrTooManyAttempts indica que un email agotó sus logins fallidos.
 	ErrTooManyAttempts = errors.New("too many login attempts")
+
+	// ErrInvalidComment indica un nombre o contenido que no cumple las reglas
+	// de un comentario, como uno con solo espacios.
+	ErrInvalidComment = errors.New("invalid comment")
+
+	// ErrInvalidParent indica que el comentario al que se responde no existe,
+	// es de otro post, no está aprobado o ya es una respuesta: hay un solo
+	// nivel de respuestas (ADR-022).
+	ErrInvalidParent = errors.New("parent must be an approved top-level comment of the same post")
 )

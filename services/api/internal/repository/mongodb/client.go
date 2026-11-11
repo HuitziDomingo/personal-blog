@@ -74,6 +74,10 @@ func (c *Client) EnsureIndexes(ctx context.Context) error {
 		return fmt.Errorf("create post indexes: %w", err)
 	}
 
+	if _, err := c.database.Collection(commentsCollection).Indexes().CreateMany(ctx, commentIndexes()); err != nil {
+		return fmt.Errorf("create comment indexes: %w", err)
+	}
+
 	return nil
 }
 
