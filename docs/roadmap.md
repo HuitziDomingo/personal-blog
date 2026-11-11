@@ -101,6 +101,7 @@
 - [x] BLOG-099: `turbopack.root` fijo en la raíz del monorepo, para que Next no tome como raíz del workspace un lockfile de fuera del repo. ([#102](https://github.com/HuitziDomingo/personal-blog/pull/102))
 - [x] BLOG-095: ADR-024: portafolio bilingüe, con el español en la raíz y el inglés bajo `/en`, diccionarios tipados sin librería de i18n, `hreflang` y sin redirección automática; el blog sigue en español. ([#99](https://github.com/HuitziDomingo/personal-blog/pull/99))
 - [ ] BLOG-096: Portafolio bilingüe (ADR-024): inicio, «Acerca de mí» y trabajos en español e inglés, dos layouts raíz con su `lang`, selector ES/EN, SEO con `hreflang` y sitemap, y los textos aprobados por León.
+- [x] BLOG-100: Dependabot agrupa `@ng-icons/*` también en los majors e ignora los majors de `typescript`, sin soporte oficial de Angular 22. ([#103](https://github.com/HuitziDomingo/personal-blog/pull/103))
 
 ## Fase futura (fuera del MVP)
 

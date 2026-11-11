@@ -4,7 +4,8 @@ version: 2
 # esperan el cooldown.
 #
 # Los grupos solo juntan minor y patch: cada major llega en su propio PR, que
-# es [ALTO] y no se mergea sin revisión de León (CLAUDE.md).
+# es [ALTO] y no se mergea sin revisión de León (CLAUDE.md). La excepción es
+# @ng-icons/*, que sube junto también en los majors.
 
 updates:
   - package-ecosystem: gomod
@@ -35,9 +36,24 @@ updates:
       - dependency-name: "@types/node"
         update-types:
           - version-update:semver-major
+      # TypeScript 7 no tiene soporte oficial de Angular 22; se revisa cuando
+      # Angular lo anuncie.
+      - dependency-name: typescript
+        update-types:
+          - version-update:semver-major
     commit-message:
       prefix: chore(deps)
     groups:
+      # core y lucide suben juntos, también en los majors: lucide declara como
+      # peer la misma versión de core. Va antes de minor-and-patch porque
+      # Dependabot asigna cada dependencia al primer grupo que coincide.
+      ng-icons:
+        patterns:
+          - "@ng-icons/*"
+        update-types:
+          - major
+          - minor
+          - patch
       minor-and-patch:
         update-types:
           - minor
