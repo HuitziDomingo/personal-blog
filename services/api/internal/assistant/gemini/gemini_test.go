@@ -170,6 +170,26 @@ func TestImproveWriting(t *testing.T) {
 	assert.Equal(t, []any{"content"}, request.Body.GenerationConfig.ResponseJSONSchema["required"])
 }
 
+// Un borrador que empieza con H1: la instrucción pide conservar todos los
+// encabezados, incluido el H1, y no agregar un título nuevo. El adaptador
+// devuelve el contenido del modelo tal cual, sin quitar el H1.
+func TestImproveWritingKeepsExistingHeadings(t *testing.T) {
+	fake := newFakeGemini(t, http.StatusOK, "improve_keeps_headings.json")
+	draft := domain.Draft{
+		Title:   "Orquestar agentes",
+		Content: "# Orquestar agentes\n\nUn agente coordina a los otros.\n\n## Herramientas\n\nCada agente tiene las suyas.",
+	}
+
+	improved, err := newTestAssistant(t, fake).ImproveWriting(t.Context(), draft)
+
+	require.NoError(t, err)
+	assert.Equal(t, "# Orquestar agentes\n\nUn agente coordina a los demás.\n\n## Herramientas\n\nCada agente tiene las suyas.\n", improved.Content)
+
+	instruction := fake.last.Load().Body.SystemInstruction.Parts[0].Text
+	assert.Contains(t, instruction, "No agregues un título nuevo y conserva todos los encabezados existentes, incluido el H1.")
+	assert.NotContains(t, instruction, "No incluyas el título")
+}
+
 func TestSuggestMetadata(t *testing.T) {
 	fake := newFakeGemini(t, http.StatusOK, "metadata_ok.json")
 

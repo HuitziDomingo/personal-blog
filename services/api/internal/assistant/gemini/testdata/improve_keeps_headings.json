@@ -1,0 +1,19 @@
+{
+  "candidates": [
+    {
+      "content": {
+        "parts": [{ "text": "{\"content\": \"# Orquestar agentes\\n\\nUn agente coordina a los demás.\\n\\n## Herramientas\\n\\nCada agente tiene las suyas.\\n\"}" }],
+        "role": "model"
+      },
+      "finishReason": "STOP",
+      "index": 0
+    }
+  ],
+  "usageMetadata": {
+    "promptTokenCount": 140,
+    "candidatesTokenCount": 40,
+    "totalTokenCount": 180
+  },
+  "modelVersion": "gemini-test-001",
+  "responseId": "resp-improve-headings-1"
+}
