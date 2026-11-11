@@ -6,6 +6,9 @@ import { lucideMonitor, lucideMoon, lucideSun } from '@ng-icons/lucide';
 
 import { FakeMatchMedia, FakeStorage } from '../browser/browser-fakes';
 import { MATCH_MEDIA } from '../browser/match-media';
+import { CommentsApi } from '../api/comments-api';
+import { aComment, FakeCommentsApi } from '../comments/comments-fakes';
+import { ApiError } from '../http/api-error';
 import { FakeSession } from '../session/session-fakes';
 import { SessionService } from '../session/session.service';
 import { THEME_STORAGE } from '../theme/theme-storage';
@@ -15,7 +18,7 @@ import { AdminNav } from './admin-nav';
 @Component({ template: '' })
 class EmptyPage {}
 
-async function renderNav(url = '/posts', { canLeaveEditor = true } = {}) {
+async function renderNav(url = '/posts', { canLeaveEditor = true, comments = new FakeCommentsApi() } = {}) {
   const session = new FakeSession();
   const storage = new FakeStorage();
   const result = await render(AdminNav, {
@@ -27,12 +30,13 @@ async function renderNav(url = '/posts', { canLeaveEditor = true } = {}) {
       { provide: MATCH_MEDIA, useValue: new FakeMatchMedia().fn },
       { provide: THEME_STORAGE, useValue: storage },
       { provide: SessionService, useValue: session },
+      { provide: CommentsApi, useValue: comments },
     ],
   });
   await TestBed.inject(Router).navigateByUrl(url);
   result.fixture.detectChanges();
 
-  return { ...result, session, storage, theme: TestBed.inject(ThemeService) };
+  return { ...result, session, storage, comments, theme: TestBed.inject(ThemeService) };
 }
 
 afterEach(() => {
@@ -46,6 +50,30 @@ describe('AdminNav', () => {
 
     expect(screen.getByRole('link', { name: 'Posts' }).getAttribute('href')).toBe('/posts');
     expect(screen.getByRole('link', { name: 'Nuevo post' }).getAttribute('href')).toBe('/posts/new');
+  });
+
+  it('enlaza a Comentarios con un badge de pendientes que el lector de pantalla oye', async () => {
+    const comments = new FakeCommentsApi();
+    comments.comments = [aComment({ id: 'a' }), aComment({ id: 'b' }), aComment({ id: 'c', status: 'approved' })];
+    await renderNav('/posts', { comments });
+
+    const link = screen.getByRole('link', { name: 'Comentarios, 2 pendientes' });
+    expect(link.getAttribute('href')).toBe('/comments');
+    expect(comments.listCalls).toEqual([{ status: 'pending', limit: 1, offset: 0 }]);
+  });
+
+  it('sin pendientes no muestra el badge', async () => {
+    await renderNav();
+
+    expect(screen.getByRole('link', { name: 'Comentarios' }).textContent?.trim()).toBe('Comentarios');
+  });
+
+  it('si la petición de pendientes falla, no muestra el badge', async () => {
+    const comments = new FakeCommentsApi();
+    comments.nextError.list = new ApiError('x', 503, null);
+    await renderNav('/posts', { comments });
+
+    expect(screen.getByRole('link', { name: 'Comentarios' }).textContent?.trim()).toBe('Comentarios');
   });
 
   it('marca la página actual con aria-current, aunque la URL tenga query', async () => {

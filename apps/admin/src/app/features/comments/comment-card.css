@@ -1,0 +1,74 @@
+/*
+ * Tarjeta de la cola: el mismo panel elevado que la vista previa del editor
+ * (--panel en styles.css), con el brillo arriba del estilo glass. Su texto
+ * secundario, su código y los colores del veredicto se miden sobre --panel en
+ * scripts/check-theme-contrast.mjs.
+ */
+.comment-card {
+  background: var(--panel);
+  color: var(--panel-foreground);
+  border-color: color-mix(in oklab, var(--panel-foreground) 14%, transparent);
+  box-shadow:
+    inset 0 1px 0 color-mix(in oklab, white 55%, transparent),
+    0 1px 2px rgb(0 0 0 / 0.06),
+    0 12px 32px -12px rgb(0 0 0 / 0.22);
+}
+
+:host-context(.dark) .comment-card {
+  box-shadow:
+    inset 0 1px 0 color-mix(in oklab, white 8%, transparent),
+    0 1px 2px rgb(0 0 0 / 0.4),
+    0 16px 40px -12px rgb(0 0 0 / 0.65);
+}
+
+/* Revisión humana (prompt injection o datos personales): borde de 2 px. */
+.comment-card-review {
+  border-width: 2px;
+  border-color: var(--verdict-review);
+}
+
+.comment-muted {
+  color: var(--panel-muted-foreground);
+}
+
+.comment-code {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 0.875em;
+  background: var(--panel-code);
+  padding: 0.0625rem 0.3125rem;
+  border-radius: 0.25rem;
+}
+
+.comment-reason {
+  background: var(--panel-code);
+}
+
+.comment-error {
+  color: var(--verdict-reject);
+}
+
+/* El veredicto: texto del color del tono sobre un tinte del 12 % sobre el panel. */
+.verdict {
+  --tone: var(--panel-muted-foreground);
+  color: var(--tone);
+  background: color-mix(in oklab, var(--tone) 12%, var(--panel));
+  border-color: color-mix(in oklab, var(--tone) 40%, transparent);
+}
+.verdict[data-tone='approve'] {
+  --tone: var(--verdict-approve);
+}
+.verdict[data-tone='reject'] {
+  --tone: var(--verdict-reject);
+}
+.verdict[data-tone='review'] {
+  --tone: var(--verdict-review);
+}
+
+/* «Rechazar» como acción principal: fondo del tono de rechazo, texto del panel. */
+.reject-button {
+  background: var(--verdict-reject);
+  color: var(--panel);
+}
+.reject-button:hover {
+  background: color-mix(in oklab, var(--verdict-reject) 85%, var(--panel-foreground));
+}

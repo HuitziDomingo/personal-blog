@@ -23,6 +23,9 @@ const DEFAULT_STYLES = fileURLToPath(new URL('../src/styles.css', import.meta.ur
 /** Opacidad del fondo de las superficies con efecto glass (bg-background/80). */
 export const GLASS_ALPHA = 0.8;
 
+/** Opacidad del tinte del veredicto sobre el panel (comment-card.css). */
+export const VERDICT_TINT = 0.12;
+
 const TEXT = 4.5;
 const NON_TEXT = 3;
 
@@ -158,6 +161,14 @@ export function checks({ vars }) {
     { pair: 'Texto secundario del panel (panel-muted-foreground / panel)', ratio: contrast(color('--panel-muted-foreground'), color('--panel')), min: TEXT },
     { pair: 'Código en el panel (panel-foreground / panel-code)', ratio: contrast(color('--panel-foreground'), color('--panel-code')), min: TEXT },
     { pair: 'Acento sobre el panel (primary / panel)', ratio: contrast(primary, color('--panel')), min: NON_TEXT },
+    { pair: 'Texto secundario en el motivo del modelo (panel-muted-foreground / panel-code)', ratio: contrast(color('--panel-muted-foreground'), color('--panel-code')), min: TEXT },
+    { pair: 'Badge del menú (sidebar-primary-foreground / sidebar-primary)', ratio: contrast(color('--sidebar-primary-foreground'), color('--sidebar-primary')), min: TEXT },
+    ...['approve', 'reject', 'review'].map((tone) => {
+      const fg = color(`--verdict-${tone}`);
+      return { pair: `Veredicto ${tone} sobre su tinte (verdict-${tone} / 12 % sobre panel)`, ratio: contrast(fg, composite(fg, VERDICT_TINT, color('--panel'))), min: TEXT };
+    }),
+    { pair: 'Botón Rechazar (panel / verdict-reject)', ratio: contrast(color('--panel'), color('--verdict-reject')), min: TEXT },
+    { pair: 'Borde de revisión humana (verdict-review / panel)', ratio: contrast(color('--verdict-review'), color('--panel')), min: NON_TEXT },
   ];
 }
 
