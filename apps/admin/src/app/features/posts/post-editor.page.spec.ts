@@ -1,4 +1,5 @@
 import { HttpErrorResponse } from '@angular/common/http';
+import { Provider } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter, Router, withComponentInputBinding } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
@@ -7,6 +8,9 @@ import { firstValueFrom, Observable, of, Subject, throwError } from 'rxjs';
 
 import { Post, PostWrite } from '../../core/api/api-types';
 import { PostsApi } from '../../core/api/posts-api';
+import { provideFakeWritingAssistant } from '../../core/assistant/fake-writing-assistant';
+import { ASSISTANT_ENABLED, MetadataSuggestion, WritingAssistant } from '../../core/assistant/writing-assistant';
+import { POSTS_ROUTES } from './posts.routes';
 import { ApiError } from '../../core/http/api-error';
 import { MarkdownEditor } from '../../shared/markdown-editor/markdown-editor';
 import { FakeMarkdownEditor } from '../../shared/markdown-editor/markdown-editor-fake';
@@ -116,10 +120,16 @@ class FakePostsApi {
   }
 }
 
-async function renderEditor(api: FakePostsApi, id: string) {
+async function renderEditor(api: FakePostsApi, id: string, extraProviders: Provider[] = []) {
   const result = await render(PostEditorPage, {
     inputs: { id },
-    providers: [provideRouter([]), { provide: PostsApi, useValue: api }],
+    providers: [
+      provideRouter([]),
+      { provide: PostsApi, useValue: api },
+      // En la app lo provee la ruta del editor.
+      provideFakeWritingAssistant(),
+      ...extraProviders,
+    ],
   });
   const navigate = vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
   await result.fixture.whenStable();
@@ -200,6 +210,7 @@ describe('PostEditorPage', () => {
       const api = new FakePostsApi();
       TestBed.configureTestingModule({
         providers: [
+          provideFakeWritingAssistant(),
           provideRouter(
             [{ path: 'posts/:id', component: PostEditorPage, canDeactivate: [unsavedChangesGuard] }],
             withComponentInputBinding(),
@@ -511,6 +522,45 @@ describe('PostEditorPage', () => {
       expect(dirty.defaultPrevented).toBe(true);
     });
   });
+
+  describe('asistente', () => {
+    it('no aparece con el flag apagado (producción)', async () => {
+      await renderEditor(new FakePostsApi(), 'new', [{ provide: ASSISTANT_ENABLED, useValue: false }]);
+
+      expect(screen.queryByRole('heading', { name: 'Asistente' })).toBeNull();
+    });
+
+    it('aplicar título, extracto y tags rellena el formulario', async () => {
+      const metadata: MetadataSuggestion = { title: 'Título sugerido', excerpt: 'Extracto sugerido', tags: ['ia', 'go'] };
+      /** Doble completo del puerto: responde al momento con valores fijos. */
+      class InstantAssistant implements WritingAssistant {
+        improveWriting() {
+          return of('## Redacción sugerida');
+        }
+        suggestMetadata() {
+          return of(metadata);
+        }
+        suggestCover() {
+          return of({ description: 'Idea', altText: 'Alt' });
+        }
+      }
+      const { page } = await renderEditor(new FakePostsApi(), 'new', [{ provide: WritingAssistant, useClass: InstantAssistant }]);
+
+      await fireEvent.click(screen.getByRole('button', { name: 'Sugerir título, extracto y tags' }));
+      await fireEvent.click(await screen.findByRole('button', { name: 'Aplicar' }));
+
+      expect((screen.getByLabelText('Título', { exact: true }) as HTMLInputElement).value).toBe('Título sugerido');
+      expect((screen.getByLabelText('Extracto') as HTMLTextAreaElement).value).toBe('Extracto sugerido');
+      expect((screen.getByLabelText('Etiquetas') as HTMLInputElement).value).toBe('ia, go');
+      expect(page['form'].dirty).toBe(true);
+    });
+  });
+
+  it('la ruta del editor provee el asistente', () => {
+    const editorRoute = POSTS_ROUTES.find((route) => route.path === ':id');
+
+    expect(editorRoute?.providers).toEqual([provideFakeWritingAssistant()]);
+  });
 });
 
 // Con Milkdown real: el editor avisa con debounce, así que la página tiene que
@@ -524,6 +574,8 @@ describe('PostEditorPage con el editor real', () => {
       providers: [
         provideRouter([]),
         { provide: PostsApi, useValue: api },
+        // Como en la ruta /posts/:id.
+        provideFakeWritingAssistant(),
         // jsdom no carga hojas de estilo (ADR-015).
         { provide: MILKDOWN_THEME_LOADER, useValue: { load: () => Promise.resolve() } },
       ],
