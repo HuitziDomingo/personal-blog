@@ -21,6 +21,8 @@ func setRequiredEnv(t *testing.T) {
 	t.Setenv("GEMINI_API_KEY", "")
 	t.Setenv("GEMINI_MODEL", "")
 	t.Setenv("ASSISTANT_TIMEOUT_SECONDS", "")
+	t.Setenv("ASSISTANT_THINKING_LEVEL", "")
+	t.Setenv("ASSISTANT_MAX_OUTPUT_TOKENS", "")
 }
 
 const testJWTSecret = "0123456789abcdef0123456789abcdef"

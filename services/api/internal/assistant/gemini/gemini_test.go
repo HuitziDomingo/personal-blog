@@ -52,6 +52,10 @@ type recordedRequest struct {
 		GenerationConfig struct {
 			ResponseMIMEType   string         `json:"responseMimeType"`
 			ResponseJSONSchema map[string]any `json:"responseJsonSchema"`
+			MaxOutputTokens    int32          `json:"maxOutputTokens"`
+			ThinkingConfig     *struct {
+				ThinkingLevel string `json:"thinkingLevel"`
+			} `json:"thinkingConfig"`
 		} `json:"generationConfig"`
 	}
 }
@@ -118,6 +122,36 @@ func TestNewRequiresKeyAndModel(t *testing.T) {
 
 	_, err = New(t.Context(), Config{APIKey: testKey})
 	require.Error(t, err)
+}
+
+// El nivel de razonamiento y el límite de salida viajan en generationConfig;
+// sin configurarlos, la petición no los lleva y el modelo usa los suyos.
+func TestThinkingLevelAndMaxOutputTokens(t *testing.T) {
+	fake := newFakeGemini(t, http.StatusOK, "metadata_ok.json")
+	assistant, err := New(t.Context(), Config{
+		APIKey:          testKey,
+		Model:           testModel,
+		ThinkingLevel:   "LOW",
+		MaxOutputTokens: 2048,
+		BaseURL:         fake.server.URL + "/",
+		HTTPClient:      fake.server.Client(),
+	})
+	require.NoError(t, err)
+
+	_, err = assistant.SuggestMetadata(t.Context(), testDraft)
+	require.NoError(t, err)
+
+	config := fake.last.Load().Body.GenerationConfig
+	require.NotNil(t, config.ThinkingConfig)
+	assert.Equal(t, "LOW", config.ThinkingConfig.ThinkingLevel)
+	assert.Equal(t, int32(2048), config.MaxOutputTokens)
+
+	_, err = newTestAssistant(t, fake).SuggestMetadata(t.Context(), testDraft)
+	require.NoError(t, err)
+
+	config = fake.last.Load().Body.GenerationConfig
+	assert.Nil(t, config.ThinkingConfig)
+	assert.Zero(t, config.MaxOutputTokens)
 }
 
 func TestImproveWriting(t *testing.T) {
@@ -219,6 +253,18 @@ func TestInvalidOutputs(t *testing.T) {
 			assert.NotContains(t, err.Error(), "Este es el bor")
 		})
 	}
+}
+
+// Gemini aplica el deadline que el SDK le manda en x-server-timeout y responde
+// 504 justo antes de que venza: cuenta como timeout, no como caída.
+func TestGatewayTimeoutCountsAsTimeout(t *testing.T) {
+	fake := newFakeGemini(t, http.StatusGatewayTimeout, "deadline_exceeded.json")
+	_, err := newTestAssistant(t, fake).SuggestMetadata(t.Context(), testDraft)
+	require.ErrorIs(t, err, domain.ErrAssistantUnavailable)
+	require.ErrorIs(t, err, context.DeadlineExceeded)
+	assert.Contains(t, err.Error(), "gemini responded 504 DEADLINE_EXCEEDED")
+	assert.NotContains(t, err.Error(), "Deadline expired")
+	assert.Equal(t, int32(1), fake.hits.Load())
 }
 
 func TestTimeoutCancelsTheCall(t *testing.T) {

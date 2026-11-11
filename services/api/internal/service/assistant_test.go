@@ -110,6 +110,26 @@ func TestImproveWritingRejectsEmptyContent(t *testing.T) {
 	require.ErrorIs(t, err, domain.ErrAssistantInvalidOutput)
 }
 
+// El contenido mejorado no pasa del límite del borrador que acepta el
+// asistente; se cuenta en caracteres, no en bytes.
+func TestImproveWritingRejectsContentOverTheLimit(t *testing.T) {
+	atLimit := strings.Repeat("ñ", MaxAssistantContentLength)
+
+	provider := &fakeProvider{improved: domain.ImprovedWriting{Content: atLimit}}
+	assistant, _ := newTestAssistant(t, provider, time.Second)
+	content, err := assistant.ImproveWriting(t.Context(), testDraft)
+	require.NoError(t, err)
+	assert.Equal(t, atLimit, content)
+
+	provider = &fakeProvider{improved: domain.ImprovedWriting{Content: atLimit + "a"}}
+	assistant, logs := newTestAssistant(t, provider, time.Second)
+	content, err = assistant.ImproveWriting(t.Context(), testDraft)
+	require.ErrorIs(t, err, domain.ErrAssistantInvalidOutput)
+	assert.Empty(t, content)
+	assert.Contains(t, logs.String(), `"result":"invalid_output"`)
+	assert.Contains(t, logs.String(), "content too long")
+}
+
 func TestSuggestMetadataNormalizesLikeAPost(t *testing.T) {
 	provider := &fakeProvider{metadata: domain.MetadataSuggestion{
 		Title:   "  Orquestar agentes  ",
@@ -177,6 +197,9 @@ func TestAssistantPassesProviderErrorsThrough(t *testing.T) {
 	require.ErrorIs(t, err, domain.ErrAssistantUnavailable)
 	assert.Contains(t, logs.String(), `"result":"unavailable"`)
 	assert.Contains(t, logs.String(), `"level":"WARN"`)
+	// La causa queda en el log: distingue la cuota de un 503 o un timeout.
+	assert.Contains(t, logs.String(), `"reason":"`)
+	assert.Contains(t, logs.String(), "gemini responded 429 RESOURCE_EXHAUSTED")
 }
 
 func TestAssistantTimesOut(t *testing.T) {
@@ -190,6 +213,7 @@ func TestAssistantTimesOut(t *testing.T) {
 	require.ErrorIs(t, err, context.DeadlineExceeded)
 	assert.Less(t, time.Since(start), time.Second)
 	assert.Contains(t, logs.String(), `"result":"timeout"`)
+	assert.Contains(t, logs.String(), "context deadline exceeded")
 }
 
 // El log tiene modelo, latencia, tokens y resultado, y nunca el contenido
@@ -208,4 +232,5 @@ func TestAssistantLogsUsageButNeverTheDraft(t *testing.T) {
 	for _, private := range []string{testDraft.Title, testDraft.Content, "Texto sugerido privado"} {
 		assert.NotContains(t, line, private)
 	}
+	assert.NotContains(t, line, `"reason"`, "una llamada correcta no lleva causa")
 }

@@ -18,17 +18,25 @@ import (
 // Config configura el adaptador. BaseURL y HTTPClient solo se usan en los
 // tests, para apuntar a un servidor local con respuestas grabadas.
 type Config struct {
-	APIKey     string
-	Model      string
-	BaseURL    string
-	HTTPClient *http.Client
+	APIKey string
+	Model  string
+	// ThinkingLevel limita el razonamiento del modelo: MINIMAL, LOW, MEDIUM o
+	// HIGH. Vacío deja el del modelo.
+	ThinkingLevel string
+	// MaxOutputTokens limita la salida, razonamiento incluido. Cero deja el
+	// límite del modelo.
+	MaxOutputTokens int32
+	BaseURL         string
+	HTTPClient      *http.Client
 }
 
 // Assistant llama a Gemini: una petición por operación, sin herramientas y sin
 // reintentos.
 type Assistant struct {
-	models *genai.Models
-	model  string
+	models    *genai.Models
+	model     string
+	thinking  *genai.ThinkingConfig
+	maxOutput int32
 }
 
 var _ domain.WritingAssistant = (*Assistant)(nil)
@@ -64,7 +72,12 @@ func New(ctx context.Context, cfg Config) (*Assistant, error) {
 		return nil, fmt.Errorf("gemini: create client: %s", redact(err.Error(), cfg.APIKey))
 	}
 
-	return &Assistant{models: client.Models, model: cfg.Model}, nil
+	assistant := &Assistant{models: client.Models, model: cfg.Model, maxOutput: cfg.MaxOutputTokens}
+	if cfg.ThinkingLevel != "" {
+		assistant.thinking = &genai.ThinkingConfig{ThinkingLevel: genai.ThinkingLevel(cfg.ThinkingLevel)}
+	}
+
+	return assistant, nil
 }
 
 // ImproveWriting pide el contenido reescrito.
@@ -99,8 +112,11 @@ func (a *Assistant) SuggestMetadata(ctx context.Context, draft domain.Draft) (do
 
 // draftData es el borrador como lo ve el modelo: un objeto JSON en el mensaje
 // del usuario, separado de las instrucciones del sistema. Codificado como
-// JSON, ningún texto del borrador puede cerrar el delimitador y hacerse pasar
-// por instrucciones.
+// JSON, ningún texto del borrador puede cerrar el delimitador. Eso no evita la
+// prompt injection: el modelo lee el borrador y puede seguir las órdenes que
+// traiga. La defensa es que el modelo no tiene herramientas ni datos que
+// filtrar, que el service valida la salida y que el autor revisa la sugerencia
+// antes de aplicarla (ADR-021).
 type draftData struct {
 	Title   string `json:"title"`
 	Content string `json:"content"`
@@ -123,6 +139,8 @@ func (a *Assistant) generate(ctx context.Context, instruction string, schema map
 		SystemInstruction:  genai.NewContentFromText(instruction, genai.RoleUser),
 		ResponseMIMEType:   "application/json",
 		ResponseJsonSchema: schema,
+		ThinkingConfig:     a.thinking,
+		MaxOutputTokens:    a.maxOutput,
 	})
 	if err != nil {
 		return usage, providerError(ctx, err)
@@ -157,6 +175,11 @@ func providerError(ctx context.Context, err error) error {
 	switch {
 	case ctx.Err() != nil:
 		return fmt.Errorf("%w: %w", domain.ErrAssistantUnavailable, ctx.Err())
+	case errors.As(err, &apiErr) && apiErr.Code == http.StatusGatewayTimeout:
+		// El SDK manda el deadline del contexto en x-server-timeout y Gemini
+		// corta la llamada un poco antes de que venza: es el timeout propio,
+		// aplicado del lado de Google.
+		return fmt.Errorf("%w: %w: gemini responded %d %s", domain.ErrAssistantUnavailable, context.DeadlineExceeded, apiErr.Code, apiErr.Status)
 	case errors.As(err, &apiErr):
 		// Code y Status (por ejemplo 429 RESOURCE_EXHAUSTED al agotar la
 		// cuota) no llevan datos del borrador; Message y Details podrían.

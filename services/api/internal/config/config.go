@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"math"
 	"net"
 	"net/url"
 	"os"
@@ -23,6 +24,15 @@ const (
 	// defaultAssistantTimeout es el timeout de una llamada al proveedor del
 	// asistente (ADR-021).
 	defaultAssistantTimeoutSeconds = 30
+	// defaultAssistantThinkingLevel es bajo porque corregir la redacción y
+	// sugerir metadatos no necesitan razonar; con el del modelo, cada
+	// llamada tardaba de 20 s a más de 3 min. MINIMAL sería menor, pero no
+	// todos los modelos lo aceptan (gemini-3.8-flash responde 400).
+	defaultAssistantThinkingLevel = "LOW"
+	// defaultAssistantMaxOutputTokens alcanza para reescribir un borrador
+	// del tamaño máximo (50 000 caracteres, unos 15 000 tokens) más el
+	// razonamiento, que cuenta para el mismo límite.
+	defaultAssistantMaxOutputTokens = 16384
 
 	// LogFormatText es el formato de log por defecto, legible en una terminal.
 	LogFormatText = "text"
@@ -318,6 +328,22 @@ func positiveInt(key string, fallback int) (int, error) {
 	return number, nil
 }
 
+// positiveInt32 es positiveInt para un valor que el SDK de Gemini pide como
+// int32: ParseInt con 32 bits rechaza lo que no cabe, sin conversión.
+func positiveInt32(key string, fallback int32) (int32, error) {
+	value := os.Getenv(key)
+	if value == "" {
+		return fallback, nil
+	}
+
+	number, err := strconv.ParseInt(value, 10, 32)
+	if err != nil || number <= 0 {
+		return 0, fmt.Errorf("invalid %s %q: must be a positive number up to %d", key, value, math.MaxInt32)
+	}
+
+	return int32(number), nil
+}
+
 // loadTrustedProxies acepta IPs y rangos CIDR. Un rango que lo cubra todo
 // permitiría falsificar la IP con X-Forwarded-For.
 func loadTrustedProxies() ([]string, error) {
@@ -399,10 +425,14 @@ type Assistant struct {
 	GeminiAPIKey Secret
 	GeminiModel  string
 	Timeout      time.Duration
+	// ThinkingLevel es MINIMAL, LOW, MEDIUM o HIGH.
+	ThinkingLevel   string
+	MaxOutputTokens int32
 }
 
-// loadAssistant lee ASSISTANT_ENABLED, GEMINI_API_KEY, GEMINI_MODEL y
-// ASSISTANT_TIMEOUT_SECONDS. Encendido sin key o sin modelo, la API no arranca:
+// loadAssistant lee ASSISTANT_ENABLED, GEMINI_API_KEY, GEMINI_MODEL,
+// ASSISTANT_TIMEOUT_SECONDS, ASSISTANT_THINKING_LEVEL y
+// ASSISTANT_MAX_OUTPUT_TOKENS. Encendido sin key o sin modelo, la API no arranca:
 // falla cerrado (ADR-021, punto 8).
 func loadAssistant() (Assistant, error) {
 	enabled, err := loadBool("ASSISTANT_ENABLED")
@@ -415,11 +445,23 @@ func loadAssistant() (Assistant, error) {
 		return Assistant{}, err
 	}
 
+	thinkingLevel, err := loadThinkingLevel()
+	if err != nil {
+		return Assistant{}, err
+	}
+
+	maxOutputTokens, err := positiveInt32("ASSISTANT_MAX_OUTPUT_TOKENS", defaultAssistantMaxOutputTokens)
+	if err != nil {
+		return Assistant{}, err
+	}
+
 	assistant := Assistant{
-		Enabled:      enabled,
-		GeminiAPIKey: Secret(os.Getenv("GEMINI_API_KEY")),
-		GeminiModel:  strings.TrimSpace(os.Getenv("GEMINI_MODEL")),
-		Timeout:      time.Duration(timeoutSeconds) * time.Second,
+		Enabled:         enabled,
+		GeminiAPIKey:    Secret(os.Getenv("GEMINI_API_KEY")),
+		GeminiModel:     strings.TrimSpace(os.Getenv("GEMINI_MODEL")),
+		Timeout:         time.Duration(timeoutSeconds) * time.Second,
+		ThinkingLevel:   thinkingLevel,
+		MaxOutputTokens: maxOutputTokens,
 	}
 
 	if !enabled {
@@ -435,6 +477,20 @@ func loadAssistant() (Assistant, error) {
 	}
 
 	return assistant, nil
+}
+
+// loadThinkingLevel acepta minimal, low, medium o high, sin importar
+// mayúsculas; vacía es el valor por defecto.
+func loadThinkingLevel() (string, error) {
+	value := strings.ToUpper(strings.TrimSpace(os.Getenv("ASSISTANT_THINKING_LEVEL")))
+	switch value {
+	case "":
+		return defaultAssistantThinkingLevel, nil
+	case "MINIMAL", "LOW", "MEDIUM", "HIGH":
+		return value, nil
+	default:
+		return "", fmt.Errorf("invalid ASSISTANT_THINKING_LEVEL %q: must be minimal, low, medium or high", os.Getenv("ASSISTANT_THINKING_LEVEL"))
+	}
 }
 
 // loadBool acepta true o false; vacía es false.

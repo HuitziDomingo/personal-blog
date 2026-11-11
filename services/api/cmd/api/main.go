@@ -172,7 +172,12 @@ func newAssistant(ctx context.Context, cfg config.Assistant, logger *slog.Logger
 		return service.NewDisabledAssistant(), nil
 	}
 
-	provider, err := gemini.New(ctx, gemini.Config{APIKey: cfg.GeminiAPIKey.Reveal(), Model: cfg.GeminiModel})
+	provider, err := gemini.New(ctx, gemini.Config{
+		APIKey:          cfg.GeminiAPIKey.Reveal(),
+		Model:           cfg.GeminiModel,
+		ThinkingLevel:   cfg.ThinkingLevel,
+		MaxOutputTokens: cfg.MaxOutputTokens,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("create writing assistant: %w", err)
 	}
@@ -182,7 +187,12 @@ func newAssistant(ctx context.Context, cfg config.Assistant, logger *slog.Logger
 		return nil, fmt.Errorf("create writing assistant: %w", err)
 	}
 
-	slog.Info("writing assistant enabled", "model", cfg.GeminiModel, "timeout", cfg.Timeout)
+	slog.Info("writing assistant enabled",
+		"model", cfg.GeminiModel,
+		"timeout", cfg.Timeout,
+		"thinking_level", cfg.ThinkingLevel,
+		"max_output_tokens", cfg.MaxOutputTokens,
+	)
 
 	return assistant, nil
 }
