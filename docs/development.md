@@ -202,7 +202,7 @@ La API arranca con cualquier configuración válida, pero algunas la dejan inút
 | `INITIAL_ADMIN_EMAIL` e `INITIAL_ADMIN_PASSWORD` | Solo la primera vez, con `users` vacía | Solo en el primer despliegue; después se quitan |
 | `PORT` | `8080` | La que asigna Cloud Run |
 | `ASSISTANT_ENABLED`, `GEMINI_API_KEY` y `GEMINI_MODEL` | Apagado; para probarlo, una key propia en `.env` | La key desde Secret Manager, de un proyecto de Google sin facturación y separado del de la API (ADR-021) |
-| `COMMENTS_ENABLED` | `false`; `true` para probar los comentarios | `true` cuando la web tenga el formulario (BLOG-093). `ALLOWED_ORIGINS` debe incluir el origen de la web, porque el navegador envía los comentarios directo a la API |
+| `COMMENTS_ENABLED` | `false`; `true` para probar los comentarios | `true` en la API y en la web a la vez (BLOG-093). `ALLOWED_ORIGINS` debe incluir el origen de la web, porque el navegador envía los comentarios directo a la API |
 | `COMMENTS_MODERATION_ENABLED` y `COMMENTS_MODERATION_MODEL` | Apagada; para probarla, la misma key del asistente | Encendida con un modelo rápido del plan gratuito (`gemini-3.6-flash`), la key desde Secret Manager |
 
 Los valores de producción son los previstos; el despliegue está pendiente (BLOG-054 y BLOG-022).
@@ -343,7 +343,8 @@ make web-test       # Vitest de lib/
   - `WEB_SKIP_API=1`: construye sin API, solo para el CI (en Vercel, con `VERCEL` definida, el build falla). Las páginas salen vacías y los posts se generan en su primera visita.
   - `SITE_URL` (por defecto `https://huitzi.xyz`): decide qué links son internos y las URLs absolutas de canónicas, Open Graph, sitemap y RSS. En local, `SITE_URL=http://localhost:3000`.
   - `VERCEL_ENV`: si existe y no es `production`, `robots.txt` bloquea a los buscadores (previews).
-  - `WEB_PRERENDER_LIMIT` (por defecto `10`): posts que el build pregenera (ADR-020). Debe quedar por debajo de la ráfaga anónima de la API (20) menos las listas; un valor que no sea un entero no negativo hace fallar el build.
+  - `WEB_PRERENDER_LIMIT` (por defecto `10`): posts que el build pregenera (ADR-020). Debe quedar por debajo de la ráfaga anónima de la API (20) menos las listas; un valor que no sea un entero no negativo hace fallar el build. Con comentarios, cada post pregenerado pide además sus comentarios: el build avisa en el log si `2 + N × 2` pasa la ráfaga (con N = 10 son 22).
+  - `COMMENTS_ENABLED` (por defecto `false`): `true` muestra los comentarios al final de cada post y agrega la API a `connect-src`. Debe coincidir con `COMMENTS_ENABLED` de la API. Lo lee el servidor de Next al construir y al regenerar; `next.config.ts` lo usa para la CSP, así que un cambio necesita un build nuevo.
 - **ISR:**
   - `/`, `/blog`, el sitemap y el RSS se regeneran como mucho cada 60 s, y comparten las peticiones a la API con la caché de Next.
   - `/blog/page/[n]` no se pregenera, para no sumar peticiones al build (ADR-020): cada página se genera en su primera visita y se regenera como mucho cada 60 s.
@@ -356,7 +357,7 @@ make web-test       # Vitest de lib/
   - **Un 429 o un 5xx nunca es un 404:** solo un 404 de la API da `notFound()`. Un 429, un 5xx o un error de red lanzan `ApiUnavailableError`. En una regeneración, Next conserva la última versión buena. En la primera generación de una página, se muestra `app/(es)/error.tsx` (o `app/(en)/en/error.tsx`) («No pudimos cargar esta página»).
 - **Markdown** (`lib/markdown.ts`): `createServerRenderer` de `@personal-blog/markdown/server`, con `newTab: 'external'`. Se sanitiza en el servidor; el HTML llega hecho al navegador.
 - **Resaltado de código** (`lib/highlight.ts`): Shiki, en el servidor, sobre el HTML **ya sanitizado**. El lenguaje de cada bloque sale de `codeBlocks(source)` de `@personal-blog/markdown/server`, porque la allowlist quita `class`; un bloque se resalta solo si su texto coincide con el del Markdown. Cada token es un `<span style="--shiki-light:…;--shiki-dark:…">` creado con `textContent`, y `components/post-body.tsx` elige la variable según el modo. No agrega JavaScript al navegador y cabe en la CSP (`style-src 'unsafe-inline'` permite el atributo `style`). Lenguajes: TypeScript, TSX, JavaScript, JSX, JSON, shell, YAML, Go, HTML, CSS, SQL, diff y Dockerfile, con sus alias (`ts`, `sh`, `yml`…); los demás, y los bloques sin lenguaje, quedan como texto plano. Temas `github-light-default` (con tres colores oscurecidos) y `github-dark-default`; `lib/highlight.test.ts` exige 4.5:1 de contraste sobre los fondos de código. Para agregar un lenguaje, impórtalo en `lib/highlight.ts` y agrega una muestra a esa prueba.
-- **CSP y cabeceras** (`lib/security-headers.ts`, aplicadas en `next.config.ts`): las de ADR-017, punto 4. En `next dev` se añade `'unsafe-eval'` (React Refresh) y se quita `upgrade-insecure-requests`.
+- **CSP y cabeceras** (`lib/security-headers.ts`, aplicadas en `next.config.ts`): las de ADR-017, punto 4. En `next dev` se añade `'unsafe-eval'` (React Refresh) y se quita `upgrade-insecure-requests`. Con `COMMENTS_ENABLED=true` se agrega `connect-src 'self' <origen de API_BASE_URL>` (ADR-022, punto 8), y nada más cambia.
 - **Paquetes del monorepo:** `transpilePackages` compila `@personal-blog/markdown` y `serverExternalPackages` deja jsdom fuera del bundle.
 - **CI:** job `web` (ADR-017, punto 7), con lint, typecheck, tests y build con `WEB_SKIP_API=1`.
 - **Probar de punta a punta en local:** `make api-run`, `make admin-dev`, `make web-build` y `make web-start`. Publica un post en el admin y abre `http://localhost:3000/blog`. Si no aparece, recarga pasados 60 s.
@@ -665,3 +666,10 @@ ADR-022. Los lectores comentan los posts publicados sin cuenta, y nada se public
     ```
 
     Hace una llamada cada 6 s, se detiene en el primer 429 sin reintentar e imprime los resultados como JSON.
+- **Web** (`apps/web/components/comments/`, BLOG-093):
+  - `comments-section.tsx` va al final de `/blog/[slug]` solo con `COMMENTS_ENABLED=true`. Los aprobados se piden en el servidor con el ISR del post (`postsApi.approvedComments`); si la API no responde, la página del post sigue y la sección lo dice.
+  - `comment-list.tsx` los agrupa en hilos de un nivel (`lib/comments.ts`); una respuesta cuyo padre no está aprobado no se muestra. Las del autor llevan la marca «Autor».
+  - `comment-text.tsx`: solo texto. Los backticks se muestran como `<code>`; no hay Markdown, HTML ni links clicables, y React escapa todo (sin `dangerouslySetInnerHTML`).
+  - `comments-client.tsx` es el formulario (componente de cliente): nombre, comentario con contador, aviso de IA y privacidad y el campo trampa `website`, fuera de pantalla, con `aria-hidden`, `tabindex=-1` y `autocomplete=off`. Envía directo a la API sin cookies. Estados: en revisión (202, con una tarjeta «Pendiente · solo tú lo ves» que se pierde al recargar), no publicado (400), demasiados intentos (429, conserva el texto), no disponible (404) y error. «Responder» elige el comentario padre.
+  - `/blog/reglas-de-comentarios` explica la moderación, los datos y los límites (ADR-022, punto 9).
+  - **Probar en local:** levanta la API con `COMMENTS_ENABLED=true` y `ALLOWED_ORIGINS` con el origen de la web, y la web con `COMMENTS_ENABLED=true` (`COMMENTS_ENABLED=true make web-build` y `make web-start`).

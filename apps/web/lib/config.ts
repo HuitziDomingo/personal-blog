@@ -20,6 +20,7 @@ export const API_ANONYMOUS_BURST = 20;
 export function prerenderLimit(env: Env = process.env): number {
   const configured = env['WEB_PRERENDER_LIMIT'];
   if (configured === undefined || configured === '') {
+    warnIfOverBurst(DEFAULT_PRERENDER_LIMIT, env);
     return DEFAULT_PRERENDER_LIMIT;
   }
   if (!/^\d+$/.test(configured)) {
@@ -27,14 +28,27 @@ export function prerenderLimit(env: Env = process.env): number {
   }
 
   const limit = Number(configured);
-  // Lista de inicio + una página de slugs + los posts (ADR-020, Consecuencias).
-  if (limit + 2 > API_ANONYMOUS_BURST) {
-    console.warn(
-      `WEB_PRERENDER_LIMIT=${String(limit)} plus the list requests exceeds the API anonymous burst (${String(API_ANONYMOUS_BURST)}): the build may get 429`,
-    );
-  }
+  warnIfOverBurst(limit, env);
 
   return limit;
+}
+
+/**
+ * Peticiones del build a la API: lista de inicio + una página de slugs + los
+ * posts (ADR-020, Consecuencias), y con comentarios una más por post. Si pasan
+ * la ráfaga anónima, el build puede recibir 429 (lo reintenta, pero tarda).
+ */
+export function buildRequests(limit: number, env: Env = process.env): number {
+  return 2 + limit * (commentsEnabled(env) ? 2 : 1);
+}
+
+function warnIfOverBurst(limit: number, env: Env): void {
+  const requests = buildRequests(limit, env);
+  if (requests > API_ANONYMOUS_BURST) {
+    console.warn(
+      `WEB_PRERENDER_LIMIT=${String(limit)} needs about ${String(requests)} build requests, over the API anonymous burst (${String(API_ANONYMOUS_BURST)}): the build may get 429`,
+    );
+  }
 }
 
 /**
@@ -70,4 +84,29 @@ export function siteUrl(env: Env = process.env): string {
 /** `true` mientras corre `next build`: solo ahí se reintenta un 429. */
 export function isBuildPhase(env: Env = process.env): boolean {
   return env['NEXT_PHASE'] === 'phase-production-build';
+}
+
+/**
+ * Comentarios en los posts (ADR-022, punto 10). Apagados por defecto, igual
+ * que `COMMENTS_ENABLED` de la API: con `false` la sección no se muestra, no se
+ * piden comentarios a la API y la CSP no abre `connect-src` a la API. Debe
+ * coincidir con el valor de la API; si la web los muestra y la API no, el
+ * envío responde 404 y el formulario lo dice.
+ */
+export function commentsEnabled(env: Env = process.env): boolean {
+  return env['COMMENTS_ENABLED'] === 'true';
+}
+
+/**
+ * Origen al que el navegador envía los comentarios: el de la API, solo con
+ * los comentarios encendidos y una API configurada. Es lo único que se agrega
+ * a `connect-src` (ADR-022, punto 8).
+ */
+export function commentsApiOrigin(env: Env = process.env): string | null {
+  if (!commentsEnabled(env)) {
+    return null;
+  }
+  const base = apiBaseUrl(env);
+
+  return base === null ? null : new URL(base).origin;
 }

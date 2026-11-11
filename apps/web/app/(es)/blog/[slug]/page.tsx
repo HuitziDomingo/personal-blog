@@ -5,11 +5,12 @@ import { notFound } from 'next/navigation';
 import { cache } from 'react';
 
 import { AuthorCard } from '@/components/author-card';
+import { CommentsSection } from '@/components/comments/comments-section';
 import { ArrowLeftIcon, ClockIcon } from '@/components/icons';
 import { PostBody } from '@/components/post-body';
 import { TagList } from '@/components/tag-list';
-import { postsApi } from '@/lib/api';
-import { prerenderLimit, siteUrl } from '@/lib/config';
+import { ApiUnavailableError, postsApi, type PublicCommentPage } from '@/lib/api';
+import { apiBaseUrl, commentsEnabled, prerenderLimit, siteUrl } from '@/lib/config';
 import { formatDate } from '@/lib/format';
 import { renderPost } from '@/lib/markdown';
 import { formatReadingTime, readingMinutes } from '@/lib/reading-time';
@@ -70,12 +71,30 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   });
 }
 
+/**
+ * Los comentarios aprobados, o null si la API no respondió: un fallo de los
+ * comentarios nunca tira la página del post.
+ */
+async function loadComments(slug: string): Promise<PublicCommentPage | null> {
+  try {
+    return await postsApi.approvedComments(slug);
+  } catch (error) {
+    if (error instanceof ApiUnavailableError) {
+      return null;
+    }
+    throw error;
+  }
+}
+
 export default async function PostPage({ params }: PageProps) {
   const loaded = await loadPost((await params).slug);
   if (!loaded) {
     notFound();
   }
   const { post, html } = loaded;
+  // Comentarios (ADR-022): solo con COMMENTS_ENABLED=true y una API configurada.
+  const api = commentsEnabled() ? apiBaseUrl() : null;
+  const comments = api === null ? null : await loadComments(post.slug);
 
   return (
     <Box as="article" maxW="70ch" mx="auto">
@@ -104,6 +123,8 @@ export default async function PostPage({ params }: PageProps) {
       <Box mt="12">
         <AuthorCard />
       </Box>
+
+      {api !== null && <CommentsSection slug={post.slug} apiBaseUrl={api} comments={comments} />}
     </Box>
   );
 }

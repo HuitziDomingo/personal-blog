@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { API_ANONYMOUS_BURST, apiBaseUrl, isBuildPhase, prerenderLimit, siteUrl } from './config';
+import { API_ANONYMOUS_BURST, apiBaseUrl, buildRequests, commentsApiOrigin, commentsEnabled, isBuildPhase, prerenderLimit, siteUrl } from './config';
 
 describe('apiBaseUrl', () => {
   it('usa API_BASE_URL sin barra final', () => {
@@ -61,5 +61,43 @@ describe('prerenderLimit (ADR-020)', () => {
     expect(prerenderLimit({ WEB_PRERENDER_LIMIT: '19' })).toBe(19);
     expect(warn).toHaveBeenCalledWith(expect.stringContaining('may get 429'));
     warn.mockRestore();
+  });
+
+  it('con comentarios, cada post pregenerado cuesta una petición más', () => {
+    expect(buildRequests(10, {})).toBe(12);
+    expect(buildRequests(10, { COMMENTS_ENABLED: 'true' })).toBe(22);
+
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    expect(prerenderLimit({ COMMENTS_ENABLED: 'true' })).toBe(10);
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('may get 429'));
+    warn.mockRestore();
+  });
+});
+
+describe('commentsEnabled (ADR-022, punto 10)', () => {
+  it('apagados por defecto', () => {
+    expect(commentsEnabled({})).toBe(false);
+    expect(commentsEnabled({ COMMENTS_ENABLED: 'false' })).toBe(false);
+    expect(commentsEnabled({ COMMENTS_ENABLED: '1' })).toBe(false);
+  });
+
+  it('solo "true" los enciende', () => {
+    expect(commentsEnabled({ COMMENTS_ENABLED: 'true' })).toBe(true);
+  });
+});
+
+describe('commentsApiOrigin', () => {
+  it('null con los comentarios apagados', () => {
+    expect(commentsApiOrigin({ API_BASE_URL: 'https://api.huitzi.xyz', NODE_ENV: 'production' })).toBeNull();
+  });
+
+  it('el origen de la API, sin ruta, con los comentarios encendidos', () => {
+    expect(commentsApiOrigin({ COMMENTS_ENABLED: 'true', API_BASE_URL: 'https://api.huitzi.xyz/', NODE_ENV: 'production' })).toBe(
+      'https://api.huitzi.xyz',
+    );
+  });
+
+  it('null si se construye sin API', () => {
+    expect(commentsApiOrigin({ COMMENTS_ENABLED: 'true', WEB_SKIP_API: '1', NODE_ENV: 'production' })).toBeNull();
   });
 });
