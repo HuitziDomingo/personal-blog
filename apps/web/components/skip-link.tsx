@@ -1,7 +1,7 @@
 import { Link } from '@chakra-ui/react';
 
 /** Primer elemento enfocable: salta la navegación (WCAG 2.4.1). */
-export function SkipLink() {
+export function SkipLink({ label }: { label: string }) {
   return (
     <Link
       href="#contenido"
@@ -18,7 +18,7 @@ export function SkipLink() {
       transform="translateY(-200%)"
       _focusVisible={{ transform: 'translateY(0)' }}
     >
-      Saltar al contenido
+      {label}
     </Link>
   );
 }

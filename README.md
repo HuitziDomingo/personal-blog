@@ -28,7 +28,7 @@ personal-blog/
 └── Makefile            # Comandos del proyecto
 ```
 
-`apps/web` es el sitio público (portafolio y blog) en Next.js para Vercel ([ADR-017](docs/adr/017-arquitectura-de-la-web-publica-nextjs.md)), todavía sin desplegar.
+`apps/web` es el sitio público (portafolio y blog) en Next.js para Vercel ([ADR-017](docs/adr/017-arquitectura-de-la-web-publica-nextjs.md)), todavía sin desplegar. El portafolio está en español y en inglés, bajo `/en` ([ADR-024](docs/adr/024-portafolio-bilingue.md)); el blog, solo en español.
 
 ## Estado
 

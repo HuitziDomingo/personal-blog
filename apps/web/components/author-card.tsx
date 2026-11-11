@@ -3,6 +3,7 @@ import Image from 'next/image';
 
 import yo from '@/assets/img/yo.webp';
 import { glassTeal, palette } from '@/lib/brand';
+import { es } from '@/lib/content/es';
 import { profile } from '@/lib/site';
 
 /** Tarjeta de autor al final de cada post (footer-blog-bio.js). */
@@ -14,11 +15,11 @@ export function AuthorCard() {
         <Text fontWeight="bold">
           {profile.name}{' '}
           <Badge ms="1" bg={glassTeal} color={palette.light.fg} textTransform="none">
-            {profile.authorBadge}
+            {es.profile.authorBadge}
           </Badge>
         </Text>
         <Text fontSize="sm" color="fg.muted">
-          {profile.authorRole}
+          {es.profile.authorRole}
         </Text>
       </Stack>
     </Flex>

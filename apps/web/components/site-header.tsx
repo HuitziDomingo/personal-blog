@@ -7,22 +7,81 @@ import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
 import logo from '@/assets/img/logo.png';
+import { alternateHref, localizedPath } from '@/lib/content/routes';
+import type { Locale, SiteContent } from '@/lib/content/types';
 import { profile } from '@/lib/site';
 
 import { ColorModeToggle } from './color-mode-toggle';
 import { MenuIcon } from './icons';
 
-const NAV = [
-  { href: '/works', label: 'Trabajos' },
-  { href: '/blog', label: 'Blog' },
-] as const;
+interface NavItem {
+  href: string;
+  label: string;
+  /** Aviso de idioma junto al link, cuando la página no existe en el idioma actual. */
+  note?: string;
+}
+
+function navItems(locale: Locale, ui: SiteContent['ui']): NavItem[] {
+  return [
+    { href: localizedPath(locale, '/works'), label: ui.nav.works },
+    // El blog solo existe en español (ADR-024, punto 1).
+    { href: '/blog', label: ui.nav.blog, ...(ui.blogLanguageNote ? { note: ui.blogLanguageNote } : {}) },
+  ];
+}
+
+/** Texto del link, con el aviso de idioma en `lang="es"` si lo hay. */
+function NavLabel({ item }: { item: NavItem }) {
+  return (
+    <>
+      {item.label}
+      {item.note && (
+        <Box as="span" lang="es" fontSize="xs" color="fg.muted" ms="1">
+          ({item.note})
+        </Box>
+      )}
+    </>
+  );
+}
+
+/**
+ * Link a la página equivalente en el otro idioma (ADR-024, puntos 4 y 7): un
+ * link real con `hreflang` y su texto en el idioma de destino, de 44 px.
+ */
+function LanguageSwitch({ locale, ui }: { locale: Locale; ui: SiteContent['ui'] }) {
+  const pathname = usePathname();
+  const { label, hrefLang, lang } = ui.languageSwitch;
+
+  return (
+    <Link
+      asChild
+      minW="11"
+      minH="11"
+      px="2"
+      display="inline-flex"
+      alignItems="center"
+      justifyContent="center"
+      borderRadius="md"
+      fontSize="sm"
+      fontWeight="semibold"
+      color="fg"
+      textDecoration="none"
+      _hover={{ bg: 'bg.muted', textDecoration: 'none' }}
+    >
+      <NextLink href={alternateHref(pathname, locale)} hrefLang={hrefLang} lang={lang}>
+        {label}
+      </NextLink>
+    </Link>
+  );
+}
 
 function isActive(pathname: string, href: string): boolean {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
-export function SiteHeader() {
+export function SiteHeader({ locale, ui }: { locale: Locale; ui: SiteContent['ui'] }) {
   const pathname = usePathname();
+  const nav = navItems(locale, ui);
+  const home = localizedPath(locale, '/');
   // Menú móvil como disclosure: los links siguen dentro del <nav>.
   const [open, setOpen] = useState(false);
 
@@ -60,12 +119,15 @@ export function SiteHeader() {
           gap="2"
           fontFamily="heading"
           fontWeight="800"
-          fontSize={{ base: 'md', sm: 'lg' }}
+          // Sin salto de línea: en móvil comparte la fila con el menú, el
+          // selector de idioma y el de tema.
+          fontSize={{ base: 'sm', sm: 'lg' }}
+          whiteSpace="nowrap"
           color="fg"
           textDecoration="none"
           _hover={{ textDecoration: 'none', '& img': { transform: 'rotate(20deg)' } }}
         >
-          <NextLink href="/" aria-label={`${profile.shortName}, inicio`}>
+          <NextLink href={home} aria-label={ui.homeLinkLabel}>
             <Image
               src={logo}
               alt=""
@@ -78,9 +140,10 @@ export function SiteHeader() {
           </NextLink>
         </Link>
 
-        <Box as="nav" aria-label="Principal" ml="auto">
+        <Box as="nav" aria-label={ui.primaryNav} ml="auto">
           <HStack as="ul" listStyleType="none" gap="1" display={{ base: 'none', md: 'flex' }}>
-            {NAV.map(({ href, label }) => {
+            {nav.map((item) => {
+              const { href } = item;
               const active = isActive(pathname, href);
 
               return (
@@ -98,7 +161,7 @@ export function SiteHeader() {
                     _hover={{ bg: 'bg.muted', textDecoration: 'none' }}
                   >
                     <NextLink href={href} aria-current={active ? 'page' : undefined}>
-                      {label}
+                      <NavLabel item={item} />
                     </NextLink>
                   </Link>
                 </li>
@@ -110,7 +173,7 @@ export function SiteHeader() {
             <IconButton
               variant="ghost"
               size="sm"
-              aria-label="Menú de navegación"
+              aria-label={ui.menuLabel}
               aria-expanded={open}
               aria-controls="menu-movil"
               onClick={() => {
@@ -133,8 +196,9 @@ export function SiteHeader() {
               py="2"
               shadow="md"
             >
-              {[{ href: '/', label: 'Inicio' }, ...NAV].map(({ href, label }) => {
-                const active = href === '/' ? pathname === '/' : isActive(pathname, href);
+              {[{ href: home, label: ui.nav.home } as NavItem, ...nav].map((item) => {
+                const { href } = item;
+                const active = href === home ? pathname === home : isActive(pathname, href);
 
                 return (
                   <li key={href}>
@@ -152,7 +216,7 @@ export function SiteHeader() {
                           setOpen(false);
                         }}
                       >
-                        {label}
+                        <NavLabel item={item} />
                       </NextLink>
                     </Link>
                   </li>
@@ -162,7 +226,8 @@ export function SiteHeader() {
           </Box>
         </Box>
 
-        <ColorModeToggle />
+        <LanguageSwitch locale={locale} ui={ui} />
+        <ColorModeToggle labels={ui.colorMode} />
       </Container>
     </Box>
   );

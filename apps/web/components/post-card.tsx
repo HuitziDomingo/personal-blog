@@ -11,11 +11,14 @@ export function PostCard({
   post,
   headingLevel = 'h2',
   index = 0,
+  dateLocale,
 }: {
   post: PostSummary;
   headingLevel?: 'h2' | 'h3';
   /** Posición en la lista, para escalonar la entrada. */
   index?: number;
+  /** Locale de `Intl` para la fecha; por defecto, español de México. */
+  dateLocale?: string;
 }) {
   return (
     <LinkBox
@@ -32,7 +35,7 @@ export function PostCard({
       <Stack gap="2">
         {post.publishedAt && (
           <Text asChild color="fg.muted" fontSize="sm">
-            <time dateTime={post.publishedAt}>{formatDate(post.publishedAt)}</time>
+            <time dateTime={post.publishedAt}>{formatDate(post.publishedAt, dateLocale)}</time>
           </Text>
         )}
         <Heading as={headingLevel} fontSize={{ base: 'lg', md: 'xl' }} lineHeight="short">
