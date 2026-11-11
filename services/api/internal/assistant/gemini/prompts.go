@@ -15,7 +15,7 @@ Mejora la redacción del contenido del borrador: claridad, gramática, ortograf�
 - Conserva la estructura de Markdown: títulos, listas, tablas, citas, links e imágenes, con sus URLs exactas.
 - No cambies los bloques de código ni el código en línea.
 - No agregues información, opiniones ni secciones nuevas, y no quites contenido.
-- Devuelve el contenido completo en Markdown en el campo "content". No incluyas el título.
+- Devuelve el contenido completo en Markdown en el campo "content". No agregues un título nuevo y conserva todos los encabezados existentes, incluido el H1.
 
 ` + dataNotice
 

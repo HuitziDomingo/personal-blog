@@ -52,6 +52,10 @@ type recordedRequest struct {
 		GenerationConfig struct {
 			ResponseMIMEType   string         `json:"responseMimeType"`
 			ResponseJSONSchema map[string]any `json:"responseJsonSchema"`
+			MaxOutputTokens    int32          `json:"maxOutputTokens"`
+			ThinkingConfig     *struct {
+				ThinkingLevel string `json:"thinkingLevel"`
+			} `json:"thinkingConfig"`
 		} `json:"generationConfig"`
 	}
 }
@@ -120,6 +124,36 @@ func TestNewRequiresKeyAndModel(t *testing.T) {
 	require.Error(t, err)
 }
 
+// El nivel de razonamiento y el límite de salida viajan en generationConfig;
+// sin configurarlos, la petición no los lleva y el modelo usa los suyos.
+func TestThinkingLevelAndMaxOutputTokens(t *testing.T) {
+	fake := newFakeGemini(t, http.StatusOK, "metadata_ok.json")
+	assistant, err := New(t.Context(), Config{
+		APIKey:          testKey,
+		Model:           testModel,
+		ThinkingLevel:   "LOW",
+		MaxOutputTokens: 2048,
+		BaseURL:         fake.server.URL + "/",
+		HTTPClient:      fake.server.Client(),
+	})
+	require.NoError(t, err)
+
+	_, err = assistant.SuggestMetadata(t.Context(), testDraft)
+	require.NoError(t, err)
+
+	config := fake.last.Load().Body.GenerationConfig
+	require.NotNil(t, config.ThinkingConfig)
+	assert.Equal(t, "LOW", config.ThinkingConfig.ThinkingLevel)
+	assert.Equal(t, int32(2048), config.MaxOutputTokens)
+
+	_, err = newTestAssistant(t, fake).SuggestMetadata(t.Context(), testDraft)
+	require.NoError(t, err)
+
+	config = fake.last.Load().Body.GenerationConfig
+	assert.Nil(t, config.ThinkingConfig)
+	assert.Zero(t, config.MaxOutputTokens)
+}
+
 func TestImproveWriting(t *testing.T) {
 	fake := newFakeGemini(t, http.StatusOK, "improve_ok.json")
 
@@ -134,6 +168,26 @@ func TestImproveWriting(t *testing.T) {
 	assert.Equal(t, testKey, request.APIKey, "la key va en una cabecera, nunca en la URL")
 	assert.Equal(t, "application/json", request.Body.GenerationConfig.ResponseMIMEType)
 	assert.Equal(t, []any{"content"}, request.Body.GenerationConfig.ResponseJSONSchema["required"])
+}
+
+// Un borrador que empieza con H1: la instrucción pide conservar todos los
+// encabezados, incluido el H1, y no agregar un título nuevo. El adaptador
+// devuelve el contenido del modelo tal cual, sin quitar el H1.
+func TestImproveWritingKeepsExistingHeadings(t *testing.T) {
+	fake := newFakeGemini(t, http.StatusOK, "improve_keeps_headings.json")
+	draft := domain.Draft{
+		Title:   "Orquestar agentes",
+		Content: "# Orquestar agentes\n\nUn agente coordina a los otros.\n\n## Herramientas\n\nCada agente tiene las suyas.",
+	}
+
+	improved, err := newTestAssistant(t, fake).ImproveWriting(t.Context(), draft)
+
+	require.NoError(t, err)
+	assert.Equal(t, "# Orquestar agentes\n\nUn agente coordina a los demás.\n\n## Herramientas\n\nCada agente tiene las suyas.\n", improved.Content)
+
+	instruction := fake.last.Load().Body.SystemInstruction.Parts[0].Text
+	assert.Contains(t, instruction, "No agregues un título nuevo y conserva todos los encabezados existentes, incluido el H1.")
+	assert.NotContains(t, instruction, "No incluyas el título")
 }
 
 func TestSuggestMetadata(t *testing.T) {
@@ -219,6 +273,18 @@ func TestInvalidOutputs(t *testing.T) {
 			assert.NotContains(t, err.Error(), "Este es el bor")
 		})
 	}
+}
+
+// Gemini aplica el deadline que el SDK le manda en x-server-timeout y responde
+// 504 justo antes de que venza: cuenta como timeout, no como caída.
+func TestGatewayTimeoutCountsAsTimeout(t *testing.T) {
+	fake := newFakeGemini(t, http.StatusGatewayTimeout, "deadline_exceeded.json")
+	_, err := newTestAssistant(t, fake).SuggestMetadata(t.Context(), testDraft)
+	require.ErrorIs(t, err, domain.ErrAssistantUnavailable)
+	require.ErrorIs(t, err, context.DeadlineExceeded)
+	assert.Contains(t, err.Error(), "gemini responded 504 DEADLINE_EXCEEDED")
+	assert.NotContains(t, err.Error(), "Deadline expired")
+	assert.Equal(t, int32(1), fake.hits.Load())
 }
 
 func TestTimeoutCancelsTheCall(t *testing.T) {

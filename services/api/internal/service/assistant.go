@@ -21,6 +21,12 @@ const (
 	MaxExcerptLength = 500
 	MaxTags          = 20
 	MaxTagLength     = 50
+	// MaxAssistantContentLength es el límite del contenido de un borrador que
+	// acepta el asistente (AssistantDraft en el contrato). PostWrite no tiene
+	// un límite propio para el contenido, más allá del tamaño del cuerpo; este
+	// es el que aplica a lo que devuelve ImproveWriting, para que el resultado
+	// pueda volver a enviarse al asistente.
+	MaxAssistantContentLength = 50000
 )
 
 // Resultados de una llamada al proveedor, para el log.
@@ -61,8 +67,9 @@ func NewDisabledAssistant() *AssistantService {
 	return &AssistantService{}
 }
 
-// ImproveWriting devuelve el contenido reescrito. Solo comprueba que no venga
-// vacío: el Markdown es texto no confiable que se sanitiza al renderizar.
+// ImproveWriting devuelve el contenido reescrito. Comprueba que no venga vacío
+// ni pase de MaxAssistantContentLength; el Markdown es texto no confiable que
+// se sanitiza al renderizar.
 func (s *AssistantService) ImproveWriting(ctx context.Context, draft domain.Draft) (string, error) {
 	if s.provider == nil {
 		return "", domain.ErrAssistantDisabled
@@ -73,6 +80,10 @@ func (s *AssistantService) ImproveWriting(ctx context.Context, draft domain.Draf
 		func(r domain.ImprovedWriting) error {
 			if strings.TrimSpace(r.Content) == "" {
 				return fmt.Errorf("%w: empty content", domain.ErrAssistantInvalidOutput)
+			}
+
+			if utf8.RuneCountInString(r.Content) > MaxAssistantContentLength {
+				return fmt.Errorf("%w: content too long", domain.ErrAssistantInvalidOutput)
 			}
 
 			return nil
@@ -123,20 +134,26 @@ func call[T any](
 		err = validate(result)
 	}
 
-	level := slog.LevelInfo
-	if err != nil {
-		level = slog.LevelWarn
-	}
-
 	usage := usageOf(result)
-	s.logger.Log(ctx, level, "writing assistant call",
+	attrs := []any{
 		"operation", operation,
 		"model", usage.Model,
 		"latency_ms", s.now().Sub(start).Milliseconds(),
 		"input_tokens", usage.InputTokens,
 		"output_tokens", usage.OutputTokens,
 		"result", resultOf(err),
-	)
+	}
+
+	level := slog.LevelInfo
+	if err != nil {
+		level = slog.LevelWarn
+		// La causa distingue un 503 o un 429 del proveedor de un timeout
+		// propio o de una salida inválida. Los errores del proveedor nunca
+		// llevan el borrador ni la salida del modelo (ver el adaptador).
+		attrs = append(attrs, "reason", err.Error())
+	}
+
+	s.logger.Log(ctx, level, "writing assistant call", attrs...)
 
 	if err != nil {
 		return result, fmt.Errorf("writing assistant %s: %w", operation, err)

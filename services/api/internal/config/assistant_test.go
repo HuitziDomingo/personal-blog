@@ -22,6 +22,8 @@ func TestLoadAssistantIsDisabledByDefault(t *testing.T) {
 	require.NoError(t, err)
 	assert.False(t, cfg.Assistant.Enabled)
 	assert.Equal(t, 30*time.Second, cfg.Assistant.Timeout)
+	assert.Equal(t, "LOW", cfg.Assistant.ThinkingLevel)
+	assert.Equal(t, int32(16384), cfg.Assistant.MaxOutputTokens)
 }
 
 func TestLoadAssistantEnabled(t *testing.T) {
@@ -30,6 +32,8 @@ func TestLoadAssistantEnabled(t *testing.T) {
 	t.Setenv("GEMINI_API_KEY", fakeGeminiKey)
 	t.Setenv("GEMINI_MODEL", " gemini-test ")
 	t.Setenv("ASSISTANT_TIMEOUT_SECONDS", "12")
+	t.Setenv("ASSISTANT_THINKING_LEVEL", " minimal ")
+	t.Setenv("ASSISTANT_MAX_OUTPUT_TOKENS", "4096")
 
 	cfg, err := Load()
 
@@ -38,6 +42,8 @@ func TestLoadAssistantEnabled(t *testing.T) {
 	assert.Equal(t, fakeGeminiKey, cfg.Assistant.GeminiAPIKey.Reveal())
 	assert.Equal(t, "gemini-test", cfg.Assistant.GeminiModel)
 	assert.Equal(t, 12*time.Second, cfg.Assistant.Timeout)
+	assert.Equal(t, "MINIMAL", cfg.Assistant.ThinkingLevel)
+	assert.Equal(t, int32(4096), cfg.Assistant.MaxOutputTokens)
 }
 
 // Falla cerrado (ADR-021, punto 8): encendido sin key o sin modelo no arranca.
@@ -65,11 +71,17 @@ func TestLoadAssistantEnabledWithoutKeyOrModelFails(t *testing.T) {
 }
 
 func TestLoadRejectsInvalidAssistantSettings(t *testing.T) {
-	for key, value := range map[string]string{
-		"ASSISTANT_ENABLED":         "yes",
-		"ASSISTANT_TIMEOUT_SECONDS": "0",
+	for _, tt := range []struct{ key, value string }{
+		{"ASSISTANT_ENABLED", "yes"},
+		{"ASSISTANT_TIMEOUT_SECONDS", "0"},
+		{"ASSISTANT_THINKING_LEVEL", "none"},
+		{"ASSISTANT_THINKING_LEVEL", "1024"},
+		{"ASSISTANT_MAX_OUTPUT_TOKENS", "0"},
+		{"ASSISTANT_MAX_OUTPUT_TOKENS", "-1"},
+		{"ASSISTANT_MAX_OUTPUT_TOKENS", "4294967296"},
 	} {
-		t.Run(key, func(t *testing.T) {
+		key, value := tt.key, tt.value
+		t.Run(key+"="+value, func(t *testing.T) {
 			setRequiredEnv(t)
 			t.Setenv(key, value)
 
