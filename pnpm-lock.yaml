@@ -51,8 +51,8 @@ importers:
         specifier: 36.1.0
         version: 36.1.0(@angular-devkit/schematics@22.2.5(chokidar@5.0.0))(@angular/common@22.2.4(@angular/core@22.2.4(@angular/compiler@22.2.4)(rxjs@7.8.2))(rxjs@7.8.2))(@angular/core@22.2.4(@angular/compiler@22.2.4)(rxjs@7.8.2))(@schematics/angular@22.2.5(chokidar@5.0.0))(rxjs@7.8.2)
       '@ng-icons/lucide':
-        specifier: 33.4.0
-        version: 33.4.0
+        specifier: 36.1.0
+        version: 36.1.0(@ng-icons/core@36.1.0(@angular-devkit/schematics@22.2.5(chokidar@5.0.0))(@angular/common@22.2.4(@angular/core@22.2.4(@angular/compiler@22.2.4)(rxjs@7.8.2))(rxjs@7.8.2))(@angular/core@22.2.4(@angular/compiler@22.2.4)(rxjs@7.8.2))(@schematics/angular@22.2.5(chokidar@5.0.0))(rxjs@7.8.2))
       '@personal-blog/api-types':
         specifier: workspace:*
         version: link:../../packages/api-types
@@ -2139,8 +2139,10 @@ packages:
       '@schematics/angular': '>=22.0.0'
       rxjs: ^6.5.3 || ^7.4.0
 
-  '@ng-icons/lucide@33.4.0':
-    resolution: {integrity: sha512-fOztOy5T+Y07fru7nWq27PC96B35Y2DeJY357ZeKBr5R1yUJhxqQXPRcxOf+wrTJes8I20sKBqfWhHH1eiL9JQ==}
+  '@ng-icons/lucide@36.1.0':
+    resolution: {integrity: sha512-RoDBblnFoIo6NfN3rhz+i6wrUK5/STzk1E6JXBPtbFCU86pm1Nz1Yf8Zny/LtMqF05+FJv7Xzwbhyp9Z4+WFlg==}
+    peerDependencies:
+      '@ng-icons/core': ^36.1.0
 
   '@ocavue/utils@1.11.0':
     resolution: {integrity: sha512-9mJkG0Hj0bBJZq4eL/jk4H+gU2xgi5ZsXcMFbXdBOqlzKQ0GHu+7ZbMYW92sYdpjWbzKaXchGM1v9TF7b9k6gQ==}
@@ -8802,8 +8804,9 @@ snapshots:
       rxjs: 7.8.2
       tslib: 2.9.1
 
-  '@ng-icons/lucide@33.4.0':
+  '@ng-icons/lucide@36.1.0(@ng-icons/core@36.1.0(@angular-devkit/schematics@22.2.5(chokidar@5.0.0))(@angular/common@22.2.4(@angular/core@22.2.4(@angular/compiler@22.2.4)(rxjs@7.8.2))(rxjs@7.8.2))(@angular/core@22.2.4(@angular/compiler@22.2.4)(rxjs@7.8.2))(@schematics/angular@22.2.5(chokidar@5.0.0))(rxjs@7.8.2))':
     dependencies:
+      '@ng-icons/core': 36.1.0(@angular-devkit/schematics@22.2.5(chokidar@5.0.0))(@angular/common@22.2.4(@angular/core@22.2.4(@angular/compiler@22.2.4)(rxjs@7.8.2))(rxjs@7.8.2))(@angular/core@22.2.4(@angular/compiler@22.2.4)(rxjs@7.8.2))(@schematics/angular@22.2.5(chokidar@5.0.0))(rxjs@7.8.2)
       tslib: 2.9.1
 
   '@ocavue/utils@1.11.0': {}
