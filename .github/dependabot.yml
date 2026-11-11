@@ -2,6 +2,9 @@ version: 2
 
 # ADR-013: cooldown de 7 días en las version updates. Las security updates no
 # esperan el cooldown.
+#
+# Los grupos solo juntan minor y patch: cada major llega en su propio PR, que
+# es [ALTO] y no se mergea sin revisión de León (CLAUDE.md).
 
 updates:
   - package-ecosystem: gomod
