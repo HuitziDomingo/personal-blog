@@ -105,6 +105,12 @@
 - [x] BLOG-080: Backend del asistente de escritura (ADR-021): mejorar la redacción y sugerir metadatos, con puerto en `domain`/`service`, adaptador de Gemini y fake, bucket propio por usuario y `ASSISTANT_ENABLED`. ([#75](https://github.com/HuitziDomingo/personal-blog/pull/75))
 - [ ] BLOG-081: Adaptador HTTP de `WritingAssistant` en el admin, contra las operaciones del asistente de la API (ADR-021).
 - [x] BLOG-087: Diagnóstico del 503 del asistente con Gemini real: razonamiento limitado y configurable (`ASSISTANT_THINKING_LEVEL`, `low` por defecto), `ASSISTANT_MAX_OUTPUT_TOKENS`, límite del contenido de ImproveWriting, causa del fallo en el log y el 504 de Gemini contado como timeout. ([#81](https://github.com/HuitziDomingo/personal-blog/pull/81))
+- [x] BLOG-088: ADR-022: comentarios anónimos en los posts con premoderación y un LLM como clasificador que sugiere; nada se publica sin la aprobación de León. ([#87](https://github.com/HuitziDomingo/personal-blog/pull/87))
+- [x] BLOG-089: ADR-023: excepción de seguridad para Go en la política de dependencias, con vulnerabilidad alcanzable según `govulncheck` y versión del mantenedor oficial. ([#87](https://github.com/HuitziDomingo/personal-blog/pull/87))
+- [ ] BLOG-090: Backend de comentarios (ADR-022): contrato, envío anónimo con rate limit y campo trampa, lectura pública de los aprobados, cola y decisiones de moderación para el admin, y `COMMENTS_ENABLED`, con la moderación con LLM apagada.
+- [ ] BLOG-091: Moderación de comentarios con LLM (ADR-022): puerto `CommentModerator`, adaptador de Gemini y fake, con veredicto, categoría y motivo.
+- [ ] BLOG-092: Cola de moderación de comentarios en el admin (ADR-022): aprobar, rechazar, pedir de nuevo el análisis y responder como autor.
+- [ ] BLOG-093: Comentarios en la web (ADR-022): lista de aprobados con ISR, formulario de cliente con aviso de privacidad, página de reglas y cambios de CSP y CORS.
 - [ ] BLOG-023: Definir `domain/comment.go` e implementar comentarios.
 - [ ] BLOG-024: Crear vista de moderación de comentarios.
 - [ ] BLOG-025: Agregar `AIModeration` a la moderación de comentarios.
