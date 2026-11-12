@@ -4,6 +4,7 @@ import aum from '@/assets/img/works/aum.webp';
 import dalyza from '@/assets/img/works/dalyza.webp';
 import debred from '@/assets/img/works/debred.webp';
 import familiaDebred from '@/assets/img/works/familia-debred.webp';
+import huitziXyz from '@/assets/img/works/huitzi-xyz.webp';
 import youtube from '@/assets/img/works/youtube.webp';
 
 import { es } from './content/es';
@@ -35,12 +36,6 @@ export const socialLinks: readonly ExternalLink[] = [
     label: '@HuitziDomingo',
     href: 'https://www.linkedin.com/in/huitzitzili-domingo-le%C3%B3n-nieves-0b32a953/',
   },
-  {
-    // Pendiente de León: hoy apunta a un canal, no a su usuario.
-    network: 'Discord',
-    label: 'Huitzitzili#5253',
-    href: 'https://discord.com/channels/618867779541401600/619600143204745246',
-  },
 ];
 
 export const debredUrl = 'https://www.debred.com';
@@ -65,7 +60,7 @@ export const works: readonly Work[] = [
     heading: 'huitzi.xyz',
     year: '2026',
     link: { label: 'https://huitzi.xyz', href: 'https://huitzi.xyz' },
-    images: [],
+    images: [huitziXyz],
   },
   {
     id: 'debred',

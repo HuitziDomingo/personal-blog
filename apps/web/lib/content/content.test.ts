@@ -4,7 +4,6 @@ import { works } from '../site';
 
 import { en } from './en';
 import { es } from './es';
-import { PENDING_TRANSLATIONS } from './pending';
 import { alternateHref, localeOf, localizedPath } from './routes';
 import { WORK_IDS } from './types';
 
@@ -59,49 +58,23 @@ describe('diccionarios', () => {
   });
 });
 
-describe('traducciones pendientes', () => {
-  // Textos que el documento aprobado no trae en inglés (ADR-024, punto 8).
-  // La página en inglés los muestra en español hasta que León los apruebe.
-  it('son exactamente estas', () => {
-    expect(PENDING_TRANSLATIONS).toEqual([
-      '2026 – hoy',
-      '2023 – feb 2026',
-      '2014 – hoy',
-      'Colaboradores freelancers.',
-      'Página de inicio de Debred: «Desarrollemos tu proyecto web».',
-      'El equipo de Debred posando en una sala.',
-      'Canal de YouTube MexicanDevelopers con el video «Instalando React Native, Chocolatey, Yarn y Expo».',
-      'Página de inicio de Dalyza: «Dale vida a tu hogar», persianas, alfombras y laminados.',
-      'Página de inicio de A.U.M., Acción por la Unidad Mundial.',
-      'Saltar al contenido',
-      'Huitzitzili León, inicio',
-      'Principal',
-      'Inicio',
-      'Trabajos',
-      'en español',
-      'Menú de navegación',
-      'Tema',
-      'Cambiar tema',
-      'Tema',
-      'Claro',
-      'Oscuro',
-      'Sistema',
-      'Redes',
-      'RSS del blog',
-      'Foto de Huitzitzili Domingo León Nieves',
-      'Acerca de mí',
-      'Biografía',
-      'Últimos posts',
-      'Todavía no hay posts publicados.',
-      'Ver todos los posts',
-      'Mis trabajos y proyectos',
-      'Yo en la web',
-      'Trabajos',
-      'Mis trabajos y proyectos.',
-      'Migas de pan',
-      'No pudimos cargar esta página',
-      'Inténtalo de nuevo en unos segundos.',
-      'Reintentar',
+describe('traducciones', () => {
+  // Los textos que coinciden a propósito en los dos idiomas: nombres propios,
+  // años y palabras que el inglés usa igual. Cualquier otro texto en inglés
+  // idéntico al español es una traducción que falta.
+  it('el inglés solo repite el español donde es el mismo texto', () => {
+    const spanish = new Map(leaves(es));
+    const same = leaves(en)
+      .filter(([path, text]) => text !== '' && spanish.get(path) === text)
+      .map(([path]) => path);
+    expect(same).toEqual([
+      'profile.authorBadge',
+      'profile.authorRole',
+      'bio[2].period',
+      'bio[3].period',
+      'bio[4].period',
+      'ui.nav.blog',
+      'ui.works.website',
     ]);
   });
 });
