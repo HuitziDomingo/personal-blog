@@ -20,6 +20,7 @@ personal-blog/
 ├── docs/
 │   ├── adr/            # Decisiones de arquitectura
 │   ├── api/            # Contrato OpenAPI y colección de Bruno
+│   ├── architecture-diagram.html  # Diagrama interactivo, generado con archify
 │   ├── development.md  # Guía de desarrollo
 │   ├── web/            # Posts de la web anterior, listos para el admin
 │   └── roadmap.md      # Backlog
