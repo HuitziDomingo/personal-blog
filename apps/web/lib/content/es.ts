@@ -64,7 +64,7 @@ export const es: SiteContent = {
           'Este sitio, construido como un producto real: API en Go con arquitectura hexagonal, admin en Angular, web en Next.js, servidor MCP de solo lectura y un asistente de escritura con IA con límites de costo, seguridad y revisión humana. Cada decisión está documentada en ADRs públicos.',
         ],
       ],
-      imageAlts: [],
+      imageAlts: ['Página de inicio de huitzi.xyz: el saludo de León, su foto y la sección «Acerca de mí».'],
     },
     debred: {
       summary:
@@ -123,7 +123,7 @@ export const es: SiteContent = {
     home: {
       photoAlt: 'Foto de Huitzitzili Domingo León Nieves',
       about: 'Acerca de mí',
-      bio: 'Biografía',
+      bio: 'Trayectoria',
       latestPosts: 'Últimos posts',
       noPosts: 'Todavía no hay posts publicados.',
       allPosts: 'Ver todos los posts',
