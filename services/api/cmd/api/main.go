@@ -211,7 +211,7 @@ func newAssistant(ctx context.Context, cfg config.Assistant, logger *slog.Logger
 }
 
 // newModeration arma el clasificador de comentarios sobre Gemini, con el mismo
-// nivel de razonamiento y límite de salida que el asistente, o nil si
+// nivel de razonamiento que el asistente y su propio límite de salida, o nil si
 // COMMENTS_MODERATION_ENABLED no es true (ADR-022).
 func newModeration(ctx context.Context, cfg config.Config, logger *slog.Logger) (*service.ModerationService, error) {
 	if !cfg.Comments.ModerationEnabled {
@@ -222,7 +222,7 @@ func newModeration(ctx context.Context, cfg config.Config, logger *slog.Logger) 
 		APIKey:          cfg.Comments.GeminiAPIKey.Reveal(),
 		Model:           cfg.Comments.ModerationModel,
 		ThinkingLevel:   cfg.Assistant.ThinkingLevel,
-		MaxOutputTokens: cfg.Assistant.MaxOutputTokens,
+		MaxOutputTokens: cfg.Comments.ModerationMaxOutputTokens,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("create comment moderator: %w", err)
@@ -237,6 +237,7 @@ func newModeration(ctx context.Context, cfg config.Config, logger *slog.Logger) 
 		"model", cfg.Comments.ModerationModel,
 		"timeout", cfg.Comments.ModerationTimeout,
 		"thinking_level", cfg.Assistant.ThinkingLevel,
+		"max_output_tokens", cfg.Comments.ModerationMaxOutputTokens,
 	)
 
 	return moderation, nil

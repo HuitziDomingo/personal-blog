@@ -26,6 +26,7 @@ No inventes comandos. Cuando exista uno real, sustituye su TODO.
 - Levantar la API con recarga al guardar: `make api-watch`
 - Tests de Go: `make api-test`
 - Tests de integración de Go: `make api-test-integration` (levanta MongoDB con docker compose)
+- Correr los comentarios de ejemplo de la moderación contra Gemini real: `make api-moderation-samples` (gasta cuota; nunca en CI)
 - Tests del admin: `make admin-test`
 - E2E: `make e2e` (base temporal, API y admin propios; limpia al terminar)
 - Borrar bases de E2E que quedaron de una corrida interrumpida: `make e2e-clean`
