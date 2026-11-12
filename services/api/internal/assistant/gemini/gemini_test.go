@@ -267,6 +267,30 @@ func TestClassify(t *testing.T) {
 	assert.Equal(t, []any{"verdict", "category", "reason"}, schema["required"])
 }
 
+// La moderación tiene su propio límite de salida (COMMENTS_MODERATION_MAX_OUTPUT_TOKENS,
+// 512 por defecto): el adaptador lo manda en generationConfig de Classify.
+func TestClassifySendsTheModerationOutputLimit(t *testing.T) {
+	fake := newFakeGemini(t, http.StatusOK, "moderation_ok.json")
+	moderator, err := New(t.Context(), Config{
+		APIKey:          testKey,
+		Model:           "gemini-3.6-flash",
+		ThinkingLevel:   "LOW",
+		MaxOutputTokens: 512,
+		BaseURL:         fake.server.URL + "/",
+		HTTPClient:      fake.server.Client(),
+	})
+	require.NoError(t, err)
+
+	_, err = moderator.Classify(t.Context(), domain.CommentForModeration{Name: "Ana", Content: "Gracias por el post."})
+	require.NoError(t, err)
+
+	request := fake.last.Load()
+	assert.Equal(t, "/v1beta/models/gemini-3.6-flash:generateContent", request.Path)
+	assert.Equal(t, int32(512), request.Body.GenerationConfig.MaxOutputTokens)
+	require.NotNil(t, request.Body.GenerationConfig.ThinkingConfig)
+	assert.Equal(t, "LOW", request.Body.GenerationConfig.ThinkingConfig.ThinkingLevel)
+}
+
 func TestClassifyProviderErrorsAndInvalidOutput(t *testing.T) {
 	comment := domain.CommentForModeration{Name: "Ana", Content: "Hola"}
 
