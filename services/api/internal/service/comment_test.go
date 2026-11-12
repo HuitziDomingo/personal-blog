@@ -71,6 +71,13 @@ func (f *fakeCommentRepository) List(_ context.Context, filter domain.CommentFil
 	for _, id := range f.order {
 		comment := f.comments[id]
 		if (filter.PostID == "" || comment.PostID == filter.PostID) && (filter.Status == "" || comment.Status == filter.Status) {
+			if filter.ApprovedParentsOnly && comment.ParentID != "" {
+				parent, ok := f.comments[comment.ParentID]
+				if !ok || parent.Status != domain.CommentStatusApproved {
+					continue
+				}
+			}
+
 			matched = append(matched, comment)
 		}
 	}
@@ -298,6 +305,34 @@ func TestListApprovedOnlyReturnsApprovedCommentsOfThePost(t *testing.T) {
 
 	_, err = comments.ListApproved(t.Context(), "publicado", MaxPostLimit+1, 0)
 	require.ErrorIs(t, err, domain.ErrInvalidInput)
+}
+
+// Una respuesta aprobada cuyo padre ya no está aprobado no se lista, y total
+// cuenta solo lo que se muestra (BLOG-103).
+func TestListApprovedHidesRepliesWithoutAnApprovedParent(t *testing.T) {
+	comments, repository := newTestCommentService(true)
+	approved := repository.insert(t, domain.Comment{PostID: "post-1", Name: "Ana", Status: domain.CommentStatusApproved})
+	pending := repository.insert(t, domain.Comment{PostID: "post-1", Name: "Luis", Status: domain.CommentStatusPending})
+	rejected := repository.insert(t, domain.Comment{PostID: "post-1", Name: "Eva", Status: domain.CommentStatusRejected})
+	visible := repository.insert(t, domain.Comment{PostID: "post-1", ParentID: approved, Name: "Autor", Status: domain.CommentStatusApproved, ByAuthor: true})
+	repository.insert(t, domain.Comment{PostID: "post-1", ParentID: pending, Name: "Autor", Status: domain.CommentStatusApproved, ByAuthor: true})
+	repository.insert(t, domain.Comment{PostID: "post-1", ParentID: rejected, Name: "Autor", Status: domain.CommentStatusApproved, ByAuthor: true})
+	repository.insert(t, domain.Comment{PostID: "post-1", ParentID: "comment-999", Name: "Autor", Status: domain.CommentStatusApproved, ByAuthor: true})
+
+	page, err := comments.ListApproved(t.Context(), "publicado", 0, 0)
+
+	require.NoError(t, err)
+	ids := make([]string, 0, len(page.Comments))
+	for _, comment := range page.Comments {
+		ids = append(ids, comment.ID)
+	}
+	assert.Equal(t, []string{approved, visible}, ids)
+	assert.Equal(t, int64(2), page.Total)
+
+	// La cola del admin no filtra: ahí sí se ven todas las respuestas.
+	queue, err := comments.List(t.Context(), domain.CommentStatusApproved, 0, 0)
+	require.NoError(t, err)
+	assert.Equal(t, int64(5), queue.Total)
 }
 
 func TestListForModeration(t *testing.T) {

@@ -156,6 +156,57 @@ func TestListCommentsFiltersAndPaginatesOldestFirst(t *testing.T) {
 	require.ErrorIs(t, err, domain.ErrInvalidInput)
 }
 
+// ApprovedParentsOnly deja fuera las respuestas cuyo padre está pendiente,
+// rechazado o no existe, y total y la paginación cuentan lo mismo (BLOG-103).
+func TestListCommentsWithApprovedParentsOnly(t *testing.T) {
+	repository, _ := newTestCommentRepository(t)
+	post := bson.NewObjectID().Hex()
+
+	create := func(name string, status domain.CommentStatus, parentID string, minute int) string {
+		t.Helper()
+		comment := newComment(post, name, status, commentTestTime.Add(time.Duration(minute)*time.Minute))
+		comment.ParentID = parentID
+		require.NoError(t, repository.Create(t.Context(), comment))
+
+		return comment.ID
+	}
+
+	approved := create("padre aprobado", domain.CommentStatusApproved, "", 0)
+	pending := create("padre pendiente", domain.CommentStatusPending, "", 1)
+	rejected := create("padre rechazado", domain.CommentStatusRejected, "", 2)
+	create("respuesta visible", domain.CommentStatusApproved, approved, 3)
+	create("huérfana de pendiente", domain.CommentStatusApproved, pending, 4)
+	create("huérfana de rechazado", domain.CommentStatusApproved, rejected, 5)
+	create("huérfana de borrado", domain.CommentStatusApproved, bson.NewObjectID().Hex(), 6)
+	create("otro aprobado", domain.CommentStatusApproved, "", 7)
+
+	names := func(comments []*domain.Comment) []string {
+		result := make([]string, 0, len(comments))
+		for _, comment := range comments {
+			result = append(result, comment.Name)
+		}
+
+		return result
+	}
+
+	filter := domain.CommentFilter{PostID: post, Status: domain.CommentStatusApproved, ApprovedParentsOnly: true, Limit: 2}
+	first, total, err := repository.List(t.Context(), filter)
+	require.NoError(t, err)
+	assert.Equal(t, []string{"padre aprobado", "respuesta visible"}, names(first))
+	assert.Equal(t, int64(3), total)
+
+	filter.Offset = 2
+	second, total, err := repository.List(t.Context(), filter)
+	require.NoError(t, err)
+	assert.Equal(t, []string{"otro aprobado"}, names(second))
+	assert.Equal(t, int64(3), total)
+
+	// Sin el filtro, el listado sigue igual que antes.
+	_, total, err = repository.List(t.Context(), domain.CommentFilter{PostID: post, Status: domain.CommentStatusApproved, Limit: 10})
+	require.NoError(t, err)
+	assert.Equal(t, int64(6), total)
+}
+
 func TestUpdateCommentStatus(t *testing.T) {
 	repository, client := newTestCommentRepository(t)
 	comment := newComment(bson.NewObjectID().Hex(), "Ana", domain.CommentStatusPending, commentTestTime)

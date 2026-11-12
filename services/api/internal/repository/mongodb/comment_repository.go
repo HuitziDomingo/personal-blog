@@ -163,6 +163,17 @@ func (r *CommentRepository) List(ctx context.Context, filter domain.CommentFilte
 
 	query := commentListQuery(filter)
 
+	if filter.ApprovedParentsOnly {
+		orphans, err := r.repliesWithoutApprovedParent(ctx, query)
+		if err != nil {
+			return nil, 0, err
+		}
+
+		if len(orphans) > 0 {
+			query = append(query, bson.E{Key: "parent_id", Value: bson.D{{Key: "$nin", Value: orphans}}})
+		}
+	}
+
 	total, err := r.comments.CountDocuments(ctx, query)
 	if err != nil {
 		return nil, 0, fmt.Errorf("count comments: %w", err)
@@ -265,6 +276,56 @@ func (r *CommentRepository) SetModeration(ctx context.Context, id string, modera
 
 // commentListQuery construye el filtro solo con los campos tipados de
 // domain.CommentFilter (ADR-010).
+// repliesWithoutApprovedParent devuelve los parent_id, entre las respuestas
+// que cumplen query, cuyo padre no está aprobado o ya no existe. Son dos
+// consultas pequeñas antes del conteo, así CountDocuments y Find usan el mismo
+// filtro y la paginación sigue siendo coherente.
+func (r *CommentRepository) repliesWithoutApprovedParent(ctx context.Context, query bson.D) ([]string, error) {
+	replies := append(bson.D{}, query...)
+	replies = append(replies, bson.E{Key: "parent_id", Value: bson.D{{Key: "$exists", Value: true}, {Key: "$ne", Value: ""}}})
+
+	var parentIDs []string
+	if err := r.comments.Distinct(ctx, "parent_id", replies).Decode(&parentIDs); err != nil {
+		return nil, fmt.Errorf("list reply parents: %w", err)
+	}
+
+	if len(parentIDs) == 0 {
+		return nil, nil
+	}
+
+	objectIDs := make([]bson.ObjectID, 0, len(parentIDs))
+	for _, id := range parentIDs {
+		if objectID, err := bson.ObjectIDFromHex(id); err == nil {
+			objectIDs = append(objectIDs, objectID)
+		}
+	}
+
+	var approved []bson.ObjectID
+	if len(objectIDs) > 0 {
+		filter := bson.D{
+			{Key: "_id", Value: bson.D{{Key: "$in", Value: objectIDs}}},
+			{Key: "status", Value: string(domain.CommentStatusApproved)},
+		}
+		if err := r.comments.Distinct(ctx, "_id", filter).Decode(&approved); err != nil {
+			return nil, fmt.Errorf("list approved parents: %w", err)
+		}
+	}
+
+	visible := make(map[string]bool, len(approved))
+	for _, id := range approved {
+		visible[id.Hex()] = true
+	}
+
+	orphans := make([]string, 0, len(parentIDs))
+	for _, id := range parentIDs {
+		if !visible[id] {
+			orphans = append(orphans, id)
+		}
+	}
+
+	return orphans, nil
+}
+
 func commentListQuery(filter domain.CommentFilter) bson.D {
 	query := bson.D{}
 
