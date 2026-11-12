@@ -159,8 +159,9 @@ npx @modelcontextprotocol/inspector@2.13.0 \
 | `RATE_LIMIT_ASSISTANT_PER_MINUTE` / `_BURST` | No | `5` / `5` | Límite extra por usuario en `/api/v1/admin/assistant/*`, además del de usuario (ADR-021) |
 | `COMMENTS_ENABLED` | No | `false` | `true` acepta comentarios de los lectores (ADR-022). Con `false`, `POST /api/v1/posts/{slug}/comments` responde 404; la lectura pública y la cola del admin siguen respondiendo. Otro valor detiene la API |
 | `COMMENTS_RATE_LIMIT_MAX` / `COMMENTS_RATE_LIMIT_WINDOW_MINUTES` | No | `3` / `10` | Límite extra por IP del envío de comentarios, además del global, aunque haya sesión (ADR-022). Es un token bucket: 3 seguidos y después uno cada 3 min 20 s |
-| `COMMENTS_MODERATION_ENABLED` | No | `false` | `true` clasifica cada comentario nuevo con Gemini (ADR-022, punto 4). Exige `GEMINI_API_KEY` y un modelo; si falta alguno, la API no arranca. No depende de `ASSISTANT_ENABLED` |
-| `COMMENTS_MODERATION_MODEL` | No | `GEMINI_MODEL` | Modelo del clasificador. Usa el nivel de razonamiento y el límite de salida del asistente |
+| `COMMENTS_MODERATION_ENABLED` | No | `false` | `true` clasifica cada comentario nuevo con Gemini (ADR-022, punto 4). Exige `GEMINI_API_KEY`; sin ella, la API no arranca. No depende de `ASSISTANT_ENABLED` |
+| `COMMENTS_MODERATION_MODEL` | No | `gemini-3.6-flash` | Modelo del clasificador. No cae a `GEMINI_MODEL`: el del asistente puede ser lento para el timeout de 10 s. Usa el nivel de razonamiento del asistente |
+| `COMMENTS_MODERATION_MAX_OUTPUT_TOKENS` | No | `512` | Límite de salida del clasificador, razonamiento incluido. Propio, separado de `ASSISTANT_MAX_OUTPUT_TOKENS`. Entero positivo; otro valor detiene la API |
 | `COMMENTS_MODERATION_TIMEOUT_SECONDS` | No | `10` | Timeout de cada análisis. Si vence, el comentario se guarda sin análisis |
 | `ASSISTANT_ENABLED` | No | `false` | `true` enciende el asistente de escritura (ADR-021). Con `false`, sus operaciones responden 503 `writing assistant is disabled` y nada llega a Gemini. Otro valor detiene la API |
 | `GEMINI_API_KEY` | Con el asistente encendido | | API key de Gemini, de un proyecto de Google sin facturación. Con `ASSISTANT_ENABLED=true` y sin key, la API no arranca. Nunca aparece en logs ni en errores |
@@ -203,7 +204,7 @@ La API arranca con cualquier configuración válida, pero algunas la dejan inút
 | `PORT` | `8080` | La que asigna Cloud Run |
 | `ASSISTANT_ENABLED`, `GEMINI_API_KEY` y `GEMINI_MODEL` | Apagado; para probarlo, una key propia en `.env` | La key desde Secret Manager, de un proyecto de Google sin facturación y separado del de la API (ADR-021) |
 | `COMMENTS_ENABLED` | `false`; `true` para probar los comentarios | `true` en la API y en la web a la vez (BLOG-093). `ALLOWED_ORIGINS` debe incluir el origen de la web, porque el navegador envía los comentarios directo a la API |
-| `COMMENTS_MODERATION_ENABLED` y `COMMENTS_MODERATION_MODEL` | Apagada; para probarla, la misma key del asistente | Encendida con un modelo rápido del plan gratuito (`gemini-3.6-flash`), la key desde Secret Manager |
+| `COMMENTS_MODERATION_ENABLED`, `COMMENTS_MODERATION_MODEL` y `COMMENTS_MODERATION_MAX_OUTPUT_TOKENS` | Apagada; para probarla, la misma key del asistente, con `gemini-3.6-flash` y 512 | Encendida con `gemini-3.6-flash` y 512, la key desde Secret Manager |
 
 Los valores de producción son los previstos; el despliegue está pendiente (BLOG-054 y BLOG-022).
 
@@ -215,6 +216,7 @@ Los valores de producción son los previstos; el despliegue está pendiente (BLO
 | `make api-watch` | Como `api-run`, pero recompila y reinicia la API al guardar un `.go` (Air) |
 | `make api-test` | Corre los tests de Go con `-race`; los de integración se saltan |
 | `make api-test-integration` | Levanta MongoDB y corre los tests de `internal/repository` contra él |
+| `make api-moderation-samples` | Corre los comentarios de ejemplo de la moderación contra Gemini real (`gemini-3.6-flash`). Gasta cuota: nunca en CI |
 | `make api-lint` | Corre `golangci-lint` |
 | `make web-dev` | Levanta `apps/web` con `next dev` en `http://localhost:3000`; con `WEB_API_BASE_URL=<origen>` usa otra API |
 | `make web-build` | Build de producción de la web contra la API local (o `WEB_API_BASE_URL`) |
@@ -676,14 +678,14 @@ ADR-022. Los lectores comentan los posts publicados sin cuenta, y nada se public
 - **Moderación con LLM (BLOG-091):** con `COMMENTS_MODERATION_ENABLED=true`, el envío pide a Gemini una sugerencia antes de guardar: `verdict` (`approve`, `reject` o `review`), `category` (`none`, `spam`, `abuse`, `off_topic`, `prompt_injection` o `personal_data`) y `reason`, una frase corta. Se guarda en `moderation`.
   - **Nunca publica:** el comentario queda `pending` diga lo que diga el modelo. `prompt_injection` y `personal_data` se guardan siempre como `review`.
   - **Si falla:** con un error, una salida inválida o el timeout (10 s, sin reintentos), el comentario se guarda sin `moderation` y el log dice la causa, nunca el texto del comentario.
-  - **Datos al modelo:** solo el título del post, el nombre y el texto, como JSON separado de las instrucciones. El puerto es `domain.CommentModerator`; el adaptador es el mismo de Gemini del asistente.
-  - **Calidad con el modelo real:** `internal/assistant/gemini/testdata/moderation_samples.json` tiene comentarios de ejemplo con su categoría esperada. Nunca corre en CI; para revisarlo a mano, con tu key exportada en el shell:
+  - **Datos al modelo:** solo el título del post, el nombre y el texto, como JSON separado de las instrucciones. El puerto es `domain.CommentModerator`; el adaptador es el mismo de Gemini del asistente, con su propio modelo (`gemini-3.6-flash`) y límite de salida (512).
+  - **Calidad con el modelo real:** `internal/assistant/gemini/testdata/moderation_samples.json` tiene comentarios de ejemplo con su categoría esperada. Nunca corre en CI; para revisarlo a mano, con `GEMINI_API_KEY` en `.env`:
 
     ```sh
-    cd services/api && go test -tags gemini_live -run TestModerationSamplesAgainstGemini -count=1 -v ./internal/assistant/gemini/
+    make api-moderation-samples
     ```
 
-    Hace una llamada cada 6 s, se detiene en el primer 429 sin reintentar e imprime los resultados como JSON.
+    Carga `.env` sin imprimirlo y usa `gemini-3.6-flash`, razonamiento `LOW` y 512 de salida, como en producción. Hace una llamada cada 6 s, se detiene en el primer 429 sin reintentar e imprime una tabla esperado frente a obtenido, el resumen de aciertos (categoría y veredicto guardado) y los resultados como JSON. Sin key falla al instante, sin llamar a la red. El set completo son unas 16 llamadas: córrelo con la cuota del día libre.
 - **Web** (`apps/web/components/comments/`, BLOG-093):
   - `comments-section.tsx` va al final de `/blog/[slug]` solo con `COMMENTS_ENABLED=true`. Los aprobados se piden en el servidor con el ISR del post (`postsApi.approvedComments`); si la API no responde, la página del post sigue y la sección lo dice.
   - `comment-list.tsx` los agrupa en hilos de un nivel (`lib/comments.ts`); una respuesta cuyo padre no está aprobado no se muestra. Las del autor llevan la marca «Autor».

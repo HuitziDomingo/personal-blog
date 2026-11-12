@@ -523,9 +523,15 @@ type Comments struct {
 	// ModerationEnabled enciende la moderación con LLM (ADR-022, punto 4). Es
 	// false por defecto: los comentarios llegan a la cola sin análisis.
 	ModerationEnabled bool
-	// ModerationModel es COMMENTS_MODERATION_MODEL, o GEMINI_MODEL si falta.
+	// ModerationModel es COMMENTS_MODERATION_MODEL, o gemini-3.6-flash si
+	// falta. No cae a GEMINI_MODEL: el modelo del asistente puede ser lento
+	// para el timeout de la moderación (gemini-3.8-flash tardaba de 6 a 211 s).
 	ModerationModel   string
 	ModerationTimeout time.Duration
+	// ModerationMaxOutputTokens limita la salida del clasificador, razonamiento
+	// incluido. Es propio, separado del asistente: la respuesta es un veredicto,
+	// una categoría y una frase.
+	ModerationMaxOutputTokens int32
 	// GeminiAPIKey es la misma key del asistente (GEMINI_API_KEY).
 	GeminiAPIKey Secret
 }
@@ -537,13 +543,19 @@ const (
 	// defaultCommentsModerationTimeoutSeconds es corto porque el lector espera
 	// la respuesta del envío (ADR-022, punto 4).
 	defaultCommentsModerationTimeoutSeconds = 10
+	// defaultCommentsModerationModel es rápido en el plan gratuito: respondía
+	// en 1 a 8 s con razonamiento LOW.
+	defaultCommentsModerationModel = "gemini-3.6-flash"
+	// defaultCommentsModerationMaxOutputTokens alcanza para el JSON del
+	// veredicto (unos 30 tokens) con margen para el razonamiento LOW.
+	defaultCommentsModerationMaxOutputTokens = 512
 )
 
 // loadComments lee COMMENTS_ENABLED, COMMENTS_RATE_LIMIT_MAX,
 // COMMENTS_RATE_LIMIT_WINDOW_MINUTES, COMMENTS_MODERATION_ENABLED,
-// COMMENTS_MODERATION_MODEL y COMMENTS_MODERATION_TIMEOUT_SECONDS. Con la
-// moderación encendida sin key o sin modelo, la API no arranca: falla cerrado,
-// como el asistente.
+// COMMENTS_MODERATION_MODEL, COMMENTS_MODERATION_TIMEOUT_SECONDS y
+// COMMENTS_MODERATION_MAX_OUTPUT_TOKENS. Con la moderación encendida sin key,
+// la API no arranca: falla cerrado, como el asistente.
 func loadComments() (Comments, error) {
 	enabled, err := loadBool("COMMENTS_ENABLED")
 	if err != nil {
@@ -570,19 +582,25 @@ func loadComments() (Comments, error) {
 		return Comments{}, err
 	}
 
+	moderationMaxOutput, err := positiveInt32("COMMENTS_MODERATION_MAX_OUTPUT_TOKENS", defaultCommentsModerationMaxOutputTokens)
+	if err != nil {
+		return Comments{}, err
+	}
+
 	moderationModel := strings.TrimSpace(os.Getenv("COMMENTS_MODERATION_MODEL"))
 	if moderationModel == "" {
-		moderationModel = strings.TrimSpace(os.Getenv("GEMINI_MODEL"))
+		moderationModel = defaultCommentsModerationModel
 	}
 
 	comments := Comments{
-		Enabled:           enabled,
-		RateLimitMax:      maxSubmissions,
-		RateLimitWindow:   time.Duration(windowMinutes) * time.Minute,
-		ModerationEnabled: moderationEnabled,
-		ModerationModel:   moderationModel,
-		ModerationTimeout: time.Duration(moderationTimeout) * time.Second,
-		GeminiAPIKey:      Secret(os.Getenv("GEMINI_API_KEY")),
+		Enabled:                   enabled,
+		RateLimitMax:              maxSubmissions,
+		RateLimitWindow:           time.Duration(windowMinutes) * time.Minute,
+		ModerationEnabled:         moderationEnabled,
+		ModerationModel:           moderationModel,
+		ModerationTimeout:         time.Duration(moderationTimeout) * time.Second,
+		ModerationMaxOutputTokens: moderationMaxOutput,
+		GeminiAPIKey:              Secret(os.Getenv("GEMINI_API_KEY")),
 	}
 
 	if !moderationEnabled {
@@ -591,10 +609,6 @@ func loadComments() (Comments, error) {
 
 	if comments.GeminiAPIKey == "" {
 		return Comments{}, fmt.Errorf("COMMENTS_MODERATION_ENABLED is true but GEMINI_API_KEY is empty")
-	}
-
-	if comments.ModerationModel == "" {
-		return Comments{}, fmt.Errorf("COMMENTS_MODERATION_ENABLED is true but neither COMMENTS_MODERATION_MODEL nor GEMINI_MODEL is set")
 	}
 
 	return comments, nil
