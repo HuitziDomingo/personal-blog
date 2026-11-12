@@ -103,6 +103,7 @@
 - [x] BLOG-096: Portafolio bilingüe (ADR-024): inicio, «Acerca de mí» y trabajos en español e inglés, dos layouts raíz con su `lang`, selector ES/EN, SEO con `hreflang` y sitemap, y los textos aprobados por León. ([#104](https://github.com/HuitziDomingo/personal-blog/pull/104))
 - [x] BLOG-100: Dependabot agrupa `@ng-icons/*` también en los majors e ignora los majors de `typescript`, sin soporte oficial de Angular 22. ([#103](https://github.com/HuitziDomingo/personal-blog/pull/103))
 - [x] BLOG-101: Diagrama de arquitectura con archify 3.2.0 como skill del proyecto, generado desde `docs/architecture.architecture.json` con `make docs-architecture`. ([#109](https://github.com/HuitziDomingo/personal-blog/pull/109))
+- [x] BLOG-104: El cliente de la API de la web hace como mucho 4 peticiones a la vez por proceso, y en el build reintenta un 429 hasta 2 veces respetando `Retry-After`. ([#111](https://github.com/HuitziDomingo/personal-blog/pull/111))
 
 ## Fase futura (fuera del MVP)
 
