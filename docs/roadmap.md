@@ -120,6 +120,7 @@
 - [x] BLOG-092: Cola de moderación de comentarios en el admin (ADR-022): aprobar, rechazar, pedir de nuevo el análisis y responder como autor. ([#107](https://github.com/HuitziDomingo/personal-blog/pull/107))
 - [x] BLOG-093: Comentarios en la web (ADR-022): lista de aprobados con ISR, formulario de cliente con aviso de privacidad, página de reglas y cambios de CSP y CORS. ([#105](https://github.com/HuitziDomingo/personal-blog/pull/105))
 - [x] BLOG-097: Revisión visual del admin: errores y carga consistentes, tabla de posts en móvil, panel del asistente elevado, objetivos táctiles de 44 px con el dedo y foco visible en todo. ([#108](https://github.com/HuitziDomingo/personal-blog/pull/108))
+- [x] BLOG-106: Login del admin con el panel glass, la sugerencia de redacción del asistente renderizada con el sanitizador de `packages/markdown` y un botón para ver su Markdown, y «Responder» fijado por tests solo en comentarios aprobados. ([#115](https://github.com/HuitziDomingo/personal-blog/pull/115))
 - [x] ~~BLOG-023: Definir `domain/comment.go` e implementar comentarios.~~ Reemplazada por BLOG-090 (ADR-022). ([#91](https://github.com/HuitziDomingo/personal-blog/pull/91))
 - [x] ~~BLOG-024: Crear vista de moderación de comentarios.~~ Reemplazada por BLOG-092 (ADR-022). ([#91](https://github.com/HuitziDomingo/personal-blog/pull/91))
 - [x] ~~BLOG-025: Agregar `AIModeration` a la moderación de comentarios.~~ Reemplazada por BLOG-091 (ADR-022). ([#91](https://github.com/HuitziDomingo/personal-blog/pull/91))
