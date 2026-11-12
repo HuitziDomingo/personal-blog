@@ -5,6 +5,8 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/angular';
 
 import { FakeMatchMedia, FakeStorage } from '../browser/browser-fakes';
 import { MATCH_MEDIA } from '../browser/match-media';
+import { CommentsApi } from '../api/comments-api';
+import { FakeCommentsApi } from '../comments/comments-fakes';
 import { FakeSession } from '../session/session-fakes';
 import { SessionService } from '../session/session.service';
 import { THEME_STORAGE } from '../theme/theme-storage';
@@ -16,6 +18,7 @@ class EmptyPage {}
 async function renderShell({ desktop = false } = {}) {
   const media = new FakeMatchMedia({ [DESKTOP_QUERY]: desktop });
   const session = new FakeSession();
+  const comments = new FakeCommentsApi();
   const result = await render(AdminShell, {
     providers: [
       provideRouter([
@@ -25,6 +28,7 @@ async function renderShell({ desktop = false } = {}) {
       { provide: MATCH_MEDIA, useValue: media.fn },
       { provide: THEME_STORAGE, useValue: new FakeStorage() },
       { provide: SessionService, useValue: session },
+      { provide: CommentsApi, useValue: comments },
     ],
   });
 

@@ -1,6 +1,6 @@
 import { HttpErrorResponse } from '@angular/common/http';
 
-export type ProblemContext = 'login' | 'post' | 'assistant' | 'generic';
+export type ProblemContext = 'login' | 'post' | 'assistant' | 'comment' | 'generic';
 
 const UNEXPECTED = 'Error inesperado del servidor. Inténtalo de nuevo.';
 
@@ -20,6 +20,9 @@ export function problemMessage(error: unknown, context: ProblemContext = 'generi
       if (context === 'assistant') {
         return 'El asistente no aceptó el borrador. Revisa que tenga contenido y que no sea demasiado largo.';
       }
+      if (context === 'comment') {
+        return 'No se pudo responder: la respuesta debe tener entre 1 y 2000 caracteres, y solo se responde a comentarios aprobados que no son respuestas.';
+      }
       return context === 'login' ? 'Revisa el email y la contraseña.' : 'Revisa los datos enviados.';
     case 401:
       return context === 'login'
@@ -28,6 +31,9 @@ export function problemMessage(error: unknown, context: ProblemContext = 'generi
     case 403:
       return 'El servidor rechazó la petición desde este sitio.';
     case 404:
+      if (context === 'comment') {
+        return 'El comentario ya no existe. Puede que se haya borrado o que la lista haya cambiado.';
+      }
       return context === 'post'
         ? 'El post no existe o ya no está disponible.'
         : 'No se encontró lo que buscabas.';
@@ -40,7 +46,10 @@ export function problemMessage(error: unknown, context: ProblemContext = 'generi
     case 429:
       return tooManyRequests(error.headers.get('Retry-After'), context === 'assistant');
     case 503:
-      return context === 'assistant' ? assistantUnavailable(error) : UNEXPECTED;
+      if (context === 'assistant') {
+        return assistantUnavailable(error);
+      }
+      return context === 'comment' ? moderationUnavailable(error) : UNEXPECTED;
     default:
       return UNEXPECTED;
   }
@@ -65,11 +74,7 @@ const ASSISTANT_DISABLED = 'writing assistant is disabled';
 const ASSISTANT_INVALID_OUTPUT = 'writing assistant returned an invalid suggestion, try again';
 
 function assistantUnavailable(error: HttpErrorResponse): string {
-  const body: unknown = error.error;
-  const detail =
-    typeof body === 'object' && body !== null && 'detail' in body && typeof body.detail === 'string' ? body.detail : '';
-
-  switch (detail) {
+  switch (detailOf(error)) {
     case ASSISTANT_DISABLED:
       return 'El asistente está desactivado en la API.';
     case ASSISTANT_INVALID_OUTPUT:
@@ -77,6 +82,23 @@ function assistantUnavailable(error: HttpErrorResponse): string {
     default:
       return 'El asistente no está disponible ahora (el proveedor falló o agotó su cuota). Inténtalo de nuevo en unos minutos.';
   }
+}
+
+// Los `detail` del 503 de la moderación (ModerationUnavailable en
+// openapi.yaml). Si llega otro, el mensaje es el de «no disponible».
+const MODERATION_DISABLED = 'comment moderation is disabled';
+
+function moderationUnavailable(error: HttpErrorResponse): string {
+  return detailOf(error) === MODERATION_DISABLED
+    ? 'La moderación con IA está desactivada en la API. Puedes aprobar o rechazar sin análisis.'
+    : 'El análisis no está disponible ahora (el modelo falló o agotó su cuota). Inténtalo de nuevo en unos minutos.';
+}
+
+function detailOf(error: HttpErrorResponse): string {
+  const body: unknown = error.error;
+  return typeof body === 'object' && body !== null && 'detail' in body && typeof body.detail === 'string'
+    ? body.detail
+    : '';
 }
 
 function formatWait(seconds: number): string {

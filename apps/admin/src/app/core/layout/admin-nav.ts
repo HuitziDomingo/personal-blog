@@ -4,6 +4,7 @@ import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
   lucideFileText,
   lucideLogOut,
+  lucideMessageSquare,
   lucideMonitor,
   lucideMoon,
   lucidePalette,
@@ -15,6 +16,7 @@ import { HlmButtonImports } from '@spartan-ng/helm/button';
 import { HlmLabelImports } from '@spartan-ng/helm/label';
 import { HlmRadioGroupImports } from '@spartan-ng/helm/radio-group';
 
+import { PendingComments } from '../comments/pending-comments';
 import { SessionService } from '../session/session.service';
 import { ACCENT_LABELS, ACCENTS, isAccent, isThemeMode, THEME_MODE_LABELS, THEME_MODES, ThemeMode } from '../theme/theme';
 import { ThemeService } from '../theme/theme.service';
@@ -29,7 +31,17 @@ import { ThemeService } from '../theme/theme.service';
   selector: 'app-admin-nav',
   imports: [RouterLink, RouterLinkActive, NgIcon, HlmButtonImports, HlmLabelImports, HlmRadioGroupImports],
   providers: [
-    provideIcons({ lucideFileText, lucideLogOut, lucideMonitor, lucideMoon, lucidePalette, lucideSquarePen, lucideSun, lucideUser }),
+    provideIcons({
+      lucideFileText,
+      lucideLogOut,
+      lucideMessageSquare,
+      lucideMonitor,
+      lucideMoon,
+      lucidePalette,
+      lucideSquarePen,
+      lucideSun,
+      lucideUser,
+    }),
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'flex flex-col gap-6' },
@@ -39,12 +51,19 @@ import { ThemeService } from '../theme/theme.service';
         @for (link of links; track link.path) {
           <li>
             <a
-              class="text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-ring/50 flex h-9 items-center gap-2 rounded-md border-s-4 border-transparent px-3 text-sm font-medium outline-none focus-visible:ring-3"
+              class="text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-ring/50 pointer-coarse:h-11 flex h-9 items-center gap-2 rounded-md border-s-4 border-transparent px-3 text-sm font-medium outline-none focus-visible:ring-3"
               [routerLink]="link.path"
               routerLinkActive="bg-sidebar-accent text-sidebar-accent-foreground !border-sidebar-primary"
               [routerLinkActiveOptions]="exactPath"
               ariaCurrentWhenActive="page"
-              ><ng-icon [name]="link.icon" size="1rem" aria-hidden="true" />{{ link.label }}</a
+              ><ng-icon [name]="link.icon" size="1rem" aria-hidden="true" />{{ link.label
+              }}@if (link.path === '/comments' && pendingCount(); as count) {<span class="sr-only"
+                  >, {{ count === 1 ? '1 pendiente' : count + ' pendientes' }}</span
+                ><!-- El número se ve en el badge; el lector de pantalla oye «3 pendientes». --><span
+                  aria-hidden="true"
+                  class="bg-sidebar-primary text-sidebar-primary-foreground ms-auto min-w-6 rounded-full px-2 text-center text-xs font-semibold"
+                  >{{ count }}</span
+                >}</a
             >
           </li>
         }
@@ -125,7 +144,16 @@ export class AdminNav {
   protected readonly links = [
     { path: '/posts', label: 'Posts', icon: 'lucideFileText' },
     { path: '/posts/new', label: 'Nuevo post', icon: 'lucideSquarePen' },
+    { path: '/comments', label: 'Comentarios', icon: 'lucideMessageSquare' },
   ] as const;
+
+  private readonly pending = inject(PendingComments);
+  /** Pendientes de moderar; sin badge si es 0 o si la petición falló. */
+  protected readonly pendingCount = computed(() => this.pending.count() || null);
+
+  constructor() {
+    this.pending.refresh();
+  }
 
   // Exacto en el path, pero sin mirar la query: /posts?status=draft sigue
   // marcando «Posts».

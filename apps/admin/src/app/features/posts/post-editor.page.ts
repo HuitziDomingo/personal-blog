@@ -19,7 +19,9 @@ import {
   lucideArchive,
   lucideArchiveRestore,
   lucideArrowLeft,
+  lucideCircleAlert,
   lucideEyeOff,
+  lucideLoaderCircle,
   lucideSave,
   lucideSend,
 } from '@ng-icons/lucide';
@@ -84,7 +86,18 @@ const SLUG_CONFLICTS: Record<string, string> = {
     HlmInputImports,
     HlmTextareaImports,
   ],
-  providers: [provideIcons({ lucideArchive, lucideArchiveRestore, lucideArrowLeft, lucideEyeOff, lucideSave, lucideSend })],
+  providers: [
+    provideIcons({
+      lucideArchive,
+      lucideArchiveRestore,
+      lucideArrowLeft,
+      lucideCircleAlert,
+      lucideEyeOff,
+      lucideLoaderCircle,
+      lucideSave,
+      lucideSend,
+    }),
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: {
     class: 'mx-auto flex w-full max-w-6xl flex-col gap-6 p-4 sm:p-6',
@@ -107,10 +120,11 @@ const SLUG_CONFLICTS: Record<string, string> = {
     <p role="status" class="text-sm">{{ notice() }}</p>
 
     @if (loading()) {
-      <p class="text-muted-foreground text-sm">Cargando post…</p>
+      <p class="text-muted-foreground flex items-center gap-2 text-sm"><ng-icon name="lucideLoaderCircle" class="animate-spin motion-reduce:animate-none" aria-hidden="true" />Cargando post…</p>
     } @else if (loadError(); as message) {
-      <div role="alert" class="flex flex-wrap items-center gap-3">
-        <p class="text-destructive text-sm">{{ message }}</p>
+      <div role="alert" class="border-destructive/40 bg-destructive/5 flex flex-wrap items-center gap-3 rounded-lg border p-3">
+        <ng-icon name="lucideCircleAlert" class="text-destructive" aria-hidden="true" />
+        <p class="min-w-0 flex-1 text-sm">{{ message }}</p>
         <a hlmBtn variant="outline" size="sm" routerLink="/posts">Volver a la lista</a>
       </div>
     } @else {

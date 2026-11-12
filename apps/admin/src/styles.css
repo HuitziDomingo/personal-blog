@@ -55,6 +55,16 @@
   --panel-foreground: oklch(0.145 0 0);
   --panel-muted-foreground: oklch(0.48 0 0);
   --panel-code: oklch(0.91 0 0);
+
+  /*
+   * Veredicto del modelo en la cola de comentarios (BLOG-092): texto del tono
+   * sobre un tinte del 12 % sobre --panel, el error de una tarjeta y el botón
+   * «Rechazar» (texto --panel sobre --verdict-reject). No dependen del acento.
+   * scripts/check-theme-contrast.mjs los mide.
+   */
+  --verdict-approve: oklch(0.45 0.12 150);
+  --verdict-reject: oklch(0.48 0.17 25);
+  --verdict-review: oklch(0.47 0.11 65);
 }
 
 :root.dark {
@@ -96,6 +106,10 @@
   --panel-foreground: oklch(0.985 0 0);
   --panel-muted-foreground: oklch(0.75 0 0);
   --panel-code: oklch(0.18 0 0);
+
+  --verdict-approve: oklch(0.82 0.14 152);
+  --verdict-reject: oklch(0.78 0.13 20);
+  --verdict-review: oklch(0.84 0.13 85);
 }
 
 /*
@@ -216,5 +230,22 @@
   }
   body {
     @apply bg-background text-foreground;
+  }
+}
+
+/*
+ * Objetivos táctiles: con el dedo (pointer: coarse), botones, campos y selects
+ * miden al menos 44 px (WCAG 2.5.5). Con mouse se quedan en su tamaño de
+ * Spartan. min-height no compite con las clases h-* de los componentes.
+ */
+@media (pointer: coarse) {
+  [data-slot='button'] {
+    min-height: 2.75rem;
+    min-width: 2.75rem;
+  }
+
+  [data-slot='input'],
+  select {
+    min-height: 2.75rem;
   }
 }
