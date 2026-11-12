@@ -1,5 +1,6 @@
 import type { components } from '@personal-blog/api-types';
 
+import { createLimiter, type Limiter } from './concurrency';
 import { apiBaseUrl, isBuildPhase, REVALIDATE_SECONDS } from './config';
 import { isValidSlug } from './slug';
 
@@ -12,11 +13,17 @@ export type PublicCommentPage = components['schemas']['PublicCommentPage'];
 /** Máximo de `limit` en el contrato. */
 const MAX_LIMIT = 100;
 /**
- * Reintentos de un 429 durante el build, y espera máxima por intento: 3 × 10 s
- * caben en el staticPageGenerationTimeout de Next (60 s).
+ * Reintentos de un 429 durante el build, y espera máxima por intento: 2 × 10 s
+ * dejan margen dentro del staticPageGenerationTimeout de Next (60 s), contando
+ * la cola del límite de concurrencia.
  */
-const BUILD_RETRIES = 3;
+const BUILD_RETRIES = 2;
 const MAX_RETRY_WAIT_MS = 10_000;
+/**
+ * Peticiones a la API a la vez, por proceso (BLOG-104). Next genera con varios
+ * workers, y cada uno tiene su propio límite.
+ */
+export const MAX_CONCURRENT_REQUESTS = 4;
 
 /**
  * La API no respondió como se esperaba (429, 5xx, red). Nunca se convierte en
@@ -36,6 +43,8 @@ export class ApiUnavailableError extends Error {
 export interface ApiDeps {
   fetch: (url: URL, init: RequestInit & { next?: { revalidate: number } }) => Promise<Response>;
   sleep: (ms: number) => Promise<void>;
+  /** Limita las peticiones en vuelo; solo envuelve el fetch, nunca la espera de un 429. */
+  limit: Limiter;
   /** Origen de la API, o null para construir sin ella. */
   baseUrl: string | null;
   isBuild: boolean;
@@ -70,7 +79,7 @@ export function createPostsApi(deps: ApiDeps): PostsApi {
     for (let attempt = 0; ; attempt++) {
       let response: Response;
       try {
-        response = await deps.fetch(url, { next: { revalidate: REVALIDATE_SECONDS } });
+        response = await deps.limit(() => deps.fetch(url, { next: { revalidate: REVALIDATE_SECONDS } }));
       } catch (cause) {
         throw new ApiUnavailableError(null, `GET ${url.pathname}: network error`, { cause });
       }
@@ -163,6 +172,10 @@ export function createPostsApi(deps: ApiDeps): PostsApi {
 export const postsApi: PostsApi = createPostsApi({
   fetch: (url, init) => fetch(url, init),
   sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+  // Siempre, no solo en el build: en runtime las regeneraciones de ISR son pocas
+  // y cada página hace 1 o 2 peticiones, así que el límite no se nota, y un solo
+  // camino es más simple de probar.
+  limit: createLimiter(MAX_CONCURRENT_REQUESTS),
   get baseUrl() {
     return apiBaseUrl();
   },
