@@ -232,3 +232,20 @@
     @apply bg-background text-foreground;
   }
 }
+
+/*
+ * Objetivos táctiles: con el dedo (pointer: coarse), botones, campos y selects
+ * miden al menos 44 px (WCAG 2.5.5). Con mouse se quedan en su tamaño de
+ * Spartan. min-height no compite con las clases h-* de los componentes.
+ */
+@media (pointer: coarse) {
+  [data-slot='button'] {
+    min-height: 2.75rem;
+    min-width: 2.75rem;
+  }
+
+  [data-slot='input'],
+  select {
+    min-height: 2.75rem;
+  }
+}

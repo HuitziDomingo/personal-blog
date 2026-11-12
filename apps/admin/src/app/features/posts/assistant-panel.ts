@@ -14,6 +14,8 @@ import {
   viewChildren,
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { NgIcon, provideIcons } from '@ng-icons/core';
+import { lucideCircleAlert } from '@ng-icons/lucide';
 import { HlmButtonImports } from '@spartan-ng/helm/button';
 import { map, Observable, Subscription } from 'rxjs';
 
@@ -47,13 +49,15 @@ const ACTION_LABELS: Record<AssistantAction, string> = {
  */
 @Component({
   selector: 'app-assistant-panel',
-  imports: [HlmButtonImports],
+  imports: [HlmButtonImports, NgIcon],
+  providers: [provideIcons({ lucideCircleAlert })],
+  styleUrl: './assistant-panel.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <section aria-labelledby="assistant-title" class="border-input flex flex-col gap-3 rounded-md border p-4">
+    <section aria-labelledby="assistant-title" class="assistant-panel flex flex-col gap-3 rounded-xl border p-4">
       <div class="flex flex-col gap-1">
         <h2 id="assistant-title" class="text-base font-semibold">Asistente</h2>
-        <p class="text-muted-foreground text-sm" data-testid="assistant-notice">{{ notice }}</p>
+        <p class="assistant-muted text-sm" data-testid="assistant-notice">{{ notice }}</p>
       </div>
 
       <div class="flex flex-wrap gap-2">
@@ -74,10 +78,9 @@ const ACTION_LABELS: Record<AssistantAction, string> = {
       </div>
 
       <!-- Una sola región viva, con textos cortos; los errores van en role=alert.
-           Sin role=status: el editor ya tiene el suyo para los avisos de guardado. -->
-      <p aria-live="polite" aria-atomic="true" data-testid="assistant-announcement" class="text-muted-foreground min-h-5 text-sm">
-        {{ announcement() }}
-      </p>
+           Sin role=status: el editor ya tiene el suyo para los avisos de guardado.
+           Vacía queda sr-only (fuera del flujo, sin hueco) y nunca con display:none. -->
+      <p aria-live="polite" aria-atomic="true" data-testid="assistant-announcement" class="assistant-muted text-sm empty:sr-only">{{ announcement() }}</p>
 
       @if (canUndo()) {
         <div class="flex flex-wrap items-center gap-2 text-sm">
@@ -88,8 +91,9 @@ const ACTION_LABELS: Record<AssistantAction, string> = {
 
       @switch (state().kind) {
         @case ('error') {
-          <div role="alert" class="flex flex-wrap items-center gap-3">
-            <p class="text-destructive text-sm">{{ errorMessage() }}</p>
+          <div role="alert" class="border-destructive/40 bg-destructive/5 flex flex-wrap items-center gap-3 rounded-lg border p-3">
+            <ng-icon name="lucideCircleAlert" class="text-destructive" aria-hidden="true" />
+            <p class="min-w-0 flex-1 text-sm">{{ errorMessage() }}</p>
             <button #retryButton hlmBtn variant="outline" size="sm" type="button" [disabled]="disabled()" (click)="retry()">
               Reintentar
             </button>
@@ -101,30 +105,30 @@ const ACTION_LABELS: Record<AssistantAction, string> = {
             #suggestionCard
             tabindex="-1"
             aria-labelledby="suggestion-title"
-            class="bg-muted/50 flex flex-col gap-3 rounded-md p-3 text-sm outline-none"
+            class="assistant-inset flex flex-col gap-3 rounded-lg border p-3 text-sm outline-none"
           >
             @switch (suggestion.action) {
               @case ('improve') {
                 <h3 id="suggestion-title" class="font-medium">Redacción sugerida</h3>
                 <pre class="font-mono text-xs whitespace-pre-wrap">{{ suggestion.content }}</pre>
-                <p class="text-muted-foreground">Aplicar reemplaza el contenido completo; podrás deshacerlo.</p>
+                <p class="assistant-muted">Aplicar reemplaza el contenido completo; podrás deshacerlo.</p>
               }
               @case ('metadata') {
                 <h3 id="suggestion-title" class="font-medium">Título, extracto y tags</h3>
                 <dl class="grid gap-1">
-                  <dt class="text-muted-foreground">Título</dt>
+                  <dt class="assistant-muted">Título</dt>
                   <dd>{{ suggestion.metadata.title }}</dd>
-                  <dt class="text-muted-foreground">Extracto</dt>
+                  <dt class="assistant-muted">Extracto</dt>
                   <dd>{{ suggestion.metadata.excerpt }}</dd>
-                  <dt class="text-muted-foreground">Tags</dt>
+                  <dt class="assistant-muted">Tags</dt>
                   <dd>{{ suggestion.metadata.tags.join(', ') }}</dd>
                 </dl>
               }
               @case ('cover') {
                 <h3 id="suggestion-title" class="font-medium">Idea de portada</h3>
                 <p class="select-all">{{ suggestion.cover.description }}</p>
-                <p><span class="text-muted-foreground">Texto alternativo:</span> {{ suggestion.cover.altText }}</p>
-                <p class="text-muted-foreground">Es solo una idea: el post todavía no tiene campo de portada.</p>
+                <p><span class="assistant-muted">Texto alternativo:</span> {{ suggestion.cover.altText }}</p>
+                <p class="assistant-muted">Es solo una idea: el post todavía no tiene campo de portada.</p>
               }
             }
             <div class="flex gap-2">

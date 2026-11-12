@@ -94,4 +94,16 @@ describe('CommentsApi', () => {
     expect((error as ApiError).message).toContain('La moderación con IA está desactivada');
     expect((error as ApiError).detail).toBe('comment moderation is disabled');
   });
+
+  // Un 503 de la lista no es del análisis: el mensaje no habla del modelo.
+  it('un error al listar usa el mensaje genérico, no el de la moderación', async () => {
+    const { api, httpMock } = setup();
+
+    const result = firstValueFrom(api.list({ status: 'pending', limit: 20, offset: 0 })).catch((error: unknown) => error);
+    httpMock.expectOne((r) => r.url === COMMENTS).flush({}, { status: 503, statusText: 'Service Unavailable' });
+
+    const error = await result;
+    expect(error).toBeInstanceOf(ApiError);
+    expect((error as ApiError).message).toBe('Error inesperado del servidor. Inténtalo de nuevo.');
+  });
 });

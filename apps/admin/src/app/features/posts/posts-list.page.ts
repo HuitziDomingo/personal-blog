@@ -12,7 +12,16 @@ import {
 import { takeUntilDestroyed, toObservable, toSignal } from '@angular/core/rxjs-interop';
 import { Router, RouterLink } from '@angular/router';
 import { NgIcon, provideIcons } from '@ng-icons/core';
-import { lucideArchive, lucideChevronLeft, lucideChevronRight, lucideInbox, lucidePlus, lucideRotateCw } from '@ng-icons/lucide';
+import {
+  lucideArchive,
+  lucideChevronLeft,
+  lucideChevronRight,
+  lucideCircleAlert,
+  lucideInbox,
+  lucideLoaderCircle,
+  lucidePlus,
+  lucideRotateCw,
+} from '@ng-icons/lucide';
 import { HlmAlertDialogImports } from '@spartan-ng/helm/alert-dialog';
 import { HlmBadgeImports } from '@spartan-ng/helm/badge';
 import { HlmButtonImports } from '@spartan-ng/helm/button';
@@ -42,7 +51,16 @@ type ListState =
   selector: 'app-posts-list-page',
   imports: [RouterLink, NgIcon, HlmAlertDialogImports, HlmBadgeImports, HlmButtonImports, HlmEmptyImports, HlmTableImports],
   providers: [
-    provideIcons({ lucideArchive, lucideChevronLeft, lucideChevronRight, lucideInbox, lucidePlus, lucideRotateCw }),
+    provideIcons({
+      lucideArchive,
+      lucideChevronLeft,
+      lucideChevronRight,
+      lucideCircleAlert,
+      lucideInbox,
+      lucideLoaderCircle,
+      lucidePlus,
+      lucideRotateCw,
+    }),
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   // flex-1 dentro del <main> en columna: la página ocupa al menos la pantalla
@@ -82,11 +100,12 @@ type ListState =
 
     @switch (state().kind) {
       @case ('loading') {
-        <p class="text-muted-foreground text-sm">Cargando posts…</p>
+        <p class="text-muted-foreground flex items-center gap-2 text-sm"><ng-icon name="lucideLoaderCircle" class="animate-spin motion-reduce:animate-none" aria-hidden="true" />Cargando posts…</p>
       }
       @case ('error') {
-        <div role="alert" class="flex flex-wrap items-center gap-3">
-          <p class="text-destructive text-sm">{{ errorMessage() }}</p>
+        <div role="alert" class="border-destructive/40 bg-destructive/5 flex flex-wrap items-center gap-3 rounded-lg border p-3">
+          <ng-icon name="lucideCircleAlert" class="text-destructive" aria-hidden="true" />
+          <p class="min-w-0 flex-1 text-sm">{{ errorMessage() }}</p>
           <button hlmBtn variant="outline" size="sm" type="button" (click)="retry()">
             <ng-icon name="lucideRotateCw" aria-hidden="true" />Reintentar
           </button>
@@ -102,28 +121,33 @@ type ListState =
                 <tr hlmTr>
                   <th hlmTh scope="col">Título</th>
                   <th hlmTh scope="col">Estado</th>
-                  <th hlmTh scope="col">Publicado</th>
-                  <th hlmTh scope="col">Última edición</th>
+                  <!-- En móvil la tabla deja título, estado y acción: las fechas se ven en el editor. -->
+                  <th hlmTh scope="col" class="max-md:hidden">Publicado</th>
+                  <th hlmTh scope="col" class="max-md:hidden">Última edición</th>
                   <th hlmTh scope="col"><span class="sr-only">Acciones</span></th>
                 </tr>
               </thead>
               <tbody hlmTBody>
                 @for (post of current.items; track post.id) {
                   <tr hlmTr>
-                    <td hlmTd class="max-w-xs truncate font-medium" [attr.title]="post.title">
-                      <a class="hover:underline" [routerLink]="['/posts', post.id]">{{ post.title }}</a>
+                    <td hlmTd class="max-w-36 truncate font-medium sm:max-w-xs" [attr.title]="post.title">
+                      <a
+                        class="focus-visible:ring-ring/50 rounded-sm outline-none hover:underline focus-visible:ring-3"
+                        [routerLink]="['/posts', post.id]"
+                        >{{ post.title }}</a
+                      >
                     </td>
                     <td hlmTd>
                       <span hlmBadge [variant]="badgeVariant(post.status)">{{ statusLabels[post.status] }}</span>
                     </td>
-                    <td hlmTd>
+                    <td hlmTd class="max-md:hidden">
                       @if (post.publishedAt) {
                         <time [attr.datetime]="post.publishedAt">{{ formatDateTime(post.publishedAt) }}</time>
                       } @else {
                         <span class="text-muted-foreground">Sin publicar</span>
                       }
                     </td>
-                    <td hlmTd>
+                    <td hlmTd class="max-md:hidden">
                       <time [attr.datetime]="post.updatedAt">{{ formatDateTime(post.updatedAt) }}</time>
                     </td>
                     <td hlmTd class="text-right">
@@ -136,7 +160,7 @@ type ListState =
                           [attr.aria-label]="'Archivar «' + post.title + '»'"
                           (click)="askArchive(post)"
                         >
-                          <ng-icon name="lucideArchive" aria-hidden="true" />Archivar
+                          <ng-icon name="lucideArchive" aria-hidden="true" /><span class="max-sm:sr-only">Archivar</span>
                         </button>
                       }
                     </td>

@@ -153,40 +153,43 @@ export interface CommentDecision {
             <ng-icon name="lucideRefreshCw" aria-hidden="true" />{{ busy() === 'analyze' ? 'Analizando…' : 'Volver a analizar' }}
           </button>
         }
-        @if (canReply() && !replying()) {
-          <button hlmBtn variant="outline" size="sm" type="button" [disabled]="busy() !== null" (click)="openReply()">
-            <ng-icon name="lucideReply" aria-hidden="true" />Responder
-          </button>
-        }
-        @switch (item.status) {
-          @case ('pending') {
-            @if (rejectFirst()) {
-              <button hlmBtn variant="outline" size="sm" type="button" [disabled]="busy() !== null" (click)="decide('approve')">
-                <ng-icon name="lucideCheck" aria-hidden="true" />Aprobar de todos modos
-              </button>
-              <button hlmBtn size="sm" type="button" class="reject-button" [disabled]="busy() !== null" (click)="decide('reject')">
-                <ng-icon name="lucideX" aria-hidden="true" />Rechazar
-              </button>
-            } @else {
+        <!-- Las decisiones van juntas: en móvil bajan a otra línea como grupo. -->
+        <div class="ms-auto flex flex-wrap justify-end gap-2">
+          @if (canReply() && !replying()) {
+            <button hlmBtn variant="outline" size="sm" type="button" [disabled]="busy() !== null" (click)="openReply()">
+              <ng-icon name="lucideReply" aria-hidden="true" />Responder
+            </button>
+          }
+          @switch (item.status) {
+            @case ('pending') {
+              @if (rejectFirst()) {
+                <button hlmBtn variant="outline" size="sm" type="button" [disabled]="busy() !== null" (click)="decide('approve')">
+                  <ng-icon name="lucideCheck" aria-hidden="true" />Aprobar de todos modos
+                </button>
+                <button hlmBtn size="sm" type="button" class="reject-button" [disabled]="busy() !== null" (click)="decide('reject')">
+                  <ng-icon name="lucideX" aria-hidden="true" />Rechazar
+                </button>
+              } @else {
+                <button hlmBtn variant="outline" size="sm" type="button" [disabled]="busy() !== null" (click)="decide('reject')">
+                  <ng-icon name="lucideX" aria-hidden="true" />Rechazar
+                </button>
+                <button hlmBtn size="sm" type="button" [disabled]="busy() !== null" (click)="decide('approve')">
+                  <ng-icon name="lucideCheck" aria-hidden="true" />Aprobar y publicar
+                </button>
+              }
+            }
+            @case ('approved') {
               <button hlmBtn variant="outline" size="sm" type="button" [disabled]="busy() !== null" (click)="decide('reject')">
                 <ng-icon name="lucideX" aria-hidden="true" />Rechazar
               </button>
-              <button hlmBtn size="sm" type="button" [disabled]="busy() !== null" (click)="decide('approve')">
-                <ng-icon name="lucideCheck" aria-hidden="true" />Aprobar y publicar
+            }
+            @case ('rejected') {
+              <button hlmBtn variant="outline" size="sm" type="button" [disabled]="busy() !== null" (click)="decide('approve')">
+                <ng-icon name="lucideCheck" aria-hidden="true" />Aprobar
               </button>
             }
           }
-          @case ('approved') {
-            <button hlmBtn variant="outline" size="sm" type="button" [disabled]="busy() !== null" (click)="decide('reject')">
-              <ng-icon name="lucideX" aria-hidden="true" />Rechazar
-            </button>
-          }
-          @case ('rejected') {
-            <button hlmBtn variant="outline" size="sm" type="button" [disabled]="busy() !== null" (click)="decide('approve')">
-              <ng-icon name="lucideCheck" aria-hidden="true" />Aprobar
-            </button>
-          }
-        }
+        </div>
       </div>
     </article>
   `,

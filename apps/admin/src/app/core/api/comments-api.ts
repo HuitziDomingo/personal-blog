@@ -5,6 +5,7 @@ import { catchError, Observable, throwError } from 'rxjs';
 import { API_BASE_URL } from '../config/api-config';
 import { ApiError } from '../http/api-error';
 import { API_PATHS } from '../http/api-url';
+import { ProblemContext } from '../http/problem-messages';
 import { Comment, CommentPage, CommentStatus } from './api-types';
 
 /** Máximos del contrato para la paginación (`Limit` y `Offset` en openapi.yaml). */
@@ -34,7 +35,8 @@ export class CommentsApi {
       params = params.set('status', query.status);
     }
 
-    return this.http.get<CommentPage>(this.baseUrl, { params }).pipe(translate());
+    // Un 503 o un 404 de la lista no son del análisis ni de un comentario.
+    return this.http.get<CommentPage>(this.baseUrl, { params }).pipe(translate('generic'));
   }
 
   approve(id: string): Observable<Comment> {
@@ -61,8 +63,6 @@ export class CommentsApi {
   }
 }
 
-function translate<T>() {
-  return catchError<T, Observable<never>>((error: unknown) =>
-    throwError(() => ApiError.from(error, 'comment')),
-  );
+function translate<T>(context: ProblemContext = 'comment') {
+  return catchError<T, Observable<never>>((error: unknown) => throwError(() => ApiError.from(error, context)));
 }
