@@ -236,6 +236,7 @@ Los valores de producción son los previstos; el despliegue está pendiente (BLO
 | `make mcp-build` | Compila el servidor MCP de solo lectura en `services/api/bin/mcp` (ver «Servidor MCP») |
 | `make api-docker-build` | Construye la imagen `personal-blog-api` |
 | `make generate` | Regenera el código, los tipos y la colección de Bruno del contrato |
+| `make docs-architecture` | Valida `docs/architecture.architecture.json` y regenera `docs/architecture-diagram.html` con archify (ver «Diagrama de arquitectura») |
 | `make db-up` | Levanta MongoDB y espera a que esté sano |
 | `make db-down` | Para MongoDB y conserva los datos |
 | `make db-logs` | Sigue los logs de MongoDB |
@@ -538,6 +539,17 @@ El admin no usa `provideSpartanHlm()`. Solo cambia el default de los overlays de
   - Fallan si se quita DOMPurify o el hook de URLs.
 - **Lint y tipos:** `pnpm --filter @personal-blog/markdown lint` y `pnpm --filter @personal-blog/markdown typecheck`. Es TypeScript estricto (`strict`, `noUncheckedIndexedAccess` y `exactOptionalPropertyTypes`).
 - **CI:** mientras no exista el job `web`, el job `admin` corre el lint, los tipos y los tests del paquete, y su filtro incluye `packages/markdown/**`.
+
+## Diagrama de arquitectura
+
+`docs/architecture-diagram.html` es un diagrama interactivo (claro y oscuro, exportable a PNG o SVG) generado con [archify](https://github.com/tt-a1i/archify), instalado como skill del proyecto en `.claude/skills/archify`.
+
+- **Fuente:** `docs/architecture.architecture.json`. Se edita el JSON y se regenera el HTML con `make docs-architecture`; el HTML nunca se edita a mano.
+- **Versión:** 3.2.0 estable, fijada en `skills-lock.json` (tag, commit y sha256 del zip publicado). Sin dependencias npm: solo usa módulos de Node. No se actualiza sola; subir de versión es un PR propio, con la edad mínima de ADR-013.
+- **Evidencia:** cada componente cita archivos y líneas del repo en `meta.repository.revision`. archify las verifica contra ese commit, así que al cambiar la arquitectura hay que actualizar el JSON, las citas y la revisión (un commit ya en `origin`).
+- **Red:** el target exporta `ARCHIFY_UPDATE_CHECK_DISABLED=1`, que apaga la consulta de actualizaciones a `tt-a1i.github.io`. Ningún otro comando del target usa la red.
+- **Revisión en navegador (opcional):** `ARCHIFY_CHROME=<ruta de Chrome o del Chromium de Playwright> ARCHIFY_UPDATE_CHECK_DISABLED=1 node .claude/skills/archify/bin/archify.mjs finalize architecture docs/architecture.architecture.json docs/architecture-diagram.html --repo-root . --quality showcase --out-dir <carpeta temporal>`.
+- Los recibos `docs/architecture-diagram.*.json` que deja archify están en `.gitignore`.
 
 ## Colección de Bruno
 

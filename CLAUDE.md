@@ -35,6 +35,7 @@ No inventes comandos. Cuando exista uno real, sustituye su TODO.
 - Build del servidor MCP (stdio, solo lectura): `make mcp-build`
 - Build de la imagen Docker de la API: `make api-docker-build`
 - Generar código del contrato y la colección de Bruno: `make generate`
+- Regenerar el diagrama de arquitectura: `make docs-architecture`
 - Ver el contrato en el navegador: `make api-docs`
 - Correr los flujos de Bruno contra la API local: `make api-flows`
 - Levantar el admin: `make admin-dev`

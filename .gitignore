@@ -40,3 +40,6 @@ dist/
 
 # Salidas locales de Claude Code
 Claude outputs/
+
+# Recibos de archify al generar el diagrama
+docs/architecture-diagram.*.json

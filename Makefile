@@ -2,7 +2,7 @@ API_DIR := services/api
 # Swagger UI para ver el contrato en local; fijada por tag y digest.
 SWAGGER_UI_IMAGE := swaggerapi/swagger-ui:v5.33.3@sha256:b26661cd754a7efbb2e1aab419ffb5603320d8f35f0bd086d1d7506e23934d23
 
-.PHONY: web-dev web-lint web-typecheck web-test web-build web-start e2e e2e-clean admin-dev admin-lint admin-test admin-build admin-preview admin-csp-test api-run api-watch api-test api-test-integration api-lint api-build mcp-build api-docker-build api-docs api-flows generate db-up db-down db-logs db-reset
+.PHONY: web-dev web-lint web-typecheck web-test web-build web-start e2e e2e-clean admin-dev admin-lint admin-test admin-build admin-preview admin-csp-test api-run api-watch api-test api-test-integration api-lint api-build mcp-build api-docker-build api-docs api-flows generate db-up db-down db-logs db-reset docs-architecture
 
 api-run:
 	@test -f .env || { echo "Falta .env: copia .env.example a .env"; exit 1; }
@@ -119,3 +119,11 @@ db-reset:
 	read answer; \
 	[ "$$answer" = "borrar" ] || { echo "Cancelado."; exit 1; }
 	docker compose down -v
+
+# Diagrama de arquitectura con archify (.claude/skills/archify, sin dependencias
+# npm). Valida el JSON y regenera el HTML. Sin consulta de actualizaciones.
+ARCHIFY := ARCHIFY_UPDATE_CHECK_DISABLED=1 node .claude/skills/archify/bin/archify.mjs
+docs-architecture:
+	$(ARCHIFY) validate architecture docs/architecture.architecture.json --repo-root . --quality showcase
+	$(ARCHIFY) deliver architecture docs/architecture.architecture.json docs/architecture-diagram.html --repo-root . --quality showcase
+	$(ARCHIFY) check docs/architecture-diagram.html --require-provenance
