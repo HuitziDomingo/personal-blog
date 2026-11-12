@@ -16,6 +16,7 @@ import {
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideCircleAlert } from '@ng-icons/lucide';
+import { renderMarkdown } from '@personal-blog/markdown';
 import { HlmButtonImports } from '@spartan-ng/helm/button';
 import { map, Observable, Subscription } from 'rxjs';
 
@@ -109,8 +110,25 @@ const ACTION_LABELS: Record<AssistantAction, string> = {
           >
             @switch (suggestion.action) {
               @case ('improve') {
-                <h3 id="suggestion-title" class="font-medium">Redacción sugerida</h3>
-                <pre class="font-mono text-xs whitespace-pre-wrap">{{ suggestion.content }}</pre>
+                <div class="flex flex-wrap items-center justify-between gap-2">
+                  <h3 id="suggestion-title" class="font-medium">Redacción sugerida</h3>
+                  <button
+                    hlmBtn
+                    variant="outline"
+                    size="sm"
+                    type="button"
+                    aria-controls="suggestion-body"
+                    (click)="showMarkdown.set(!showMarkdown())"
+                  >
+                    {{ showMarkdown() ? 'Ver vista previa' : 'Ver Markdown' }}
+                  </button>
+                </div>
+                @if (showMarkdown()) {
+                  <pre id="suggestion-body" class="font-mono text-xs whitespace-pre-wrap">{{ suggestion.content }}</pre>
+                } @else {
+                  <!-- Sanitizado con la allowlist de @personal-blog/markdown, como la vista previa del editor. -->
+                  <div id="suggestion-body" class="markdown-body" data-testid="suggestion-preview" [innerHTML]="suggestionHtml()"></div>
+                }
                 <p class="assistant-muted">Aplicar reemplaza el contenido completo; podrás deshacerlo.</p>
               }
               @case ('metadata') {
@@ -164,6 +182,12 @@ export class AssistantPanel {
   protected readonly labels = ACTION_LABELS;
   protected readonly state = signal<PanelState>({ kind: 'idle' });
   protected readonly announcement = signal('');
+  /** La redacción sugerida se ve renderizada; este botón muestra su Markdown. */
+  protected readonly showMarkdown = signal(false);
+  protected readonly suggestionHtml = computed(() => {
+    const suggestion = this.currentSuggestion();
+    return suggestion?.action === 'improve' ? renderMarkdown(suggestion.content) : '';
+  });
   /** Contenido anterior a la última redacción aplicada, para deshacerla. */
   private readonly undoContent = signal<string | null>(null);
   private readonly appliedContent = signal<string | null>(null);
@@ -201,6 +225,7 @@ export class AssistantPanel {
 
     this.pending = suggestion$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: (suggestion) => {
+        this.showMarkdown.set(false);
         this.state.set({ kind: 'ready', suggestion });
         this.announcement.set('Sugerencia lista.');
         // El foco pasa a la sugerencia, que acaba de aparecer.

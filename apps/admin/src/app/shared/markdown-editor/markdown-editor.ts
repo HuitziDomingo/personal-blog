@@ -90,7 +90,7 @@ type EditorState = 'loading' | 'ready' | 'error';
           <ng-icon name="lucideEye" size="1rem" aria-hidden="true" />Vista previa
         </h2>
         <div
-          class="preview min-h-96 overflow-auto rounded-lg border p-4 text-sm"
+          class="preview markdown-body min-h-96 overflow-auto rounded-lg border p-4 text-sm"
           [innerHTML]="html()"
         ></div>
       </section>

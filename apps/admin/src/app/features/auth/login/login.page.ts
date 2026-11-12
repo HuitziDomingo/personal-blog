@@ -34,11 +34,12 @@ import { SessionService } from '../../../core/session/session.service';
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'flex min-h-dvh items-center justify-center p-4' },
+  styleUrl: './login.page.css',
   template: `
-    <section hlmCard class="w-full max-w-sm">
+    <section hlmCard class="login-panel w-full max-w-sm">
       <div hlmCardHeader>
         <h1 hlmCardTitle>Iniciar sesión</h1>
-        <p hlmCardDescription>Panel de administración de huitzi.xyz</p>
+        <p hlmCardDescription class="login-muted">Panel de administración de huitzi.xyz</p>
       </div>
 
       <form hlmCardContent [formGroup]="form" (ngSubmit)="submit()" novalidate>
@@ -46,8 +47,8 @@ import { SessionService } from '../../../core/session/session.service';
           <div hlmField>
             <label hlmFieldLabel for="email">Email</label>
             <input hlmInput id="email" type="email" autocomplete="username" formControlName="email" />
-            <hlm-field-error validator="required">Escribe tu email.</hlm-field-error>
-            <hlm-field-error validator="email">El email no es válido.</hlm-field-error>
+            <hlm-field-error class="login-error" validator="required">Escribe tu email.</hlm-field-error>
+            <hlm-field-error class="login-error" validator="email">El email no es válido.</hlm-field-error>
           </div>
 
           <div hlmField>
@@ -59,11 +60,11 @@ import { SessionService } from '../../../core/session/session.service';
               autocomplete="current-password"
               formControlName="password"
             />
-            <hlm-field-error validator="required">Escribe tu contraseña.</hlm-field-error>
+            <hlm-field-error class="login-error" validator="required">Escribe tu contraseña.</hlm-field-error>
           </div>
 
           @if (errorMessage(); as message) {
-            <p role="alert" class="text-destructive text-sm">{{ message }}</p>
+            <p role="alert" class="login-error text-sm">{{ message }}</p>
           }
 
           <button hlmBtn type="submit" class="w-full" [disabled]="pending()">Entrar</button>
