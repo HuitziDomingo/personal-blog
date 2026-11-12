@@ -121,7 +121,7 @@ export interface paths {
         };
         /**
          * Lista los comentarios aprobados de un post.
-         * @description Solo los comentarios aprobados de un post publicado, del más antiguo al más reciente, sin datos de moderación. Una respuesta tiene `parentId`.
+         * @description Solo los comentarios aprobados de un post publicado, del más antiguo al más reciente, sin datos de moderación. Una respuesta tiene `parentId` y solo aparece si su comentario padre está aprobado; `total` cuenta lo mismo que se lista.
          */
         get: operations["listPostComments"];
         put?: never;

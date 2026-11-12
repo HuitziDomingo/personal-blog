@@ -130,7 +130,14 @@ func (s *CommentService) ListApproved(ctx context.Context, slug string, limit, o
 		return CommentPage{}, fmt.Errorf("list approved comments: %w", err)
 	}
 
-	return s.list(ctx, domain.CommentFilter{PostID: post.ID, Status: domain.CommentStatusApproved, Limit: limit, Offset: offset})
+	// Una respuesta cuyo padre se rechazó después no se muestra sola (BLOG-103).
+	return s.list(ctx, domain.CommentFilter{
+		PostID:              post.ID,
+		Status:              domain.CommentStatusApproved,
+		ApprovedParentsOnly: true,
+		Limit:               limit,
+		Offset:              offset,
+	})
 }
 
 // List devuelve los comentarios de todos los posts para moderar. Un status

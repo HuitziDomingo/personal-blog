@@ -667,7 +667,7 @@ ADR-022. Los lectores comentan los posts publicados sin cuenta, y nada se public
 
 - **Públicas:**
   - `POST /api/v1/posts/{slug}/comments` recibe `{ "name", "content", "parentId"?, "website"? }`: nombre de 1 a 50 caracteres y contenido de 1 a 2000, solo texto. Responde siempre 202 `{ "status": "pending" }`, sin revelar el análisis. `website` es el campo trampa: la web lo oculta, y si llega con valor el comentario se descarta en silencio con la misma respuesta. `parentId` responde a un comentario aprobado del mismo post que no sea una respuesta (un solo nivel); si no, 400.
-  - `GET /api/v1/posts/{slug}/comments` devuelve los aprobados, del más antiguo al más reciente, paginados y sin datos de moderación.
+  - `GET /api/v1/posts/{slug}/comments` devuelve los aprobados, del más antiguo al más reciente, paginados y sin datos de moderación. Una respuesta solo aparece si su padre está aprobado: si León rechaza el padre después de responderle, la respuesta deja de mostrarse (BLOG-103). El filtro está en el repositorio (`ApprovedParentsOnly`), antes del conteo, así que `total` y la paginación cuentan lo mismo. La web conserva su propio filtro como defensa extra.
 - **Admin:**
   - `GET /api/v1/admin/comments?status=` es la cola, de todos los posts. Cada comentario lleva `postTitle` y `postSlug`, los actuales del post, que no se guardan con el comentario.
   - `POST /api/v1/admin/comments/{id}/approve` y `/reject` deciden. Un rechazado se borra a los 30 días con un índice TTL sobre `rejected_at`; aprobarlo antes lo conserva.

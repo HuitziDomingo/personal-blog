@@ -156,8 +156,12 @@ type Comment struct {
 type CommentFilter struct {
 	PostID string
 	Status CommentStatus
-	Limit  int
-	Offset int
+	// ApprovedParentsOnly deja fuera las respuestas cuyo padre no está
+	// aprobado (pendiente, rechazado o borrado). total cuenta lo mismo que se
+	// pagina.
+	ApprovedParentsOnly bool
+	Limit               int
+	Offset              int
 }
 
 // CommentRepository es el puerto de persistencia de comentarios.
