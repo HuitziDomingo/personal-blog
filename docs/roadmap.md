@@ -103,6 +103,7 @@
 - [x] BLOG-096: Portafolio bilingüe (ADR-024): inicio, «Acerca de mí» y trabajos en español e inglés, dos layouts raíz con su `lang`, selector ES/EN, SEO con `hreflang` y sitemap, y los textos aprobados por León. ([#104](https://github.com/HuitziDomingo/personal-blog/pull/104))
 - [x] BLOG-100: Dependabot agrupa `@ng-icons/*` también en los majors e ignora los majors de `typescript`, sin soporte oficial de Angular 22. ([#103](https://github.com/HuitziDomingo/personal-blog/pull/103))
 - [x] BLOG-101: Diagrama de arquitectura con archify 3.2.0 como skill del proyecto, generado desde `docs/architecture.architecture.json` con `make docs-architecture`. ([#109](https://github.com/HuitziDomingo/personal-blog/pull/109))
+- [x] BLOG-105: Borrador en inglés de los 38 textos del portafolio que faltaban, sin el link de Discord, con una captura del inicio como imagen de huitzi.xyz y la sección «Trayectoria» / «Experience». ([#114](https://github.com/HuitziDomingo/personal-blog/pull/114))
 
 ## Fase futura (fuera del MVP)
 
