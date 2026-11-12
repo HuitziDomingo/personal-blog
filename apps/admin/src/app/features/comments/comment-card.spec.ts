@@ -121,9 +121,22 @@ describe('CommentCard', () => {
     expect(screen.getByRole('alert').textContent).toContain('La moderación con IA está desactivada');
   });
 
-  it('solo se responde a comentarios aprobados que no son respuesta ni del autor', async () => {
-    await renderCard(aComment({ status: 'pending' }));
+  it.each(['pending', 'rejected'] as const)('un comentario %s no se responde', async (status) => {
+    await renderCard(aComment({ status }));
+
     expect(screen.queryByRole('button', { name: 'Responder' })).toBeNull();
+  });
+
+  it('una respuesta de un lector, aunque esté aprobada, no se responde (un nivel)', async () => {
+    await renderCard(aComment({ status: 'approved', parentId: 'c0' }));
+
+    expect(screen.queryByRole('button', { name: 'Responder' })).toBeNull();
+  });
+
+  it('un comentario aprobado de primer nivel sí se responde', async () => {
+    await renderCard(aComment({ status: 'approved' }));
+
+    expect(screen.getByRole('button', { name: 'Responder' })).toBeTruthy();
   });
 
   it('las respuestas del autor no se analizan ni se responden', async () => {

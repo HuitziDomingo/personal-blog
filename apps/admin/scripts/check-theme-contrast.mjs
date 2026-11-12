@@ -167,6 +167,7 @@ export function checks({ vars }) {
       const fg = color(`--verdict-${tone}`);
       return { pair: `Veredicto ${tone} sobre su tinte (verdict-${tone} / 12 % sobre panel)`, ratio: contrast(fg, composite(fg, VERDICT_TINT, color('--panel'))), min: TEXT };
     }),
+    { pair: 'Error sobre el panel: login y tarjeta de la cola (verdict-reject / panel)', ratio: contrast(color('--verdict-reject'), color('--panel')), min: TEXT },
     { pair: 'Botón Rechazar (panel / verdict-reject)', ratio: contrast(color('--panel'), color('--verdict-reject')), min: TEXT },
     { pair: 'Borde de revisión humana (verdict-review / panel)', ratio: contrast(color('--verdict-review'), color('--panel')), min: NON_TEXT },
   ];

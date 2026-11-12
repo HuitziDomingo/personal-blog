@@ -96,6 +96,44 @@ describe('AssistantPanel', () => {
     await waitFor(() => expect(document.activeElement).toBe(improve));
   });
 
+  it('muestra la redacción renderizada y sanitizada, y alterna con su Markdown', async () => {
+    const { assistant, fixture } = await renderPanel();
+    const markdown = '## Mejor\n\nTexto con **énfasis**.\n\n<script>alert(1)</script><img src="x" onerror="alert(1)">';
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Mejorar redacción' }));
+    assistant.improve.next(markdown);
+    fixture.detectChanges();
+
+    const preview = screen.getByTestId('suggestion-preview');
+    expect(preview.querySelector('h2')?.textContent).toBe('Mejor');
+    expect(preview.querySelector('strong')?.textContent).toBe('énfasis');
+    expect(preview.querySelector('script')).toBeNull();
+    expect(preview.innerHTML).not.toContain('onerror');
+    expect(preview.innerHTML).not.toContain('alert(1)');
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Ver Markdown' }));
+    expect(screen.queryByTestId('suggestion-preview')).toBeNull();
+    expect(screen.getByText(/## Mejor/).tagName).toBe('PRE');
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Ver vista previa' }));
+    expect(screen.getByTestId('suggestion-preview')).toBeTruthy();
+  });
+
+  it('cada sugerencia nueva empieza en la vista previa', async () => {
+    const { assistant, fixture } = await renderPanel();
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Mejorar redacción' }));
+    assistant.improve.next('## Uno');
+    fixture.detectChanges();
+    await fireEvent.click(screen.getByRole('button', { name: 'Ver Markdown' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Descartar' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Mejorar redacción' }));
+    assistant.improve.next('## Dos');
+    fixture.detectChanges();
+
+    expect(screen.getByTestId('suggestion-preview').querySelector('h2')?.textContent).toBe('Dos');
+  });
+
   it('deshace la redacción aplicada, pero no después de editarla', async () => {
     const { assistant, host, fixture } = await renderPanel();
 

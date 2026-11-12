@@ -47,19 +47,4 @@ app-markdown-editor .preview {
     0 16px 40px -12px rgb(0 0 0 / 0.65);
 }
 
-/* Vista previa: los mismos estilos que antes, ahora sin encapsulación. */
-app-markdown-editor .preview :where(h1, h2, h3, h4, h5, h6) { font-weight: 600; margin: 1em 0 0.5em; }
-app-markdown-editor .preview h1 { font-size: 1.5rem; }
-app-markdown-editor .preview h2 { font-size: 1.25rem; }
-app-markdown-editor .preview h3 { font-size: 1.125rem; }
-app-markdown-editor .preview :where(p, ul, ol, pre, blockquote, table) { margin: 0 0 0.75em; }
-app-markdown-editor .preview :where(ul, ol) { padding-left: 1.5em; }
-app-markdown-editor .preview ul { list-style: disc; }
-app-markdown-editor .preview ol { list-style: decimal; }
-app-markdown-editor .preview a { text-decoration: underline; }
-app-markdown-editor .preview code { font-family: var(--font-mono, monospace); background: var(--panel-code); padding: 0 0.25em; border-radius: 0.25rem; }
-app-markdown-editor .preview pre { background: var(--panel-code); padding: 0.75em; border-radius: 0.375rem; overflow-x: auto; }
-app-markdown-editor .preview pre code { padding: 0; background: none; }
-app-markdown-editor .preview blockquote { border-left: 3px solid var(--border); padding-left: 0.75em; color: var(--panel-muted-foreground); }
-app-markdown-editor .preview img { max-width: 100%; }
-app-markdown-editor .preview :where(th, td) { border: 1px solid color-mix(in oklab, var(--panel-foreground) 14%, transparent); padding: 0.25em 0.5em; }
+/* La tipografía del Markdown renderizado vive en styles.css (.markdown-body). */

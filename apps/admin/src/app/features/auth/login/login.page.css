@@ -1,0 +1,33 @@
+/*
+ * Tarjeta del login: el mismo panel elevado con brillo glass que la vista
+ * previa del editor, las tarjetas de la cola y el panel del asistente (--panel
+ * en styles.css). El borde va en la sombra porque box-shadow reemplaza al ring
+ * de hlmCard. El texto secundario y los errores usan los tokens que
+ * scripts/check-theme-contrast.mjs mide sobre --panel: muted-foreground y
+ * destructive no cumplen AA sobre él.
+ */
+.login-panel {
+  background: var(--panel);
+  color: var(--panel-foreground);
+  box-shadow:
+    0 0 0 1px color-mix(in oklab, var(--panel-foreground) 14%, transparent),
+    inset 0 1px 0 color-mix(in oklab, white 55%, transparent),
+    0 1px 2px rgb(0 0 0 / 0.06),
+    0 12px 32px -12px rgb(0 0 0 / 0.22);
+}
+
+:host-context(.dark) .login-panel {
+  box-shadow:
+    0 0 0 1px color-mix(in oklab, var(--panel-foreground) 14%, transparent),
+    inset 0 1px 0 color-mix(in oklab, white 8%, transparent),
+    0 1px 2px rgb(0 0 0 / 0.4),
+    0 16px 40px -12px rgb(0 0 0 / 0.65);
+}
+
+.login-muted {
+  color: var(--panel-muted-foreground);
+}
+
+.login-error {
+  color: var(--verdict-reject);
+}
