@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import { ApiUnavailableError, createPostsApi, type ApiDeps, type PostPage } from './api';
+import { ApiUnavailableError, createPostsApi, MAX_CONCURRENT_REQUESTS, type ApiDeps, type PostPage } from './api';
+import { createLimiter } from './concurrency';
 
 const BASE = 'http://api.test';
 
@@ -35,6 +36,7 @@ class FakeApi {
         return Promise.resolve();
       },
       fetch: (url) => Promise.resolve(this.respond(url)),
+      limit: (task) => task(),
       ...overrides,
     };
   }
@@ -131,12 +133,16 @@ describe('429 durante el build', () => {
     expect(api.sleeps).toEqual([7000, 1000]);
   });
 
-  it('se rinde tras 3 reintentos, y nunca espera más de 10 s', async () => {
+  it('se rinde tras 2 reintentos con ApiUnavailableError, y nunca espera más de 10 s', async () => {
     const api = new FakeApi();
     api.forced.set('/api/v1/posts', [429, 429, 429, 429].map((code) => status(code, { 'Retry-After': '3600' })));
 
-    await expect(createPostsApi(api.deps({ isBuild: true })).listPublished()).rejects.toMatchObject({ status: 429 });
-    expect(api.sleeps).toEqual([10_000, 10_000, 10_000]);
+    const result = createPostsApi(api.deps({ isBuild: true })).listPublished();
+
+    await expect(result).rejects.toBeInstanceOf(ApiUnavailableError);
+    await expect(result).rejects.toMatchObject({ status: 429 });
+    expect(api.calls).toHaveLength(3);
+    expect(api.sleeps).toEqual([10_000, 10_000]);
   });
 
   it('fuera del build no espera: lanza y Next conserva la página anterior', async () => {
@@ -187,5 +193,47 @@ describe('sin API (WEB_SKIP_API=1, build del CI)', () => {
     expect(await posts.publishedSummaries()).toEqual([]);
     expect(await posts.getPublished('hola-mundo')).toBeNull();
     expect(api.calls).toEqual([]);
+  });
+});
+
+describe('concurrencia (BLOG-104)', () => {
+  it(`nunca hay más de ${String(MAX_CONCURRENT_REQUESTS)} peticiones en vuelo`, async () => {
+    const api = new FakeApi();
+    api.published = Array.from({ length: 12 }, (_, i) => `post-${String(i)}`);
+    let inFlight = 0;
+    let peak = 0;
+    const deps = api.deps({
+      limit: createLimiter(MAX_CONCURRENT_REQUESTS),
+      fetch: async (url) => {
+        inFlight++;
+        peak = Math.max(peak, inFlight);
+        await new Promise((resolve) => setTimeout(resolve, 1));
+        inFlight--;
+        return Response.json({ items: [], total: 0, limit: 100, offset: 0, url: url.pathname });
+      },
+    });
+    const client = createPostsApi(deps);
+
+    await Promise.all(api.published.map((slug) => client.approvedComments(slug)));
+
+    expect(MAX_CONCURRENT_REQUESTS).toBe(4);
+    expect(peak).toBe(MAX_CONCURRENT_REQUESTS);
+  });
+
+  it('la espera de un 429 no ocupa un turno', async () => {
+    const api = new FakeApi();
+    const limit = createLimiter(1);
+    let releaseSleep!: () => void;
+    const sleeping = new Promise<void>((resolve) => (releaseSleep = resolve));
+    api.forced.set('/api/v1/posts', [status(429, { 'Retry-After': '1' })]);
+    const deps = api.deps({ isBuild: true, limit, sleep: () => sleeping });
+
+    const first = createPostsApi(deps).listPublished();
+    // Con el primero esperando el Retry-After, otra petición entra con el único turno.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    await expect(createPostsApi(deps).getPublished('hola-mundo')).resolves.toMatchObject({ slug: 'hola-mundo' });
+
+    releaseSleep();
+    await expect(first).resolves.toMatchObject({ total: 1 });
   });
 });
