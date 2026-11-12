@@ -19,6 +19,18 @@ describe('CSP de ADR-017, punto 4', () => {
   it("'unsafe-eval' nunca en producción", () => {
     expect(contentSecurityPolicy(false)).not.toContain('unsafe-eval');
   });
+
+  it('sin comentarios no hay connect-src: cae en default-src', () => {
+    expect(contentSecurityPolicy(false)).not.toContain('connect-src');
+  });
+
+  it('con comentarios, connect-src agrega solo la API (ADR-022, punto 8)', () => {
+    const csp = contentSecurityPolicy(false, 'https://api.huitzi.xyz');
+
+    expect(csp).toContain("connect-src 'self' https://api.huitzi.xyz;");
+    // Lo demás no cambia.
+    expect(csp.replace(" connect-src 'self' https://api.huitzi.xyz;", '')).toBe(contentSecurityPolicy(false));
+  });
 });
 
 it('cabeceras', () => {

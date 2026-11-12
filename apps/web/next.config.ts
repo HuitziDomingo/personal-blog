@@ -2,6 +2,7 @@ import path from 'node:path';
 
 import type { NextConfig } from 'next';
 
+import { commentsApiOrigin } from './lib/config';
 import { securityHeaders } from './lib/security-headers';
 
 const isDev = process.env.NODE_ENV === 'development';
@@ -31,7 +32,8 @@ const nextConfig: NextConfig = {
       { source: '/posts/:slug', destination: '/blog/:slug', permanent: true },
     ]),
   // CSP y cabeceras de ADR-017, punto 4, en todas las rutas.
-  headers: () => Promise.resolve([{ source: '/:path*', headers: securityHeaders(isDev) }]),
+  // Con comentarios, connect-src agrega la API (ADR-022, punto 8).
+  headers: () => Promise.resolve([{ source: '/:path*', headers: securityHeaders(isDev, commentsApiOrigin()) }]),
 };
 
 export default nextConfig;

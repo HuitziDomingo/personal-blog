@@ -6,6 +6,8 @@ import { isValidSlug } from './slug';
 export type Post = components['schemas']['Post'];
 export type PostPage = components['schemas']['PostPage'];
 export type PostSummary = components['schemas']['PostSummary'];
+export type PublicComment = components['schemas']['PublicComment'];
+export type PublicCommentPage = components['schemas']['PublicCommentPage'];
 
 /** Máximo de `limit` en el contrato. */
 const MAX_LIMIT = 100;
@@ -44,6 +46,7 @@ export interface PostsApi {
   publishedSummaries(): Promise<PostSummary[]>;
   publishedSlugs(): Promise<string[]>;
   getPublished(slug: string): Promise<Post | null>;
+  approvedComments(slug: string): Promise<PublicCommentPage>;
 }
 
 function retryAfterMs(response: Response): number {
@@ -138,7 +141,22 @@ export function createPostsApi(deps: ApiDeps): PostsApi {
     return get<Post>(`/api/v1/posts/${slug}`);
   }
 
-  return { listPublished, publishedSummaries, publishedSlugs, getPublished };
+  /**
+   * Los comentarios aprobados de un post publicado (ADR-022, punto 6), con la
+   * misma caché de Next que el post. Una sola página de 100: más que eso en un
+   * post es improbable, y el total permite decir cuántos quedan fuera. Un 404
+   * (post no publicado) da una página vacía.
+   */
+  async function approvedComments(slug: string): Promise<PublicCommentPage> {
+    const empty: PublicCommentPage = { items: [], total: 0, limit: MAX_LIMIT, offset: 0 };
+    if (!isValidSlug(slug) || deps.baseUrl === null) {
+      return empty;
+    }
+
+    return (await get<PublicCommentPage>(`/api/v1/posts/${slug}/comments`, { limit: MAX_LIMIT, offset: 0 })) ?? empty;
+  }
+
+  return { listPublished, publishedSummaries, publishedSlugs, getPublished, approvedComments };
 }
 
 /** El cliente de la app, con fetch y la configuración del entorno. */

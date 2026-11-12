@@ -1,7 +1,8 @@
 import type { MetadataRoute } from 'next';
 
 import { postsApi } from '@/lib/api';
-import { siteUrl } from '@/lib/config';
+import { RULES_PATH } from '@/components/comments/rules-path';
+import { commentsEnabled, siteUrl } from '@/lib/config';
 import { sitemapEntries } from '@/lib/seo';
 import { works } from '@/lib/site';
 
@@ -16,5 +17,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     siteUrl(),
     works.map((work) => work.id),
     posts,
+    commentsEnabled() ? RULES_PATH : undefined,
   );
 }
