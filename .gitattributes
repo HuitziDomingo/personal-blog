@@ -1,0 +1,3 @@
+# Skill de terceros (archify, BLOG-101): código vendorizado, fuera de las
+# estadísticas de lenguajes de GitHub y de las revisiones.
+.claude/skills/archify/** linguist-vendored

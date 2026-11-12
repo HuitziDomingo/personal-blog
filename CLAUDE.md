@@ -56,6 +56,7 @@ No inventes comandos. Cuando exista uno real, sustituye su TODO.
 - Nunca hagas push a `main`.
 - Si un PR agrega o cambia un comando, actualiza `docs/development.md` en el mismo PR.
 - Si un PR cambia algo que README.md describe (estructura, estado, cómo empezar), actualízalo en el mismo PR.
+- Si un PR cambia la arquitectura (un componente, un adaptador o una dependencia entre partes), actualiza `docs/architecture.architecture.json` y corre `make docs-architecture` en el mismo PR.
 - Merge solo con CI verde; el check obligatorio es `ci`. El merge lo hace León, no Claude:
 
   ```sh
