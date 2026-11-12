@@ -105,6 +105,7 @@
 - [x] BLOG-101: Diagrama de arquitectura con archify 3.2.0 como skill del proyecto, generado desde `docs/architecture.architecture.json` con `make docs-architecture`. ([#109](https://github.com/HuitziDomingo/personal-blog/pull/109))
 - [x] BLOG-104: El cliente de la API de la web hace como mucho 4 peticiones a la vez por proceso, y en el build reintenta un 429 hasta 2 veces respetando `Retry-After`. ([#111](https://github.com/HuitziDomingo/personal-blog/pull/111))
 - [x] BLOG-102: Moderación con `gemini-3.6-flash` por defecto (sin caer a `GEMINI_MODEL`), límite de salida propio (`COMMENTS_MODERATION_MAX_OUTPUT_TOKENS`, 512) y `make api-moderation-samples` para correr el set de ejemplos contra Gemini real. ([#113](https://github.com/HuitziDomingo/personal-blog/pull/113))
+- [x] BLOG-105: Borrador en inglés de los 38 textos del portafolio que faltaban, sin el link de Discord, con una captura del inicio como imagen de huitzi.xyz y la sección «Trayectoria» / «Experience». ([#114](https://github.com/HuitziDomingo/personal-blog/pull/114))
 
 ## Fase futura (fuera del MVP)
 
