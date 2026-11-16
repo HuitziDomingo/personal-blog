@@ -106,6 +106,7 @@
 - [x] BLOG-104: El cliente de la API de la web hace como mucho 4 peticiones a la vez por proceso, y en el build reintenta un 429 hasta 2 veces respetando `Retry-After`. ([#111](https://github.com/HuitziDomingo/personal-blog/pull/111))
 - [x] BLOG-102: Moderación con `gemini-3.6-flash` por defecto (sin caer a `GEMINI_MODEL`), límite de salida propio (`COMMENTS_MODERATION_MAX_OUTPUT_TOKENS`, 512) y `make api-moderation-samples` para correr el set de ejemplos contra Gemini real. ([#113](https://github.com/HuitziDomingo/personal-blog/pull/113))
 - [x] BLOG-105: Borrador en inglés de los 38 textos del portafolio que faltaban, sin el link de Discord, con una captura del inicio como imagen de huitzi.xyz y la sección «Trayectoria» / «Experience». ([#114](https://github.com/HuitziDomingo/personal-blog/pull/114))
+- [x] BLOG-109: El job `admin` del CI desactiva la restricción de AppArmor a los user namespaces sin privilegios antes del paso `csp`, para que Chrome headless arranque con sandbox en ubuntu-24.04. ([#117](https://github.com/HuitziDomingo/personal-blog/pull/117))
 
 ## Fase futura (fuera del MVP)
 

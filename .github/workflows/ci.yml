@@ -165,20 +165,18 @@ jobs:
       # Ubuntu: falla si un <img onerror> o un link javascript: inyectados se
       # ejecutan (ADR-012, punto 7). Es lo mismo que make admin-csp-test, sin
       # repetir el build.
-      - name: diagnose userns (temporary)
-        run: |
-          sysctl kernel.apparmor_restrict_unprivileged_userns || true
-          google-chrome --version || true
-          unshare --user --map-root-user true && echo "userns OK" || echo "userns BLOCKED"
+      # Las imágenes de ubuntu-24.04 activan la restricción de AppArmor a los
+      # user namespaces sin privilegios, y el sandbox de Chrome los necesita:
+      # sin ella Chrome headless no arranca y el paso csp se corta por timeout.
+      # Se relaja solo en este runner efímero, en vez de quitar el sandbox con
+      # --no-sandbox, que haría la prueba menos fiel al navegador real.
+      - name: allow unprivileged user namespaces for Chrome
+        run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
 
       - name: csp
         working-directory: apps/admin
         timeout-minutes: 5
         run: node scripts/check-csp-browser.mjs
-
-      - name: apparmor denials (temporary)
-        if: failure()
-        run: sudo dmesg | grep -i -E 'apparmor|userns' | tail -20 || true
 
   # ADR-017, punto 7. Construye sin API (WEB_SKIP_API=1): las páginas salen
   # vacías y los posts se generan en su primera visita; en Vercel el build sí
