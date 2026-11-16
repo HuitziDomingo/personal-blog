@@ -165,6 +165,14 @@ jobs:
       # Ubuntu: falla si un <img onerror> o un link javascript: inyectados se
       # ejecutan (ADR-012, punto 7). Es lo mismo que make admin-csp-test, sin
       # repetir el build.
+      # Las imágenes de ubuntu-24.04 activan la restricción de AppArmor a los
+      # user namespaces sin privilegios, y el sandbox de Chrome los necesita:
+      # sin ella Chrome headless no arranca y el paso csp se corta por timeout.
+      # Se relaja solo en este runner efímero, en vez de quitar el sandbox con
+      # --no-sandbox, que haría la prueba menos fiel al navegador real.
+      - name: allow unprivileged user namespaces for Chrome
+        run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+
       - name: csp
         working-directory: apps/admin
         timeout-minutes: 5
