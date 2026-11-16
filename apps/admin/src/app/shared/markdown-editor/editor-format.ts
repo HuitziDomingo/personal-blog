@@ -4,9 +4,9 @@
  * carga con `import()` (ADR-018, punto 4).
  */
 export const FORMAT_ACTIONS = [
-  'heading1',
   'heading2',
   'heading3',
+  'heading4',
   'bold',
   'italic',
   'inlineCode',

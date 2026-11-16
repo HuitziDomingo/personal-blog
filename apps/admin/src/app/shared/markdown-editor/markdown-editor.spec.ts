@@ -180,13 +180,13 @@ describe('MarkdownEditor', () => {
       expect(toolbar().getAttribute('aria-controls')).toBe(editor.id);
       expect(
         within(toolbar()).getAllByRole('button').map((b) => b.getAttribute('aria-label')),
-      ).toEqual(['Título 1', 'Título 2', 'Título 3', 'Negritas', 'Cursivas', 'Código', 'Lista con viñetas', 'Lista numerada', 'Cita', 'Bloque de código', 'Link']);
+      ).toEqual(['Título 2', 'Título 3', 'Título 4', 'Negritas', 'Cursivas', 'Código', 'Lista con viñetas', 'Lista numerada', 'Cita', 'Bloque de código', 'Link']);
     });
 
     it.each([
-      ['Título 1', 'texto', '# texto\n'],
       ['Título 2', 'texto', '## texto\n'],
       ['Título 3', 'texto', '### texto\n'],
+      ['Título 4', 'texto', '#### texto\n'],
       ['Negritas', 'texto', '**texto**\n'],
       ['Cursivas', 'texto', '*texto*\n'],
       ['Código', 'texto', '`texto`\n'],
@@ -196,6 +196,11 @@ describe('MarkdownEditor', () => {
       ['Bloque de código', 'texto', '```\ntexto\n```\n'],
       // Aplicado otra vez, se quita.
       ['Título 2', '## texto', 'texto\n'],
+      ['Título 3', '### texto', 'texto\n'],
+      ['Título 4', '#### texto', 'texto\n'],
+      // Sobre un título de otro nivel, incluido un H1 pegado, cambia el nivel.
+      ['Título 2', '# texto', '## texto\n'],
+      ['Título 4', '## texto', '#### texto\n'],
       ['Negritas', '**texto**', 'texto\n'],
       ['Lista con viñetas', '* texto', 'texto\n'],
       ['Cita', '> texto', 'texto\n'],
@@ -229,7 +234,8 @@ describe('MarkdownEditor', () => {
 
       expect(button('Negritas').getAttribute('aria-pressed')).toBe('true');
       expect(button('Título 2').getAttribute('aria-pressed')).toBe('true');
-      expect(button('Título 1').getAttribute('aria-pressed')).toBe('false');
+      expect(button('Título 3').getAttribute('aria-pressed')).toBe('false');
+      expect(button('Título 4').getAttribute('aria-pressed')).toBe('false');
       expect(button('Cursivas').getAttribute('aria-pressed')).toBe('false');
     });
 
@@ -237,21 +243,21 @@ describe('MarkdownEditor', () => {
       const { fixture } = await render(MarkdownEditor, { providers: [themeLoaded], inputs: { value: '' } });
       const editor = await editable();
       const tabbable = () => within(toolbar()).getAllByRole('button').filter((b) => b.getAttribute('tabindex') === '0');
-      expect(tabbable().map((b) => b.getAttribute('aria-label'))).toEqual(['Título 1']);
+      expect(tabbable().map((b) => b.getAttribute('aria-label'))).toEqual(['Título 2']);
 
-      button('Título 1').focus();
+      button('Título 2').focus();
       await fireEvent.keyDown(document.activeElement!, { key: 'ArrowRight' });
-      expect(document.activeElement).toBe(button('Título 2'));
+      expect(document.activeElement).toBe(button('Título 3'));
       await fireEvent.keyDown(document.activeElement!, { key: 'End' });
       expect(document.activeElement).toBe(button('Link'));
       await fireEvent.keyDown(document.activeElement!, { key: 'ArrowRight' });
-      expect(document.activeElement).toBe(button('Título 1'));
+      expect(document.activeElement).toBe(button('Título 2'));
       await fireEvent.keyDown(document.activeElement!, { key: 'ArrowLeft' });
       expect(document.activeElement).toBe(button('Link'));
       fixture.detectChanges();
       expect(tabbable().map((b) => b.getAttribute('aria-label'))).toEqual(['Link']);
       await fireEvent.keyDown(document.activeElement!, { key: 'Home' });
-      expect(document.activeElement).toBe(button('Título 1'));
+      expect(document.activeElement).toBe(button('Título 2'));
 
       await fireEvent.keyDown(document.activeElement!, { key: 'Escape' });
       expect(document.activeElement).toBe(editor);

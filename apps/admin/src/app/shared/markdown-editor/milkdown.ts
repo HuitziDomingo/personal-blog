@@ -263,9 +263,9 @@ function formatOf(ctx: Ctx, state: EditorState): FormatState {
   const blockquote = blockquoteDepth(ctx, state) > 0;
 
   return {
-    heading1: level === 1,
     heading2: level === 2,
     heading3: level === 3,
+    heading4: level === 4,
     bold: hasMark(state, strongSchema.type(ctx)),
     italic: hasMark(state, emphasisSchema.type(ctx)),
     inlineCode: hasMark(state, inlineCodeSchema.type(ctx)),
@@ -292,9 +292,9 @@ function applyFormat(ctx: Ctx, action: FormatAction): void {
     commands.call(setBlockTypeCommand.key, { nodeType, attrs });
 
   switch (action) {
-    case 'heading1':
     case 'heading2':
     case 'heading3':
+    case 'heading4':
       if (active) {
         setBlock();
       } else {

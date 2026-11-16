@@ -20,9 +20,9 @@ import {
   lucideBold,
   lucideCode,
   lucideEye,
-  lucideHeading1,
   lucideHeading2,
   lucideHeading3,
+  lucideHeading4,
   lucideItalic,
   lucideLink,
   lucideList,
@@ -52,12 +52,15 @@ interface ToolbarButton {
   readonly icon: string;
 }
 
-/** Botones de la barra de herramientas, por grupos (BLOG-108). */
+/**
+ * Botones de la barra de herramientas, por grupos (BLOG-108). Los títulos van
+ * del 2 al 4 porque el título del post ya es el H1 de la página.
+ */
 const TOOLBAR_GROUPS: readonly (readonly ToolbarButton[])[] = [
   [
-    { action: 'heading1', label: 'Título 1', icon: 'lucideHeading1' },
     { action: 'heading2', label: 'Título 2', icon: 'lucideHeading2' },
     { action: 'heading3', label: 'Título 3', icon: 'lucideHeading3' },
+    { action: 'heading4', label: 'Título 4', icon: 'lucideHeading4' },
   ],
   [
     { action: 'bold', label: 'Negritas', icon: 'lucideBold' },
@@ -109,9 +112,9 @@ const TOOLBAR_GROUPS: readonly (readonly ToolbarButton[])[] = [
       lucideBold,
       lucideCode,
       lucideEye,
-      lucideHeading1,
       lucideHeading2,
       lucideHeading3,
+      lucideHeading4,
       lucideItalic,
       lucideLink,
       lucideList,
@@ -217,7 +220,7 @@ export class MarkdownEditor {
   /** Formato donde está el cursor, para el aria-pressed de los botones. */
   protected readonly format = signal<FormatState>(NO_FORMAT);
   /** El botón de la barra que entra en el orden de tabulación. */
-  protected readonly focusable = signal<FormatAction>('heading1');
+  protected readonly focusable = signal<FormatAction>('heading2');
   protected readonly toolbarDisabled = computed(() => this.state() !== 'ready' || this.disabled());
 
   private readonly root = viewChild.required<ElementRef<HTMLElement>>('root');
