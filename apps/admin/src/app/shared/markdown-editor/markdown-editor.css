@@ -25,6 +25,59 @@ app-markdown-editor .editor-frame.editor-disabled {
 }
 
 /*
+ * Barra de herramientas (BLOG-108): fija arriba del marco y, al bajar por un
+ * post largo, pegada bajo la barra superior del shell (h-14). Es glass como el
+ * shell: el panel al 85 % con desenfoque. Sus iconos usan panel-foreground, y
+ * el botón activo, primary y primary-foreground; los pares están medidos en
+ * scripts/check-theme-contrast.mjs. El foco es el ring de los botones de
+ * Spartan, como en el resto del admin.
+ */
+app-markdown-editor .editor-toolbar {
+  position: sticky;
+  top: 3.5rem;
+  z-index: 20;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.125rem;
+  padding: 0.25rem;
+  border-bottom: 1px solid color-mix(in oklab, var(--panel-foreground) 14%, transparent);
+  border-top-left-radius: inherit;
+  border-top-right-radius: inherit;
+  background: color-mix(in oklab, var(--panel) 85%, transparent);
+  color: var(--panel-foreground);
+  box-shadow: inset 0 1px 0 color-mix(in oklab, white 55%, transparent);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+}
+
+.dark app-markdown-editor .editor-toolbar {
+  box-shadow: inset 0 1px 0 color-mix(in oklab, white 8%, transparent);
+}
+
+app-markdown-editor .editor-toolbar-button {
+  color: var(--panel-foreground);
+}
+
+app-markdown-editor .editor-toolbar-button:hover {
+  background: color-mix(in oklab, var(--panel-foreground) 8%, transparent);
+  color: var(--panel-foreground);
+}
+
+app-markdown-editor .editor-toolbar-button[aria-pressed='true'],
+app-markdown-editor .editor-toolbar-button[aria-pressed='true']:hover {
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+
+app-markdown-editor .editor-toolbar-separator {
+  align-self: stretch;
+  width: 1px;
+  margin: 0.25rem 0.25rem;
+  background: color-mix(in oklab, var(--panel-foreground) 14%, transparent);
+}
+
+/*
  * Vista previa: un panel elevado sobre el fondo (--panel en styles.css), con
  * borde, sombra y un brillo arriba que siguen el estilo glass del shell. Su
  * texto secundario y su código usan las variables del panel, medidas en
