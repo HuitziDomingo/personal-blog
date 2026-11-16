@@ -70,8 +70,8 @@ export function HomeView({ content, latest }: { content: SiteContent; latest: re
         </Flex>
       </Box>
 
-      <Box as="section" aria-labelledby="biografia">
-        <SectionHeading id="biografia">{ui.home.bio}</SectionHeading>
+      <Box as="section" aria-labelledby="trayectoria">
+        <SectionHeading id="trayectoria">{ui.home.bio}</SectionHeading>
         <Box as="ol" listStyleType="none" borderInlineStartWidth="2px" borderColor="border" ms="1">
           {content.bio.map((entry) => (
             <Box as="li" key={entry.period} position="relative" ps="5" pb="5" _last={{ pb: '0' }}>

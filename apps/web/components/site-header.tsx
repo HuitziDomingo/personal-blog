@@ -29,13 +29,13 @@ function navItems(locale: Locale, ui: SiteContent['ui']): NavItem[] {
   ];
 }
 
-/** Texto del link, con el aviso de idioma en `lang="es"` si lo hay. */
+/** Texto del link, con el aviso de idioma si lo hay (en el idioma de la página). */
 function NavLabel({ item }: { item: NavItem }) {
   return (
     <>
       {item.label}
       {item.note && (
-        <Box as="span" lang="es" fontSize="xs" color="fg.muted" ms="1">
+        <Box as="span" fontSize="xs" color="fg.muted" ms="1">
           ({item.note})
         </Box>
       )}
