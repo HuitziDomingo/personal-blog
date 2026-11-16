@@ -27,6 +27,7 @@ func setRequiredEnv(t *testing.T) {
 	t.Setenv("COMMENTS_MODERATION_ENABLED", "")
 	t.Setenv("COMMENTS_MODERATION_MODEL", "")
 	t.Setenv("COMMENTS_MODERATION_TIMEOUT_SECONDS", "")
+	t.Setenv("COMMENTS_MODERATION_MAX_OUTPUT_TOKENS", "")
 }
 
 const testJWTSecret = "0123456789abcdef0123456789abcdef"
