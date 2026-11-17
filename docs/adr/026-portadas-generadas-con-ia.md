@@ -7,7 +7,7 @@
 ## Contexto
 ADR-021 dejó la generación de imágenes para una fase 2. El admin ya tiene un botón de sugerencia de portada que devuelve una idea en texto (descripción y texto alternativo) sin proveedor real. Se quiere generar la imagen de portada de un post a partir de su contenido, con la misma regla de costo de $0.
 
-La investigación (noviembre de 2026) encontró que la API de Gemini ya no genera imágenes en el plan gratuito: la opción más barata cuesta alrededor de $0,034 por imagen y requiere facturación. Cloudflare Workers AI incluye 10 000 neuronas diarias gratis en su plan Free, y en ese plan no cobra al pasar el límite. El modelo FLUX.1 [schnell] tiene licencia Apache-2.0, que permite uso comercial, y Cloudflare indica que las salidas pertenecen a quien las genera y que no entrena con ellas.
+La investigación (noviembre de 2026) encontró que la API de Gemini ya no genera imágenes en el plan gratuito: la opción más barata cuesta alrededor de $0,034 por imagen y requiere facturación. Cloudflare Workers AI incluye 10 000 neuronas diarias gratis en su plan Free, y en ese plan no cobra al pasar el límite. El modelo FLUX.1 [schnell] tiene licencia Apache-2.0, que permite uso comercial, y Cloudflare indica que las salidas pertenecen a quien las genera. Cloudflare declara retención cero de datos; los términos de servicio de Black Forest Labs (sec. 1.2(e)) permiten entrenar con entradas y salidas salvo exclusión por correo; no está claro cuál rige las llamadas a través de Cloudflare.
 
 ## Alternativas Consideradas
 ### Proveedor de imágenes
@@ -31,7 +31,7 @@ La investigación (noviembre de 2026) encontró que la API de Gemini ya no gener
 8. **Límites.** Un bucket propio por usuario (por defecto 2 por minuto y 20 por día, configurable), timeout por llamada y un `503` claro si se agota la cuota. Tamaño de portada fijo (por ejemplo 1024 × 576) y formato webp al guardar.
 9. **Almacenamiento y servicio.** Bucket de GCS solo con las portadas aceptadas, con lectura pública y escritura únicamente desde la cuenta de servicio de la API. La web las sirve con `next/image`. Ni la CSP de la web ni la del admin cambian, porque ya permiten imágenes `https:`.
 10. **Configuración.** `IMAGES_ENABLED` es `false` por defecto. Con `true` y sin `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_AI_TOKEN` o el bucket configurado, la API no arranca. El token de Cloudflare tiene permisos solo para Workers AI y vive en Secret Manager; localmente, en `.env`.
-11. **Condición previa.** Antes de activar la generación se leen los términos de Black Forest Labs enlazados por Cloudflare. Si restringen el uso comercial de las salidas, la generación queda apagada y se decide de nuevo.
+11. **Condición previa.** Antes de activar la generación se leen los términos de Black Forest Labs enlazados por Cloudflare. Si restringen el uso comercial de las salidas, la generación queda apagada y se decide de nuevo. Además, antes de activar la generación: (a) León solicita la exclusión de entrenamiento a legal@blackforestlabs.ai, y (b) se leen la Usage Policy de BFL y la documentación de uso de datos de Workers AI de Cloudflare.
 
 ## Consecuencias
 * **Positivas**: Portadas sin costo y sin servicios de pago. Ninguna CSP cambia. La imagen nunca se publica sin revisión. El proveedor se puede cambiar sin tocar el dominio.
