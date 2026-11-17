@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/angular';
+import { fireEvent, render, screen, within } from '@testing-library/angular';
 
 import { MarkdownEditor, PREVIEW_DEBOUNCE_MS } from './markdown-editor';
 import { MILKDOWN_THEME_LOADER } from './milkdown-theme';
@@ -150,6 +150,137 @@ describe('MarkdownEditor', () => {
     await new Promise((resolve) => setTimeout(resolve, 100));
 
     expect(host.querySelector('.ProseMirror')).toBeNull();
+  });
+
+  describe('barra de herramientas', () => {
+    const toolbar = () => screen.getByRole('toolbar', { name: 'Formato' });
+    const button = (name: string) => within(toolbar()).getByRole('button', { name });
+
+    /** Selecciona todo el texto con Ctrl+A, que ProseMirror maneja en keydown. */
+    function selectAll(editor: HTMLElement): void {
+      editor.dispatchEvent(new KeyboardEvent('keydown', { key: 'a', code: 'KeyA', ctrlKey: true, bubbles: true, cancelable: true }));
+    }
+
+    /** Abre el editor con `markdown`, selecciona todo y aplica el botón `name`. */
+    async function applyTo(markdown: string, name: string) {
+      const valueChange = vi.fn();
+      const { fixture } = await render(MarkdownEditor, { providers: [themeLoaded], inputs: { value: markdown }, on: { valueChange } });
+      const editor = await editable();
+      await vi.waitFor(() => expect(button(name).hasAttribute('disabled')).toBe(false));
+      selectAll(editor);
+      await fireEvent.click(button(name));
+      fixture.componentInstance.flush();
+      return { valueChange, fixture, editor };
+    }
+
+    it('es una barra con nombre, enlazada al área de texto', async () => {
+      await render(MarkdownEditor, { providers: [themeLoaded], inputs: { value: '' } });
+      const editor = await editable();
+
+      expect(toolbar().getAttribute('aria-controls')).toBe(editor.id);
+      expect(
+        within(toolbar()).getAllByRole('button').map((b) => b.getAttribute('aria-label')),
+      ).toEqual(['Título 2', 'Título 3', 'Título 4', 'Negritas', 'Cursivas', 'Código', 'Lista con viñetas', 'Lista numerada', 'Cita', 'Bloque de código', 'Link']);
+    });
+
+    it.each([
+      ['Título 2', 'texto', '## texto\n'],
+      ['Título 3', 'texto', '### texto\n'],
+      ['Título 4', 'texto', '#### texto\n'],
+      ['Negritas', 'texto', '**texto**\n'],
+      ['Cursivas', 'texto', '*texto*\n'],
+      ['Código', 'texto', '`texto`\n'],
+      ['Lista con viñetas', 'texto', '* texto\n'],
+      ['Lista numerada', 'texto', '1. texto\n'],
+      ['Cita', 'texto', '> texto\n'],
+      ['Bloque de código', 'texto', '```\ntexto\n```\n'],
+      // Aplicado otra vez, se quita.
+      ['Título 2', '## texto', 'texto\n'],
+      ['Título 3', '### texto', 'texto\n'],
+      ['Título 4', '#### texto', 'texto\n'],
+      // Sobre un título de otro nivel, incluido un H1 pegado, cambia el nivel.
+      ['Título 2', '# texto', '## texto\n'],
+      ['Título 4', '## texto', '#### texto\n'],
+      ['Negritas', '**texto**', 'texto\n'],
+      ['Lista con viñetas', '* texto', 'texto\n'],
+      ['Cita', '> texto', 'texto\n'],
+      ['Bloque de código', '```\ntexto\n```', 'texto\n'],
+      // Sobre la otra lista, cambia su tipo.
+      ['Lista numerada', '* uno\n* dos', '1. uno\n2. dos\n'],
+    ])('%s sobre %j da %j', async (name, markdown, expected) => {
+      const { valueChange } = await applyTo(markdown, name);
+
+      expect(valueChange).toHaveBeenLastCalledWith(expected);
+    });
+
+    it('Link abre la edición del link y guarda la URL al confirmar', async () => {
+      const { valueChange, fixture } = await applyTo('texto', 'Link');
+      const input = await vi.waitFor(() => {
+        const found = document.querySelector<HTMLInputElement>('.milkdown-link-edit input');
+        expect(found).not.toBeNull();
+        return found!;
+      });
+
+      await fireEvent.input(input, { target: { value: 'https://huitzi.xyz' } });
+      await fireEvent.keyDown(input, { key: 'Enter' });
+      fixture.componentInstance.flush();
+
+      expect(valueChange).toHaveBeenLastCalledWith('[texto](https://huitzi.xyz)\n');
+    });
+
+    it('marca con aria-pressed el formato donde está el cursor', async () => {
+      const { fixture } = await applyTo('## texto', 'Negritas');
+      fixture.detectChanges();
+
+      expect(button('Negritas').getAttribute('aria-pressed')).toBe('true');
+      expect(button('Título 2').getAttribute('aria-pressed')).toBe('true');
+      expect(button('Título 3').getAttribute('aria-pressed')).toBe('false');
+      expect(button('Título 4').getAttribute('aria-pressed')).toBe('false');
+      expect(button('Cursivas').getAttribute('aria-pressed')).toBe('false');
+    });
+
+    it('se recorre con las flechas, Inicio y Fin, con un solo botón tabulable, y Escape vuelve al texto', async () => {
+      const { fixture } = await render(MarkdownEditor, { providers: [themeLoaded], inputs: { value: '' } });
+      const editor = await editable();
+      const tabbable = () => within(toolbar()).getAllByRole('button').filter((b) => b.getAttribute('tabindex') === '0');
+      expect(tabbable().map((b) => b.getAttribute('aria-label'))).toEqual(['Título 2']);
+
+      button('Título 2').focus();
+      await fireEvent.keyDown(document.activeElement!, { key: 'ArrowRight' });
+      expect(document.activeElement).toBe(button('Título 3'));
+      await fireEvent.keyDown(document.activeElement!, { key: 'End' });
+      expect(document.activeElement).toBe(button('Link'));
+      await fireEvent.keyDown(document.activeElement!, { key: 'ArrowRight' });
+      expect(document.activeElement).toBe(button('Título 2'));
+      await fireEvent.keyDown(document.activeElement!, { key: 'ArrowLeft' });
+      expect(document.activeElement).toBe(button('Link'));
+      fixture.detectChanges();
+      expect(tabbable().map((b) => b.getAttribute('aria-label'))).toEqual(['Link']);
+      await fireEvent.keyDown(document.activeElement!, { key: 'Home' });
+      expect(document.activeElement).toBe(button('Título 2'));
+
+      await fireEvent.keyDown(document.activeElement!, { key: 'Escape' });
+      expect(document.activeElement).toBe(editor);
+    });
+
+    it('con el mouse no le quita el foco al editor', async () => {
+      await render(MarkdownEditor, { providers: [themeLoaded], inputs: { value: '' } });
+      await editable();
+
+      expect(fireEvent.mouseDown(button('Negritas'))).toBe(false);
+    });
+
+    it('se desactiva mientras carga y con el editor desactivado', async () => {
+      const { rerender, fixture } = await render(MarkdownEditor, { providers: [themeLoaded], inputs: { value: '' } });
+      expect(button('Negritas').hasAttribute('disabled')).toBe(true);
+
+      await editable();
+      await vi.waitFor(() => expect(button('Negritas').hasAttribute('disabled')).toBe(false));
+
+      await rerender({ inputs: { disabled: true }, partialUpdate: true });
+      fixture.detectChanges();
+      expect(button('Negritas').hasAttribute('disabled')).toBe(true);
+    });
   });
 
   describe('debounce de la vista previa', () => {

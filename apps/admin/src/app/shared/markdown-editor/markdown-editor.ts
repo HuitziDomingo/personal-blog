@@ -16,9 +16,24 @@ import {
 } from '@angular/core';
 
 import { NgIcon, provideIcons } from '@ng-icons/core';
-import { lucideEye } from '@ng-icons/lucide';
+import {
+  lucideBold,
+  lucideCode,
+  lucideEye,
+  lucideHeading2,
+  lucideHeading3,
+  lucideHeading4,
+  lucideItalic,
+  lucideLink,
+  lucideList,
+  lucideListOrdered,
+  lucideQuote,
+  lucideSquareCode,
+} from '@ng-icons/lucide';
 import { renderMarkdown } from '@personal-blog/markdown';
+import { buttonVariants } from '@spartan-ng/helm/button';
 
+import { NO_FORMAT, type FormatAction, type FormatState } from './editor-format';
 import type { MilkdownHandle } from './milkdown';
 import { MILKDOWN_THEME_LOADER } from './milkdown-theme';
 
@@ -30,6 +45,38 @@ import { MILKDOWN_THEME_LOADER } from './milkdown-theme';
 export const PREVIEW_DEBOUNCE_MS = 150;
 
 type EditorState = 'loading' | 'ready' | 'error';
+
+interface ToolbarButton {
+  readonly action: FormatAction;
+  readonly label: string;
+  readonly icon: string;
+}
+
+/**
+ * Botones de la barra de herramientas, por grupos (BLOG-108). Los títulos van
+ * del 2 al 4 porque el título del post ya es el H1 de la página.
+ */
+const TOOLBAR_GROUPS: readonly (readonly ToolbarButton[])[] = [
+  [
+    { action: 'heading2', label: 'Título 2', icon: 'lucideHeading2' },
+    { action: 'heading3', label: 'Título 3', icon: 'lucideHeading3' },
+    { action: 'heading4', label: 'Título 4', icon: 'lucideHeading4' },
+  ],
+  [
+    { action: 'bold', label: 'Negritas', icon: 'lucideBold' },
+    { action: 'italic', label: 'Cursivas', icon: 'lucideItalic' },
+    { action: 'inlineCode', label: 'Código', icon: 'lucideCode' },
+  ],
+  [
+    { action: 'bulletList', label: 'Lista con viñetas', icon: 'lucideList' },
+    { action: 'orderedList', label: 'Lista numerada', icon: 'lucideListOrdered' },
+  ],
+  [
+    { action: 'blockquote', label: 'Cita', icon: 'lucideQuote' },
+    { action: 'codeBlock', label: 'Bloque de código', icon: 'lucideSquareCode' },
+    { action: 'link', label: 'Link', icon: 'lucideLink' },
+  ],
+];
 
 /**
  * Editor de Markdown de ADR-018: Milkdown Crepe y la vista previa lado a lado
@@ -48,13 +95,34 @@ type EditorState = 'loading' | 'ready' | 'error';
  *   punto 3). Se recalcula PREVIEW_DEBOUNCE_MS después de la última tecla; el
  *   primer valor se muestra de inmediato.
  *
+ * - La barra de herramientas fija (BLOG-108) sigue el patrón toolbar de
+ *   WAI-ARIA: un solo botón en el orden de tabulación, las flechas, Inicio y
+ *   Fin se mueven entre ellos, y Escape vuelve al texto. Los botones con
+ *   aria-pressed dicen si el formato está aplicado donde está el cursor. Con el
+ *   mouse no le quitan el foco al editor, así que la selección sigue visible.
+ *
  * Sin encapsulación: la vista previa se llena con [innerHTML] y los estilos
  * encapsulados no le llegarían. Todas las reglas van bajo `app-markdown-editor`.
  */
 @Component({
   selector: 'app-markdown-editor',
   imports: [NgIcon],
-  providers: [provideIcons({ lucideEye })],
+  providers: [
+    provideIcons({
+      lucideBold,
+      lucideCode,
+      lucideEye,
+      lucideHeading2,
+      lucideHeading3,
+      lucideHeading4,
+      lucideItalic,
+      lucideLink,
+      lucideList,
+      lucideListOrdered,
+      lucideQuote,
+      lucideSquareCode,
+    }),
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
   styleUrl: './markdown-editor.css',
@@ -73,6 +141,41 @@ type EditorState = 'loading' | 'ready' | 'error';
           [attr.aria-busy]="state() === 'loading' || null"
           (focusout)="onFocusOut($event)"
         >
+          <div
+            #toolbar
+            class="editor-toolbar"
+            role="toolbar"
+            aria-label="Formato"
+            [attr.aria-controls]="inputId()"
+          >
+            @for (group of groups; track $index; let last = $last) {
+              @for (button of group; track button.action) {
+                <!-- Sin hlmBtn: BrnButton fija su propio tabindex, y la barra
+                     necesita el suyo. Mismas clases y data-slot (44 px con
+                     el dedo, styles.css). -->
+                <button
+                  type="button"
+                  data-slot="button"
+                  [class]="buttonClass"
+                  [attr.aria-label]="button.label"
+                  [attr.title]="button.label"
+                  [attr.aria-pressed]="format()[button.action]"
+                  [attr.tabindex]="button.action === focusable() ? 0 : -1"
+                  [disabled]="toolbarDisabled()"
+                  [attr.data-disabled]="toolbarDisabled() || null"
+                  (click)="apply(button.action)"
+                  (mousedown)="$event.preventDefault()"
+                  (focus)="focusable.set(button.action)"
+                  (keydown)="onToolbarKeydown($event)"
+                >
+                  <ng-icon [name]="button.icon" aria-hidden="true" />
+                </button>
+              }
+              @if (!last) {
+                <div class="editor-toolbar-separator" role="separator" aria-orientation="vertical"></div>
+              }
+            }
+          </div>
           <div #root></div>
           @switch (state()) {
             @case ('loading') {
@@ -112,7 +215,16 @@ export class MarkdownEditor {
   protected readonly labelId = computed(() => `${this.inputId()}-label`);
   protected readonly state = signal<EditorState>('loading');
 
+  protected readonly groups = TOOLBAR_GROUPS;
+  protected readonly buttonClass = `${buttonVariants({ variant: 'ghost', size: 'icon-sm' })} editor-toolbar-button`;
+  /** Formato donde está el cursor, para el aria-pressed de los botones. */
+  protected readonly format = signal<FormatState>(NO_FORMAT);
+  /** El botón de la barra que entra en el orden de tabulación. */
+  protected readonly focusable = signal<FormatAction>('heading2');
+  protected readonly toolbarDisabled = computed(() => this.state() !== 'ready' || this.disabled());
+
   private readonly root = viewChild.required<ElementRef<HTMLElement>>('root');
+  private readonly toolbar = viewChild.required<ElementRef<HTMLElement>>('toolbar');
   private readonly theme = inject(MILKDOWN_THEME_LOADER);
   private readonly editor = signal<MilkdownHandle | undefined>(undefined);
   /**
@@ -183,6 +295,33 @@ export class MarkdownEditor {
     this.editor()?.flush();
   }
 
+  protected apply(action: FormatAction): void {
+    this.editor()?.format(action);
+  }
+
+  protected onToolbarKeydown(event: KeyboardEvent): void {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      this.editor()?.dom.focus();
+      return;
+    }
+    const buttons = [...this.toolbar().nativeElement.querySelectorAll<HTMLButtonElement>('button')];
+    const current = buttons.indexOf(event.target as HTMLButtonElement);
+    const last = buttons.length - 1;
+    const next: Partial<Record<string, number>> = {
+      ArrowRight: current === last ? 0 : current + 1,
+      ArrowLeft: current === 0 ? last : current - 1,
+      Home: 0,
+      End: last,
+    };
+    const index = next[event.key];
+    if (current < 0 || index === undefined) {
+      return;
+    }
+    event.preventDefault();
+    buttons[index]?.focus();
+  }
+
   protected onFocusOut(event: FocusEvent): void {
     const frame = event.currentTarget as HTMLElement;
     if (!(event.relatedTarget instanceof Node && frame.contains(event.relatedTarget))) {
@@ -211,6 +350,7 @@ export class MarkdownEditor {
           this.current = markdown;
           this.valueChange.emit(markdown);
         },
+        onFormatChange: (format) => this.format.set(format),
       });
       // Si el componente se destruyó mientras se creaba, el editor no llegó a
       // la señal y nadie más lo destruiría.

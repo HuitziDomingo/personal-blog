@@ -26,6 +26,9 @@ export const GLASS_ALPHA = 0.8;
 /** Opacidad del tinte del veredicto sobre el panel (comment-card.css). */
 export const VERDICT_TINT = 0.12;
 
+/** Opacidad del panel en la barra de herramientas del editor (markdown-editor.css). */
+export const TOOLBAR_ALPHA = 0.85;
+
 const TEXT = 4.5;
 const NON_TEXT = 3;
 
@@ -160,6 +163,11 @@ export function checks({ vars }) {
     { pair: 'Texto del panel (panel-foreground / panel)', ratio: contrast(color('--panel-foreground'), color('--panel')), min: TEXT },
     { pair: 'Texto secundario del panel (panel-muted-foreground / panel)', ratio: contrast(color('--panel-muted-foreground'), color('--panel')), min: TEXT },
     { pair: 'Código en el panel (panel-foreground / panel-code)', ratio: contrast(color('--panel-foreground'), color('--panel-code')), min: TEXT },
+    {
+      pair: 'Iconos de la barra del editor sobre su glass, peor caso (panel-foreground / panel al 85 %)',
+      ratio: Math.min(...[BLACK, WHITE].map((behind) => contrast(color('--panel-foreground'), composite(color('--panel'), TOOLBAR_ALPHA, behind)))),
+      min: TEXT,
+    },
     { pair: 'Acento sobre el panel (primary / panel)', ratio: contrast(primary, color('--panel')), min: NON_TEXT },
     { pair: 'Texto secundario en el motivo del modelo (panel-muted-foreground / panel-code)', ratio: contrast(color('--panel-muted-foreground'), color('--panel-code')), min: TEXT },
     { pair: 'Badge del menú (sidebar-primary-foreground / sidebar-primary)', ratio: contrast(color('--sidebar-primary-foreground'), color('--sidebar-primary')), min: TEXT },
