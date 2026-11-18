@@ -29,7 +29,7 @@ export function HomeView({ content, latest }: { content: SiteContent; latest: re
       <Stack gap="6">
         {/* Donde la web anterior tenía el perro 3D (BLOG-077, BLOG-107). */}
         <Box>
-          <IslandHero alt={ui.home.island.alt} />
+          <IslandHero alt={ui.home.island.alt} controls={ui.home.island} />
           <IslandCredit text={ui.home.island.credit} />
         </Box>
         <Box bg="brand.surface" borderWidth="1px" borderRadius="xl" px="4" py="3" textAlign="center">

@@ -90,7 +90,7 @@ afterEach(() => {
 function renderHero() {
   return render(
     <ChakraProvider value={system}>
-      <IslandHero alt={ALT} />
+      <IslandHero alt={ALT} controls={{ hint: 'h', reset: 'r', label: 'l', instructions: 'i' }} />
     </ChakraProvider>,
   );
 }

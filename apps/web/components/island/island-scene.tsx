@@ -1,9 +1,9 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { Box, Button, Text } from '@chakra-ui/react';
+import { useEffect, useId, useRef, useState } from 'react';
 import {
   AmbientLight,
-  AnimationMixer,
   Box3,
   DirectionalLight,
   Group,
@@ -12,31 +12,35 @@ import {
   type Object3D,
   PerspectiveCamera,
   Scene,
-  SkinnedMesh,
   type Texture,
   Vector3,
   WebGLRenderer,
 } from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
-/** Modelo armado con scripts/build-island-model.mjs (Quaternius, CC0). */
+import { createIslandControls, type IslandControls } from './island-controls';
+import { REDUCED_MOTION_QUERY } from './island-loading';
+
+/** Modelo armado con scripts/build-island-model.mjs: fortaleza flotante (Quaternius, CC0). */
 export const ISLAND_MODEL_URL = '/models/isla/isla.gltf';
-/** La única animación que se reproduce, en bucle. */
-export const ISLAND_CLIP = 'CharacterArmature|Idle';
-/** Una vuelta completa de la isla, en segundos. */
-const TURN_SECONDS = 90;
 /** Giro inicial: la isla empieza vista de 3/4, como la imagen fija. */
 const START_ANGLE = Math.PI / 4;
-/** Flotación: amplitud (fracción del radio) y periodo en segundos. */
-const FLOAT_AMPLITUDE = 0.03;
-const FLOAT_SECONDS = 6;
 const FOV = 30;
 /** Ángulo de la cámara sobre el horizonte. */
 const ELEVATION = (25 * Math.PI) / 180;
-/** Aire alrededor de la isla (y de su flotación) dentro del hueco. */
+/** Aire alrededor de la isla dentro del hueco. */
 const MARGIN = 1.08;
 
+/** Textos de los controles, de los diccionarios de ADR-024. */
+export interface IslandControlsText {
+  hint: string;
+  reset: string;
+  label: string;
+  instructions: string;
+}
+
 export interface IslandSceneProps {
+  text: IslandControlsText;
   /** Si la escena ya sustituyó a la imagen fija. */
   visible: boolean;
   /** Cuando el modelo cargó y ya hay un primer cuadro dibujado. */
@@ -92,8 +96,16 @@ function disposeObject(root: Object3D): void {
   });
 }
 
-export default function IslandScene({ visible, onReady, onError }: IslandSceneProps) {
+export default function IslandScene({ text, visible, onReady, onError }: IslandSceneProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const controlsRef = useRef<IslandControls | undefined>(undefined);
+  const [wheelActive, setWheelActive] = useState(false);
+  const instructionsId = useId();
+  // El efecto se crea una vez: los textos le llegan por ref.
+  const labels = useRef({ label: text.label, instructionsId });
+  useEffect(() => {
+    labels.current = { label: text.label, instructionsId };
+  });
   // Los callbacks cambian en cada render del padre; la escena se crea una vez.
   const callbacks = useRef({ onReady, onError });
   useEffect(() => {
@@ -111,7 +123,13 @@ export default function IslandScene({ visible, onReady, onError }: IslandScenePr
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.setClearColor(0x000000, 0);
     const canvas = renderer.domElement;
-    canvas.setAttribute('aria-hidden', 'true');
+    // Un widget propio que recibe las flechas: `application` pide al lector de
+    // pantalla que le pase las teclas (con `img` o `group` las usaría para leer).
+    canvas.setAttribute('role', 'application');
+    canvas.setAttribute('aria-label', labels.current.label);
+    canvas.setAttribute('aria-describedby', labels.current.instructionsId);
+    // Enfocable solo cuando hay isla que mover (al cargar el modelo).
+    canvas.tabIndex = -1;
     canvas.style.display = 'block';
     canvas.style.width = '100%';
     canvas.style.height = '100%';
@@ -127,12 +145,17 @@ export default function IslandScene({ visible, onReady, onError }: IslandScenePr
     scene.add(fill);
 
     const camera = new PerspectiveCamera(FOV, 4 / 3, 0.1, 1000);
-    // La isla gira y flota dentro de `pivot`, centrada en el origen.
+    // La isla, centrada en el origen y girada a 3/4. La cámara gira a su
+    // alrededor (OrbitControls y su autoRotate); la isla no se mueve.
     const pivot = new Group();
+    pivot.rotation.y = START_ANGLE;
     scene.add(pivot);
-    let mixer: AnimationMixer | undefined;
     let model: Object3D | undefined;
-    let radius = 1;
+    const controls = createIslandControls(camera, canvas, {
+      onWheelActiveChange: setWheelActive,
+      reducedMotion: window.matchMedia(REDUCED_MOTION_QUERY),
+    });
+    controlsRef.current = controls;
 
     const resize = () => {
       const { clientWidth, clientHeight } = container;
@@ -146,16 +169,13 @@ export default function IslandScene({ visible, onReady, onError }: IslandScenePr
     resize();
 
     let last = performance.now();
-    let elapsed = 0;
     const frame = () => {
       const now = performance.now();
-      // Tope de 0.1 s por cuadro: tras una pausa larga, la animación no salta.
+      // Tope de 0.1 s por cuadro: tras una pausa larga, el giro no salta.
       const delta = Math.min((now - last) / 1000, 0.1);
       last = now;
-      elapsed += delta;
-      mixer?.update(delta);
-      pivot.rotation.y = START_ANGLE + (elapsed / TURN_SECONDS) * Math.PI * 2;
-      pivot.position.y = Math.sin((elapsed / FLOAT_SECONDS) * Math.PI * 2) * radius * FLOAT_AMPLITUDE;
+      // autoRotate y damping: OrbitControls mueve la cámara en cada cuadro.
+      controls.update(delta);
       renderer.render(scene, camera);
     };
 
@@ -191,14 +211,12 @@ export default function IslandScene({ visible, onReady, onError }: IslandScenePr
           return;
         }
         const root = gltf.scene;
-        // Vértices de la isla en el espacio de `pivot`, sin las mallas con
-        // esqueleto: three las dibuja con los huesos, pero su transformación de
-        // nodo las haría parecer en otro sitio. El Rey Hongo está sobre la isla.
+        // Vértices de la isla en el espacio de `pivot`.
         root.updateMatrixWorld(true);
         const points: Vector3[] = [];
         const box = new Box3();
         root.traverse((object) => {
-          if (object instanceof Mesh && !(object instanceof SkinnedMesh)) {
+          if (object instanceof Mesh) {
             const position = (object as Mesh).geometry.getAttribute('position');
             for (let index = 0; index < position.count; index++) {
               const point = new Vector3().fromBufferAttribute(position, index).applyMatrix4(object.matrixWorld);
@@ -220,7 +238,6 @@ export default function IslandScene({ visible, onReady, onError }: IslandScenePr
         }
         pivot.add(root);
         model = root;
-        radius = box.getSize(new Vector3()).y / 2;
 
         const distance = fitDistance(points, camera.aspect);
         camera.position.set(0, Math.sin(ELEVATION), Math.cos(ELEVATION)).multiplyScalar(distance);
@@ -228,12 +245,9 @@ export default function IslandScene({ visible, onReady, onError }: IslandScenePr
         camera.far = distance * 10;
         camera.lookAt(0, 0, 0);
         camera.updateProjectionMatrix();
-
-        const clip = gltf.animations.find((animation) => animation.name === ISLAND_CLIP);
-        if (clip) {
-          mixer = new AnimationMixer(root);
-          mixer.clipAction(clip).play();
-        }
+        // El target puede alejarse del centro hasta media altura de la isla.
+        controls.frame(distance, box.getSize(new Vector3()).y / 2);
+        canvas.tabIndex = 0;
 
         frame();
         updateLoop();
@@ -250,13 +264,13 @@ export default function IslandScene({ visible, onReady, onError }: IslandScenePr
     return () => {
       disposed = true;
       renderer.setAnimationLoop(null);
+      controls.dispose();
+      controlsRef.current = undefined;
       observer.disconnect();
       resizeObserver.disconnect();
       document.removeEventListener('visibilitychange', updateLoop);
       canvas.removeEventListener('webglcontextlost', onContextLost);
-      mixer?.stopAllAction();
       if (model) {
-        mixer?.uncacheRoot(model);
         disposeObject(model);
       }
       renderer.dispose();
@@ -267,14 +281,71 @@ export default function IslandScene({ visible, onReady, onError }: IslandScenePr
   }, []);
 
   return (
-    <div
-      ref={containerRef}
-      style={{
-        position: 'absolute',
-        inset: 0,
-        opacity: visible ? 1 : 0,
-        transition: 'opacity 0.6s ease',
-      }}
-    />
+    <Box
+      position="absolute"
+      inset="0"
+      opacity={visible ? 1 : 0}
+      transition="opacity 0.6s ease"
+      // Invisible mientras carga: los clics llegan a la imagen, no a un canvas oculto.
+      pointerEvents={visible ? 'auto' : 'none'}
+    >
+      <Box
+        ref={containerRef}
+        position="absolute"
+        inset="0"
+        css={{
+          '& canvas': { outline: 'none', borderRadius: 'md' },
+          '& canvas:focus-visible': { outline: '3px solid', outlineColor: 'brand.accent', outlineOffset: '2px' },
+        }}
+      />
+      <p id={instructionsId} className="sr-only">
+        {text.instructions}
+      </p>
+      {visible && (
+        <>
+          <Text
+            aria-hidden="true"
+            position="absolute"
+            insetStart="2"
+            bottom="2"
+            px="2"
+            py="1"
+            fontSize="xs"
+            color="fg.muted"
+            bg="bg.panel"
+            borderWidth="1px"
+            borderRadius="md"
+            pointerEvents="none"
+            transition="opacity 0.3s ease"
+            opacity={wheelActive ? 0 : 1}
+            // Solo con ratón: en táctil dos dedos funcionan siempre y la pista sobra.
+            display="none"
+            css={{ '@media (hover: hover) and (pointer: fine)': { display: 'block' } }}
+            data-testid="island-hint"
+          >
+            {text.hint}
+          </Text>
+          <Button
+            position="absolute"
+            insetEnd="2"
+            bottom="2"
+            size="sm"
+            minH="44px"
+            minW="44px"
+            variant="outline"
+            bg="bg.panel"
+            color="fg"
+            borderColor="border"
+            _hover={{ bg: 'brand.code' }}
+            _focusVisible={{ outline: '3px solid', outlineColor: 'brand.accent', outlineOffset: '2px' }}
+            onClick={() => {
+              controlsRef.current?.reset();
+            }}
+          >
+            {text.reset}
+          </Button>
+        </>
+      )}
+    </Box>
   );
 }

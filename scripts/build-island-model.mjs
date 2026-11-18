@@ -1,13 +1,14 @@
 #!/usr/bin/env node
 /**
- * Arma el modelo de la isla del hero (BLOG-107) a partir del GLB compuesto en
- * la investigación de BLOG-107 (Quaternius, CC0).
+ * Arma el modelo de la isla del hero (BLOG-107, BLOG-119) a partir del GLB
+ * compuesto en la investigación de BLOG-107: la isla 2, fortaleza flotante con
+ * nubes (Quaternius, CC0). No trae animaciones.
  *
- * Uso: node scripts/build-island-model.mjs <isla-3-bosque-fantasia-quaternius.glb>
+ * Uso: node scripts/build-island-model.mjs <isla-2-castillo-quaternius.glb>
  *
- * 1. Deja solo la animación Idle del Mushroom King (el GLB trae 14).
+ * 1. Da a la textura un nombre de archivo propio (en el GLB se llama Atlas.png).
  * 2. Con glTF Transform (CLI, versión exacta, sin instalarlo en el repo):
- *    prune, dedup y resample, que no agregan extensiones ni decoders.
+ *    prune y dedup, que no agregan extensiones ni decoders.
  * 3. Lo escribe como .gltf con el .bin y las texturas en archivos aparte, en
  *    apps/web/public/models/isla/. Un GLB con texturas embebidas haría que GLTFLoader
  *    las cargue desde URLs blob:, que la CSP de ADR-017 no permite.
@@ -19,13 +20,12 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const GLTF_TRANSFORM = '@gltf-transform/cli@4.5.1';
-const KEEP_ANIMATION = 'CharacterArmature|Idle';
 const OUT_DIR = join(dirname(fileURLToPath(import.meta.url)), '..', 'apps', 'web', 'public', 'models', 'isla');
 const OUT_FILE = 'isla.gltf';
 
 const input = process.argv[2];
 if (!input) {
-  console.error('Uso: node scripts/build-island-model.mjs <isla-3-bosque-fantasia-quaternius.glb>');
+  console.error('Uso: node scripts/build-island-model.mjs <isla-2-castillo-quaternius.glb>');
   process.exit(1);
 }
 
@@ -70,24 +70,21 @@ function gltfTransform(...args) {
 const work = mkdtempSync(join(tmpdir(), 'isla-'));
 try {
   const { json, bin } = readGlb(input);
-  const kept = (json.animations ?? []).filter((animation) => animation.name === KEEP_ANIMATION);
-  if (kept.length !== 1) {
-    throw new Error(`No se encontró la animación ${KEEP_ANIMATION}`);
+  if ((json.animations ?? []).length > 0) {
+    throw new Error('La isla 2 no debería traer animaciones: la escena solo gira con OrbitControls');
   }
-  json.animations = kept;
-  // Las dos texturas se llaman Atlas.png: con nombres distintos, no chocan al escribirlas aparte.
+  // Nombre de archivo de cada textura al escribirlas aparte.
   json.images?.forEach((image, index) => {
     image.name = `atlas-${String(index)}`;
   });
-  writeGlb(join(work, 'idle.glb'), json, bin);
+  writeGlb(join(work, 'named.glb'), json, bin);
 
-  gltfTransform('prune', join(work, 'idle.glb'), join(work, 'pruned.glb'));
+  gltfTransform('prune', join(work, 'named.glb'), join(work, 'pruned.glb'));
   gltfTransform('dedup', join(work, 'pruned.glb'), join(work, 'dedup.glb'));
-  gltfTransform('resample', join(work, 'dedup.glb'), join(work, 'resampled.glb'));
 
   rmSync(OUT_DIR, { recursive: true, force: true });
   mkdirSync(OUT_DIR, { recursive: true });
-  gltfTransform('copy', join(work, 'resampled.glb'), join(OUT_DIR, OUT_FILE));
+  gltfTransform('copy', join(work, 'dedup.glb'), join(OUT_DIR, OUT_FILE));
   gltfTransform('validate', join(OUT_DIR, OUT_FILE));
 } finally {
   rmSync(work, { recursive: true, force: true });
