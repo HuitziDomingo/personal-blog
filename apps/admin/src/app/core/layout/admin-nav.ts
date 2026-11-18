@@ -19,7 +19,10 @@ import { HlmRadioGroupImports } from '@spartan-ng/helm/radio-group';
 import { PendingComments } from '../comments/pending-comments';
 import { SessionService } from '../session/session.service';
 import { ACCENT_LABELS, ACCENTS, isAccent, isThemeMode, THEME_MODE_LABELS, THEME_MODES, ThemeMode } from '../theme/theme';
+import { BackgroundService } from '../theme/background.service';
+import { BACKGROUND_INFO, BACKGROUNDS, isBackground } from '../theme/backgrounds';
 import { ThemeService } from '../theme/theme.service';
+import { BackgroundCredit } from './background-credit';
 
 /**
  * Contenido del menú: navegación y perfil (email, cerrar sesión y apariencia).
@@ -29,7 +32,7 @@ import { ThemeService } from '../theme/theme.service';
  */
 @Component({
   selector: 'app-admin-nav',
-  imports: [RouterLink, RouterLinkActive, NgIcon, HlmButtonImports, HlmLabelImports, HlmRadioGroupImports],
+  imports: [RouterLink, RouterLinkActive, NgIcon, HlmButtonImports, HlmLabelImports, HlmRadioGroupImports, BackgroundCredit],
   providers: [
     provideIcons({
       lucideFileText,
@@ -132,6 +135,26 @@ import { ThemeService } from '../theme/theme.service';
             }
           </hlm-radio-group>
         </div>
+
+        <div class="flex flex-col gap-2">
+          <span id="fondo-titulo" class="text-xs font-semibold">Fondo de pantalla</span>
+          <hlm-radio-group
+            name="fondo"
+            aria-labelledby="fondo-titulo"
+            aria-describedby="fondo-credito"
+            class="gap-2"
+            [value]="backgrounds.selected()"
+            (valueChange)="setBackground($event)"
+          >
+            @for (background of backgroundIds; track background) {
+              <label hlmLabel class="font-normal">
+                <hlm-radio [value]="background"><hlm-radio-indicator indicator /></hlm-radio>
+                {{ backgroundInfo[background].label }}
+              </label>
+            }
+          </hlm-radio-group>
+          <app-background-credit id="fondo-credito" [background]="backgrounds.selected()" />
+        </div>
       </div>
     </section>
   `,
@@ -172,6 +195,9 @@ export class AdminNav {
     dark: 'lucideMoon',
     system: 'lucideMonitor',
   };
+  protected readonly backgrounds = inject(BackgroundService);
+  protected readonly backgroundIds = BACKGROUNDS;
+  protected readonly backgroundInfo = BACKGROUND_INFO;
   protected readonly accents = ACCENTS;
   protected readonly accentLabels = ACCENT_LABELS;
 
@@ -188,6 +214,12 @@ export class AdminNav {
   protected setAccent(accent: unknown): void {
     if (isAccent(accent)) {
       this.theme.setAccent(accent);
+    }
+  }
+
+  protected setBackground(background: unknown): void {
+    if (isBackground(background)) {
+      this.backgrounds.setBackground(background);
     }
   }
 

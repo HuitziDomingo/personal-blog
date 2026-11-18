@@ -100,7 +100,7 @@ const SLUG_CONFLICTS: Record<string, string> = {
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: {
-    class: 'mx-auto flex w-full max-w-6xl flex-col gap-6 p-4 sm:p-6',
+    class: 'glass-card mx-auto flex w-full max-w-6xl flex-col gap-6 p-4 sm:p-6',
     '(window:beforeunload)': 'onBeforeUnload($event)',
   },
   template: `

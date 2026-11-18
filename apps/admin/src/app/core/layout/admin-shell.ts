@@ -17,7 +17,9 @@ import { HlmSheet, HlmSheetImports } from '@spartan-ng/helm/sheet';
 import { filter } from 'rxjs';
 
 import { injectMediaQuery } from '../browser/match-media';
+import { BackgroundService } from '../theme/background.service';
 import { AdminNav } from './admin-nav';
+import { AppBackdrop } from './app-backdrop';
 
 /** Ancho desde el que el menú es una barra lateral fija: `lg` de Tailwind (64rem). */
 export const DESKTOP_QUERY = '(min-width: 64rem)';
@@ -32,11 +34,13 @@ export const DESKTOP_QUERY = '(min-width: 64rem)';
  */
 @Component({
   selector: 'app-admin-shell',
-  imports: [RouterLink, RouterOutlet, NgIcon, HlmButtonImports, HlmSheetImports, AdminNav],
+  imports: [RouterLink, RouterOutlet, NgIcon, HlmButtonImports, HlmSheetImports, AdminNav, AppBackdrop],
   providers: [provideIcons({ lucideMenu, lucideX })],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'flex min-h-dvh flex-col' },
   template: `
+    <app-backdrop [background]="backgrounds.selected()" [variant]="backgrounds.variant()" />
+
     <a
       href="#contenido"
       class="bg-background focus-visible:ring-ring/50 sr-only z-50 rounded-md px-3 py-2 text-sm font-medium focus:not-sr-only focus:fixed focus:start-2 focus:top-2 focus-visible:ring-3"
@@ -81,13 +85,15 @@ export const DESKTOP_QUERY = '(min-width: 64rem)';
           <app-admin-nav />
         </aside>
       }
-      <main #main id="contenido" tabindex="-1" class="flex min-w-0 flex-1 flex-col outline-none">
+      <!-- El padding deja ver el fondo alrededor de la card de vidrio de cada pantalla. -->
+      <main #main id="contenido" tabindex="-1" class="flex min-w-0 flex-1 flex-col p-3 outline-none sm:p-6">
         <router-outlet />
       </main>
     </div>
   `,
 })
 export class AdminShell {
+  protected readonly backgrounds = inject(BackgroundService);
   protected readonly isDesktop = injectMediaQuery(DESKTOP_QUERY);
   private readonly sheet = viewChild(HlmSheet);
   private readonly main = viewChild.required<ElementRef<HTMLElement>>('main');

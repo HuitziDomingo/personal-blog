@@ -65,7 +65,7 @@ type ListState =
   changeDetection: ChangeDetectionStrategy.OnPush,
   // flex-1 dentro del <main> en columna: la página ocupa al menos la pantalla
   // bajo la barra superior, y la paginación (mt-auto) queda al final.
-  host: { class: 'mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 p-4 sm:p-6' },
+  host: { class: 'glass-card mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 p-4 sm:p-6' },
   template: `
     <header class="flex flex-wrap items-center justify-between gap-4">
       <h1 #heading tabindex="-1" class="text-2xl font-semibold outline-none">Posts</h1>

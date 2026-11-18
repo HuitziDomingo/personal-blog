@@ -16,6 +16,9 @@ import { HlmInputImports } from '@spartan-ng/helm/input';
 import { finalize } from 'rxjs';
 
 import { problemMessage } from '../../../core/http/problem-messages';
+import { AppBackdrop } from '../../../core/layout/app-backdrop';
+import { BackgroundCredit } from '../../../core/layout/background-credit';
+import { BackgroundService } from '../../../core/theme/background.service';
 import { safeReturnUrl } from '../../../core/session/return-url';
 import { SessionService } from '../../../core/session/session.service';
 
@@ -31,12 +34,16 @@ import { SessionService } from '../../../core/session/session.service';
     HlmCardImports,
     HlmFieldImports,
     HlmInputImports,
+    AppBackdrop,
+    BackgroundCredit,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'flex min-h-dvh items-center justify-center p-4' },
   styleUrl: './login.page.css',
   template: `
-    <section hlmCard class="login-panel w-full max-w-sm">
+    <app-backdrop [background]="backgrounds.loginBackground" [variant]="backgrounds.variant()" />
+
+    <section hlmCard class="glass-card w-full max-w-sm">
       <div hlmCardHeader>
         <h1 hlmCardTitle>Iniciar sesión</h1>
         <p hlmCardDescription class="login-muted">Panel de administración de huitzi.xyz</p>
@@ -70,6 +77,10 @@ import { SessionService } from '../../../core/session/session.service';
           <button hlmBtn type="submit" class="w-full" [disabled]="pending()">Entrar</button>
         </div>
       </form>
+
+      <div hlmCardFooter>
+        <app-background-credit class="login-muted" [background]="backgrounds.loginBackground" />
+      </div>
     </section>
   `,
 })
@@ -78,6 +89,7 @@ export class LoginPage {
   private readonly session = inject(SessionService);
   private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
+  protected readonly backgrounds = inject(BackgroundService);
 
   /** Query param `returnUrl`, enlazado por `withComponentInputBinding`. */
   readonly returnUrl = input<string>();

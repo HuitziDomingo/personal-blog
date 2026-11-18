@@ -1,0 +1,34 @@
+{
+  "fold-light-landscape": {
+    "darkest": "#331034",
+    "lightest": "#fdefa0"
+  },
+  "fold-light-portrait": {
+    "darkest": "#100623",
+    "lightest": "#fbe4a7"
+  },
+  "fold-dark-landscape": {
+    "darkest": "#5b142e",
+    "lightest": "#ef969c"
+  },
+  "fold-dark-portrait": {
+    "darkest": "#250918",
+    "lightest": "#d1569a"
+  },
+  "map-light-landscape": {
+    "darkest": "#7991b3",
+    "lightest": "#eff6ff"
+  },
+  "map-light-portrait": {
+    "darkest": "#829cbf",
+    "lightest": "#eff6ff"
+  },
+  "map-dark-landscape": {
+    "darkest": "#1a202c",
+    "lightest": "#bfbdc0"
+  },
+  "map-dark-portrait": {
+    "darkest": "#1a202c",
+    "lightest": "#a5a5a7"
+  }
+}
