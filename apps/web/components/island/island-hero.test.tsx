@@ -10,7 +10,9 @@ import type { IslandSceneProps } from './island-scene';
 vi.mock('@/assets/img/isla.webp', () => ({ default: { src: '/isla.webp', width: 960, height: 720 } }));
 
 vi.mock('next/image', () => ({
-  default: ({ src, alt }: { src: { src: string }; alt: string }) => <img src={src.src} alt={alt} />,
+  default: ({ src, alt, fetchPriority }: { src: { src: string }; alt: string; fetchPriority?: 'high' | 'low' | 'auto' }) => (
+    <img src={src.src} alt={alt} fetchPriority={fetchPriority} />
+  ),
 }));
 
 /** La última escena montada: el test llama a sus callbacks en lugar de three.js. */
@@ -154,7 +156,8 @@ describe('IslandHero: carga diferida', () => {
     const { container } = renderHero();
 
     expect(phase(container)).toBe('waiting');
-    expect(screen.getByRole('img', { name: ALT })).toBeTruthy();
+    // Es el elemento del LCP: se pide con prioridad alta.
+    expect(screen.getByRole('img', { name: ALT }).getAttribute('fetchpriority')).toBe('high');
     expect(sceneMounts).not.toHaveBeenCalled();
   });
 

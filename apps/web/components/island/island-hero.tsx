@@ -77,7 +77,10 @@ export function IslandHero({ alt }: { alt: string }) {
         src={poster}
         alt={alt}
         sizes="(min-width: 520px) 480px, calc(100vw - 2rem)"
-        priority
+        // Es el elemento del LCP: se precarga (`priority` está deprecada en
+        // Next 16) y se pide con prioridad alta.
+        preload
+        fetchPriority="high"
         style={{
           width: '100%',
           height: 'auto',
