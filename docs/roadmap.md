@@ -109,6 +109,7 @@
 - [x] BLOG-105: Borrador en inglés de los 38 textos del portafolio que faltaban, sin el link de Discord, con una captura del inicio como imagen de huitzi.xyz y la sección «Trayectoria» / «Experience». ([#114](https://github.com/HuitziDomingo/personal-blog/pull/114))
 - [x] BLOG-107: Isla 3D en el hero de la portada, donde la web anterior tenía el perro: la isla de fantasía con el Rey Hongo (Quaternius, CC0), con crédito en ES y EN, three.js 0.187.0 cargado con `next/dynamic` solo cuando el navegador está libre y la isla en pantalla, una sola animación en bucle e imagen fija con reduced-motion o sin WebGL. ([#122](https://github.com/HuitziDomingo/personal-blog/pull/122))
 - [x] BLOG-109: El job `admin` del CI desactiva la restricción de AppArmor a los user namespaces sin privilegios antes del paso `csp`, para que Chrome headless arranque con sandbox en ubuntu-24.04. ([#117](https://github.com/HuitziDomingo/personal-blog/pull/117))
+- [x] BLOG-117: Regla en CLAUDE.md: los agentes nunca matan procesos por patrón (`pkill -f`, `killall`), solo los que iniciaron, por su PID. ([#126](https://github.com/HuitziDomingo/personal-blog/pull/126))
 
 ## Fase futura (fuera del MVP)
 
