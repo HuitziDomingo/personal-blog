@@ -4,6 +4,7 @@ import { TestBed } from '@angular/core/testing';
 import { FakeMatchMedia, FakeStorage } from '../browser/browser-fakes';
 import { MATCH_MEDIA } from '../browser/match-media';
 import { BackgroundService, LOGIN_BACKGROUND_ATTRIBUTE, PICK_BACKGROUND } from './background.service';
+import { BACKGROUNDS } from './backgrounds';
 import { THEME_STORAGE } from './theme-storage';
 
 const DARK_QUERY = '(prefers-color-scheme: dark)';
@@ -81,7 +82,7 @@ describe('BackgroundService', () => {
     const { backgrounds, pick } = setup({ fromScript: 'no-existe' });
 
     expect(backgrounds.loginBackground).toBe('map');
-    expect(pick).toHaveBeenCalledWith(['fold', 'map']);
+    expect(pick).toHaveBeenCalledWith(BACKGROUNDS);
   });
 
   it('sigue los cambios de otras pestañas', () => {

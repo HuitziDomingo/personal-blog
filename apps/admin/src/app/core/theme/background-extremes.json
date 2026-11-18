@@ -30,5 +30,117 @@
   "map-dark-portrait": {
     "darkest": "#1a202c",
     "lightest": "#a5a5a7"
+  },
+  "sheet-light-landscape": {
+    "darkest": "#022e75",
+    "lightest": "#9565f3"
+  },
+  "sheet-light-portrait": {
+    "darkest": "#012e73",
+    "lightest": "#9161f0"
+  },
+  "sheet-dark-landscape": {
+    "darkest": "#021a3f",
+    "lightest": "#9352be"
+  },
+  "sheet-dark-portrait": {
+    "darkest": "#011a3e",
+    "lightest": "#8f4fb9"
+  },
+  "blobs-light-landscape": {
+    "darkest": "#2d263d",
+    "lightest": "#d54a29"
+  },
+  "blobs-light-portrait": {
+    "darkest": "#2d263d",
+    "lightest": "#cc4028"
+  },
+  "blobs-dark-landscape": {
+    "darkest": "#242031",
+    "lightest": "#c2381e"
+  },
+  "blobs-dark-portrait": {
+    "darkest": "#242031",
+    "lightest": "#c1371e"
+  },
+  "glass-chip-light-landscape": {
+    "darkest": "#0a2d47",
+    "lightest": "#cfe3e6"
+  },
+  "glass-chip-light-portrait": {
+    "darkest": "#0a2d47",
+    "lightest": "#97eaf3"
+  },
+  "glass-chip-dark-landscape": {
+    "darkest": "#000000",
+    "lightest": "#d6d6c6"
+  },
+  "glass-chip-dark-portrait": {
+    "darkest": "#000000",
+    "lightest": "#bdd4c8"
+  },
+  "tarka-light-landscape": {
+    "darkest": "#465583",
+    "lightest": "#e5e9f4"
+  },
+  "tarka-light-portrait": {
+    "darkest": "#485988",
+    "lightest": "#ede0df"
+  },
+  "tarka-dark-landscape": {
+    "darkest": "#2b1c34",
+    "lightest": "#eceffb"
+  },
+  "tarka-dark-portrait": {
+    "darkest": "#2d1f37",
+    "lightest": "#ebeefa"
+  },
+  "curvy-light-landscape": {
+    "darkest": "#585856",
+    "lightest": "#dcdcdc"
+  },
+  "curvy-light-portrait": {
+    "darkest": "#5b5b5b",
+    "lightest": "#dbdbdb"
+  },
+  "curvy-dark-landscape": {
+    "darkest": "#090a0c",
+    "lightest": "#55565a"
+  },
+  "curvy-dark-portrait": {
+    "darkest": "#131416",
+    "lightest": "#505157"
+  },
+  "symbolic-light-landscape": {
+    "darkest": "#0c7bcd",
+    "lightest": "#2d88cd"
+  },
+  "symbolic-light-portrait": {
+    "darkest": "#0f7ccd",
+    "lightest": "#2084cf"
+  },
+  "symbolic-dark-landscape": {
+    "darkest": "#114ba1",
+    "lightest": "#235ba5"
+  },
+  "symbolic-dark-portrait": {
+    "darkest": "#124da2",
+    "lightest": "#1d58a5"
+  },
+  "dithered-sun-light-landscape": {
+    "darkest": "#ff50a7",
+    "lightest": "#fffffd"
+  },
+  "dithered-sun-light-portrait": {
+    "darkest": "#ff52a6",
+    "lightest": "#fffffc"
+  },
+  "dithered-sun-dark-landscape": {
+    "darkest": "#5b0010",
+    "lightest": "#fad1f4"
+  },
+  "dithered-sun-dark-portrait": {
+    "darkest": "#5a0010",
+    "lightest": "#f9d0f4"
   }
 }

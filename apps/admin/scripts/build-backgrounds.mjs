@@ -1,13 +1,15 @@
 #!/usr/bin/env node
 // Genera los fondos del admin (public/backgrounds/) a partir del tarball de
 // gnome-backgrounds. Solo usa módulos de Node y herramientas del sistema, que
-// no entran al repo: djxl (libjxl), ffmpeg, avifenc (libavif) y, para los SVG,
-// Chrome headless. Cada fondo sale en AVIF en dos recortes centrados: apaisado
-// para escritorio y vertical para móvil.
+// no entran al repo: djxl (libjxl), ffmpeg, avifenc (libavif), cwebp (libwebp)
+// y, para los SVG, Chrome headless. Cada fondo sale en AVIF en dos recortes
+// centrados, apaisado para escritorio y vertical para móvil, y en una
+// miniatura webp para el selector del menú (BLOG-124).
 //
 // Uso:
 //   node scripts/build-backgrounds.mjs <carpeta backgrounds/ de gnome-backgrounds-51.0.1>
 //   CHROME=/ruta/a/chrome node scripts/build-backgrounds.mjs …   (si hay SVG)
+//   node scripts/build-backgrounds.mjs <carpeta> fold map           (solo esos fondos)
 //
 // Después, `node scripts/measure-backgrounds.mjs` mide los colores extremos.
 import { execFileSync } from 'node:child_process';
@@ -16,9 +18,18 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { BACKGROUND_INFO, BACKGROUND_ORIENTATIONS, BACKGROUND_SIZES, BACKGROUND_VARIANTS, BACKGROUNDS, backgroundPath } from '../src/app/core/theme/backgrounds.ts';
+import {
+  BACKGROUND_INFO,
+  BACKGROUND_ORIENTATIONS,
+  BACKGROUND_SIZES,
+  BACKGROUND_VARIANTS,
+  BACKGROUNDS,
+  backgroundPath,
+  THUMBNAIL_SIZE,
+  thumbnailPath,
+} from '../src/app/core/theme/backgrounds.ts';
 
-const [source] = process.argv.slice(2);
+const [source, ...only] = process.argv.slice(2);
 if (!source) {
   console.error('Uso: node scripts/build-backgrounds.mjs <carpeta backgrounds/ de gnome-backgrounds>');
   process.exit(1);
@@ -27,10 +38,14 @@ const PUBLIC = fileURLToPath(new URL('../public/', import.meta.url));
 /** Calidad de avifenc (0–100): con el desenfoque del glass encima, 50 no deja artefactos visibles. */
 const QUALITY = '50';
 const MAX_BYTES = 300 * 1024;
+/** Calidad de cwebp para las miniaturas: a 160 × 120 queda alrededor de 10 KB. */
+const THUMBNAIL_QUALITY = '80';
+const MAX_THUMBNAIL_BYTES = 16 * 1024;
+const ids = only.length ? BACKGROUNDS.filter((id) => only.includes(id)) : BACKGROUNDS;
 
 const work = mkdtempSync(join(tmpdir(), 'admin-fondos-'));
 try {
-  for (const id of BACKGROUNDS) {
+  for (const id of ids) {
     for (const variant of BACKGROUND_VARIANTS) {
       const file = join(source, BACKGROUND_INFO[id].files[variant]);
       if (!existsSync(file)) {
@@ -72,6 +87,18 @@ try {
         if (size > MAX_BYTES) {
           throw new Error(`${out} pasa de ${MAX_BYTES / 1024} KB`);
         }
+      }
+      // Miniatura: el mismo recorte centrado, con la proporción del selector.
+      const { width, height } = THUMBNAIL_SIZE;
+      const small = join(work, `${id}-${variant}-thumb.png`);
+      const crop = `crop='min(iw,ih*${width}/${height})':'min(ih,iw*${height}/${width})',scale=${width}:${height}:flags=lanczos`;
+      execFileSync('ffmpeg', ['-loglevel', 'error', '-y', '-i', png, '-vf', crop, small]);
+      const thumb = join(PUBLIC, thumbnailPath(id, variant));
+      execFileSync('cwebp', ['-quiet', '-q', THUMBNAIL_QUALITY, '-m', '6', '-metadata', 'none', small, '-o', thumb]);
+      const thumbSize = statSync(thumb).size;
+      console.log(`${thumb}: ${(thumbSize / 1024).toFixed(1)} KB`);
+      if (thumbSize > MAX_THUMBNAIL_BYTES) {
+        throw new Error(`${thumb} pasa de ${MAX_THUMBNAIL_BYTES / 1024} KB`);
       }
     }
   }
