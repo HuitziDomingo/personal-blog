@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { islandCreditLinks, works } from '../site';
+import { works } from '../site';
 
 import { en } from './en';
 import { es } from './es';
@@ -52,11 +52,13 @@ describe('diccionarios', () => {
     expect(marks(es)).toEqual(['about[1]', 'bio[5].title']);
   });
 
-  it('dan crédito a Quaternius con los mismos links en los dos idiomas (BLOG-107)', () => {
+  it('describen la isla en los dos idiomas, sin crédito en la página (BLOG-120)', () => {
     for (const content of [es, en]) {
-      const marks = [...content.ui.home.island.credit.matchAll(/\{(\w+)\}/g)].map((match) => match[1]);
-      expect(marks, content.locale).toEqual(Object.keys(islandCreditLinks));
-      expect(content.ui.home.island.alt, content.locale).not.toBe('');
+      const island: Record<string, string> = content.ui.home.island;
+      expect(Object.keys(island), content.locale).toEqual(['alt', 'label', 'instructions']);
+      for (const value of Object.values(island)) {
+        expect(value, content.locale).not.toBe('');
+      }
     }
   });
 
