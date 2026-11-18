@@ -10,6 +10,7 @@ import { AssistantError, DraftInput, WritingAssistant } from './writing-assistan
 const API = 'http://api.test';
 const IMPROVE = `${API}/api/v1/admin/assistant/improve-writing`;
 const METADATA = `${API}/api/v1/admin/assistant/suggest-metadata`;
+const COVER = `${API}/api/v1/admin/assistant/suggest-cover`;
 const draft: DraftInput = { title: 'Hola', content: '# Hola\n\nUn borrador.' };
 
 function setup() {
@@ -33,11 +34,11 @@ async function failure(source: Observable<unknown>): Promise<unknown> {
 describe('HttpWritingAssistant', () => {
   afterEach(() => TestBed.inject(HttpTestingController).verify());
 
-  it('es la implementación que se provee, sin portada y con el aviso de Gemini', () => {
+  it('es la implementación que se provee, con portada y con el aviso de Gemini', () => {
     const { assistant } = setup();
 
     expect(assistant).toBeInstanceOf(HttpWritingAssistant);
-    expect(assistant.suggestsCover).toBe(false);
+    expect(assistant.suggestsCover).toBe(true);
     expect(assistant.notice).toContain('Gemini');
   });
 
@@ -116,9 +117,39 @@ describe('HttpWritingAssistant', () => {
     httpMock.expectNone(METADATA);
   });
 
-  it('la idea de portada falla sin petición', async () => {
-    const { assistant } = setup();
+  it('sugiere la idea de portada con POST y solo el título y el contenido', async () => {
+    const { assistant, httpMock } = setup();
+    const withExtra = { ...draft, tags: ['no', 'viaja'] } as DraftInput;
 
-    expect(await failure(assistant.suggestCover(draft))).toBeInstanceOf(AssistantError);
+    const result = firstValueFrom(assistant.suggestCover(withExtra));
+    const request = httpMock.expectOne({ method: 'POST', url: COVER });
+    expect(request.request.body).toEqual({ title: 'Hola', content: '# Hola\n\nUn borrador.' });
+    request.flush({ subject: 'A conductor robot guiding small robots', alt: 'Un robot director coordina a otros robots.' });
+
+    expect(await result).toEqual({
+      description: 'A conductor robot guiding small robots',
+      altText: 'Un robot director coordina a otros robots.',
+    });
+  });
+
+  it('la idea de portada traduce el 503 de una salida inválida', async () => {
+    const { assistant, httpMock } = setup();
+
+    const result = failure(assistant.suggestCover(draft));
+    httpMock
+      .expectOne(COVER)
+      .flush({ status: 503, detail: 'writing assistant returned an invalid suggestion, try again' }, { status: 503, statusText: 'Error' });
+
+    const error = await result;
+    expect(error).toBeInstanceOf(AssistantError);
+    expect((error as AssistantError).message).toContain('no cumple las reglas');
+  });
+
+  it('la idea de portada no envía un borrador vacío', async () => {
+    const { assistant, httpMock } = setup();
+
+    const error = (await failure(assistant.suggestCover({ title: 'Hola', content: ' ' }))) as AssistantError;
+    expect(error.message).toContain('Escribe algo de contenido');
+    httpMock.expectNone(COVER);
   });
 });

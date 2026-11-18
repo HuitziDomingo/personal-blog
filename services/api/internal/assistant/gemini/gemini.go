@@ -114,6 +114,22 @@ func (a *Assistant) SuggestMetadata(ctx context.Context, draft domain.Draft) (do
 	return domain.MetadataSuggestion{Title: output.Title, Excerpt: output.Excerpt, Tags: output.Tags, Usage: usage}, nil
 }
 
+// SuggestCover pide la idea de la portada: tema y texto alternativo. El
+// service valida el largo y los caracteres (ADR-026, punto 7).
+func (a *Assistant) SuggestCover(ctx context.Context, draft domain.Draft) (domain.CoverSuggestion, error) {
+	var output struct {
+		Subject string `json:"subject"`
+		Alt     string `json:"alt"`
+	}
+
+	usage, err := a.generate(ctx, coverInstruction, coverSchema, draftData(draft), &output)
+	if err != nil {
+		return domain.CoverSuggestion{Usage: usage}, err
+	}
+
+	return domain.CoverSuggestion{Subject: output.Subject, Alt: output.Alt, Usage: usage}, nil
+}
+
 // Classify pide la sugerencia de moderación de un comentario. El service
 // valida los enums y aplica la revisión humana obligatoria.
 func (a *Assistant) Classify(ctx context.Context, comment domain.CommentForModeration) (domain.ModerationResult, error) {

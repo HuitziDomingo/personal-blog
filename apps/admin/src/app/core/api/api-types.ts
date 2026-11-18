@@ -13,6 +13,7 @@ export type PostWrite = components['schemas']['PostWrite'];
 export type AssistantDraft = components['schemas']['AssistantDraft'];
 export type ImprovedWriting = components['schemas']['ImprovedWriting'];
 export type AssistantMetadata = components['schemas']['MetadataSuggestion'];
+export type CoverSuggestion = components['schemas']['CoverSuggestion'];
 export type CommentStatus = components['schemas']['CommentStatus'];
 export type Comment = components['schemas']['Comment'];
 export type CommentPage = components['schemas']['CommentPage'];

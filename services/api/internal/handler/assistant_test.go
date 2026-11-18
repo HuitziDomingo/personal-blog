@@ -21,6 +21,7 @@ import (
 const (
 	improvePath  = "/api/v1/admin/assistant/improve-writing"
 	metadataPath = "/api/v1/admin/assistant/suggest-metadata"
+	coverPath    = "/api/v1/admin/assistant/suggest-cover"
 	draftBody    = `{"title":"Hola","content":"# Hola\n\nBorrador."}`
 )
 
@@ -29,6 +30,7 @@ type fakeAssistant struct {
 	drafts   []domain.Draft
 	improved string
 	metadata domain.MetadataSuggestion
+	cover    domain.CoverSuggestion
 	err      error
 	// wait se espera antes de responder, para probar el deadline de escritura.
 	wait time.Duration
@@ -45,6 +47,12 @@ func (f *fakeAssistant) SuggestMetadata(_ context.Context, draft domain.Draft) (
 	f.drafts = append(f.drafts, draft)
 
 	return f.metadata, f.err
+}
+
+func (f *fakeAssistant) SuggestCover(_ context.Context, draft domain.Draft) (domain.CoverSuggestion, error) {
+	f.drafts = append(f.drafts, draft)
+
+	return f.cover, f.err
 }
 
 func assistantRouter(t *testing.T, assistant *fakeAssistant) *gin.Engine {
@@ -87,8 +95,18 @@ func TestSuggestMetadataNeverReturnsNullTags(t *testing.T) {
 	assert.JSONEq(t, `{"title":"Hola","excerpt":"Un saludo.","tags":[]}`, response.Body.String())
 }
 
+func TestSuggestCover(t *testing.T) {
+	assistant := &fakeAssistant{cover: domain.CoverSuggestion{Subject: "Robots on a desk", Alt: "Robots sobre un escritorio."}}
+
+	response := send(assistantRouter(t, assistant), http.MethodPost, coverPath, draftBody, adminSession())
+
+	require.Equal(t, http.StatusOK, response.Code)
+	assert.JSONEq(t, `{"subject":"Robots on a desk","alt":"Robots sobre un escritorio."}`, response.Body.String())
+	assert.Equal(t, []domain.Draft{{Title: "Hola", Content: "# Hola\n\nBorrador."}}, assistant.drafts)
+}
+
 func TestAssistantRequiresAnAdminSession(t *testing.T) {
-	for _, path := range []string{improvePath, metadataPath} {
+	for _, path := range []string{improvePath, metadataPath, coverPath} {
 		for name, tt := range map[string]struct {
 			headers map[string]string
 			status  int
@@ -118,14 +136,16 @@ func TestAssistantRejectsInvalidDrafts(t *testing.T) {
 		"título largo":      fmt.Sprintf(`{"title":%q,"content":"Texto"}`, strings.Repeat("a", 201)),
 		"no es un borrador": `[]`,
 	} {
-		t.Run(name, func(t *testing.T) {
-			assistant := &fakeAssistant{}
+		for _, path := range []string{improvePath, coverPath} {
+			t.Run(name+" "+path, func(t *testing.T) {
+				assistant := &fakeAssistant{}
 
-			response := send(assistantRouter(t, assistant), http.MethodPost, improvePath, body, adminSession())
+				response := send(assistantRouter(t, assistant), http.MethodPost, path, body, adminSession())
 
-			requireProblem(t, response, http.StatusBadRequest)
-			assert.Empty(t, assistant.drafts)
-		})
+				requireProblem(t, response, http.StatusBadRequest)
+				assert.Empty(t, assistant.drafts)
+			})
+		}
 	}
 }
 
@@ -162,7 +182,7 @@ func TestAssistantErrorsAre503(t *testing.T) {
 		"timeout":         {err: errors.Join(domain.ErrAssistantUnavailable, context.DeadlineExceeded), detail: "writing assistant is unavailable, try again later"},
 		"salida inválida": {err: fmt.Errorf("%w: title too long", domain.ErrAssistantInvalidOutput), detail: "writing assistant returned an invalid suggestion, try again"},
 	} {
-		for _, path := range []string{improvePath, metadataPath} {
+		for _, path := range []string{improvePath, metadataPath, coverPath} {
 			t.Run(name+" "+path, func(t *testing.T) {
 				response := send(assistantRouter(t, &fakeAssistant{err: tt.err}), http.MethodPost, path, draftBody, adminSession())
 
@@ -179,14 +199,17 @@ func TestAssistantErrorsAre503(t *testing.T) {
 // punto 7): agotarlo no afecta al resto de la API.
 func TestAssistantHasItsOwnUserBucket(t *testing.T) {
 	cfg := testRouterConfig()
-	cfg.Assistant = &fakeAssistant{improved: "ok", metadata: domain.MetadataSuggestion{Title: "T", Excerpt: "E"}}
-	cfg.RateLimits.Assistant = RateLimit{PerMinute: 2, Burst: 2}
+	cfg.Assistant = &fakeAssistant{improved: "ok", metadata: domain.MetadataSuggestion{Title: "T", Excerpt: "E"}, cover: domain.CoverSuggestion{Subject: "S", Alt: "A"}}
+	cfg.RateLimits.Assistant = RateLimit{PerMinute: 3, Burst: 3}
 	router := newTestRouterWith(t, cfg)
 
 	assert.Equal(t, http.StatusOK, send(router, http.MethodPost, improvePath, draftBody, adminSession()).Code)
 	assert.Equal(t, http.StatusOK, send(router, http.MethodPost, metadataPath, draftBody, adminSession()).Code)
+	assert.Equal(t, http.StatusOK, send(router, http.MethodPost, coverPath, draftBody, adminSession()).Code)
 
-	limited := send(router, http.MethodPost, improvePath, draftBody, adminSession())
+	// La portada comparte el bucket: el siguiente, de cualquier operación, ya
+	// no entra.
+	limited := send(router, http.MethodPost, coverPath, draftBody, adminSession())
 	requireProblem(t, limited, http.StatusTooManyRequests)
 	assert.NotEmpty(t, limited.Header().Get("Retry-After"))
 

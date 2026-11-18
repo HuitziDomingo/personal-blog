@@ -51,6 +51,14 @@ type MetadataSuggestion struct {
 	Usage   AssistantUsage
 }
 
+// CoverSuggestion es la idea de la portada de un post (ADR-026): el tema de la
+// imagen y su texto alternativo, sin validar. Es texto, no una imagen.
+type CoverSuggestion struct {
+	Subject string
+	Alt     string
+	Usage   AssistantUsage
+}
+
 // WritingAssistant es el puerto del proveedor del asistente (ADR-021). Cada
 // método es una sola llamada al modelo, sin herramientas ni reintentos. Un
 // error del proveedor se devuelve envuelto en ErrAssistantUnavailable, y su
@@ -58,4 +66,5 @@ type MetadataSuggestion struct {
 type WritingAssistant interface {
 	ImproveWriting(ctx context.Context, draft Draft) (ImprovedWriting, error)
 	SuggestMetadata(ctx context.Context, draft Draft) (MetadataSuggestion, error)
+	SuggestCover(ctx context.Context, draft Draft) (CoverSuggestion, error)
 }

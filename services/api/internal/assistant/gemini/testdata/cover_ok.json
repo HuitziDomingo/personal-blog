@@ -1,0 +1,15 @@
+{
+  "candidates": [
+    {
+      "content": {
+        "parts": [{ "text": "{\"subject\": \"A small conductor robot guiding several worker robots on a desk, warm light\", \"alt\": \"Un robot director coordina a varios robots sobre un escritorio.\"}" }],
+        "role": "model"
+      },
+      "finishReason": "STOP",
+      "index": 0
+    }
+  ],
+  "usageMetadata": { "promptTokenCount": 90, "candidatesTokenCount": 30, "thoughtsTokenCount": 12, "totalTokenCount": 132 },
+  "modelVersion": "gemini-test-001",
+  "responseId": "resp-cover-1"
+}

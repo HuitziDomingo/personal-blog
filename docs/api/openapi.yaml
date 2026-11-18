@@ -385,6 +385,47 @@ paths:
         default:
           $ref: "#/components/responses/UnexpectedError"
 
+  /api/v1/admin/assistant/suggest-cover:
+    post:
+      tags: [admin-assistant]
+      operationId: suggestCover
+      summary: Sugiere la idea de la portada de un borrador.
+      description: >-
+        Devuelve el tema de la imagen de portada y su texto alternativo, en
+        texto: no genera ninguna imagen (ADR-026, punto 2). Es una sugerencia:
+        no se guarda. La API valida el largo y los caracteres de los dos campos
+        antes de devolverlos, y si el modelo no los cumple responde 503 sin
+        reintentar. Comparte el límite por usuario del asistente (ADR-021).
+      security:
+        - accessCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AssistantDraft"
+      responses:
+        "200":
+          description: Idea de portada sugerida.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoverSuggestion"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "413":
+          $ref: "#/components/responses/PayloadTooLarge"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "503":
+          $ref: "#/components/responses/AssistantUnavailable"
+        default:
+          $ref: "#/components/responses/UnexpectedError"
+
   /api/v1/admin/posts/{id}:
     parameters:
       - name: id
@@ -963,6 +1004,30 @@ components:
             type: string
             minLength: 1
             maxLength: 50
+
+    CoverSuggestion:
+      type: object
+      description: >-
+        Idea de portada (ADR-026). Ninguno de los dos campos tiene saltos de
+        línea, caracteres de control ni espacios en los extremos.
+      required: [subject, alt]
+      properties:
+        subject:
+          type: string
+          minLength: 1
+          maxLength: 200
+          description: >-
+            Tema de la imagen, en inglés, para la plantilla cerrada del
+            generador de imágenes. Solo letras, marcas diacríticas, dígitos,
+            el espacio y `, . ; : ' ( ) -`.
+        alt:
+          type: string
+          minLength: 1
+          maxLength: 250
+          description: >-
+            Texto alternativo de la imagen, en el idioma del borrador. Solo
+            letras, marcas diacríticas, dígitos, el espacio y
+            `. , ; : ' " ( ) - ¿ ? ¡ ! « » ’ “ ” – — / % &`.
 
     PostSummary:
       type: object

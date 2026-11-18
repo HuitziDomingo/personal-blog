@@ -28,6 +28,7 @@ const (
 type Assistant interface {
 	ImproveWriting(ctx context.Context, draft domain.Draft) (string, error)
 	SuggestMetadata(ctx context.Context, draft domain.Draft) (domain.MetadataSuggestion, error)
+	SuggestCover(ctx context.Context, draft domain.Draft) (domain.CoverSuggestion, error)
 }
 
 // ImproveWriting devuelve el contenido del borrador reescrito. No guarda nada.
@@ -61,6 +62,22 @@ func (s server) SuggestMetadata(ctx context.Context, request gen.SuggestMetadata
 		Excerpt: suggestion.Excerpt,
 		Tags:    nonNil(suggestion.Tags),
 	}, nil
+}
+
+// SuggestCover devuelve la idea de la portada del borrador: tema y texto
+// alternativo, ya validados por el service. No genera ninguna imagen ni guarda
+// nada (ADR-026, punto 2).
+func (s server) SuggestCover(ctx context.Context, request gen.SuggestCoverRequestObject) (gen.SuggestCoverResponseObject, error) {
+	if _, err := requireAdmin(ctx); err != nil {
+		return nil, err
+	}
+
+	suggestion, err := s.assistant.SuggestCover(ctx, toDraft(*request.Body))
+	if err != nil {
+		return nil, err
+	}
+
+	return gen.SuggestCover200JSONResponse{Subject: suggestion.Subject, Alt: suggestion.Alt}, nil
 }
 
 func toDraft(body gen.AssistantDraft) domain.Draft {

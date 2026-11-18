@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"strings"
 	"time"
+	"unicode"
 	"unicode/utf8"
 
 	"github.com/HuitziDomingo/personal-blog/services/api/internal/domain"
@@ -27,6 +28,23 @@ const (
 	// es el que aplica a lo que devuelve ImproveWriting, para que el resultado
 	// pueda volver a enviarse al asistente.
 	MaxAssistantContentLength = 50000
+
+	// MaxCoverSubjectLength y MaxCoverAltLength son los límites de la idea de
+	// portada (CoverSuggestion en el contrato, ADR-026). El tema va a la
+	// plantilla del generador de imágenes: corto y concreto. El texto
+	// alternativo deja margen sobre los ~125 caracteres que leen bien los
+	// lectores de pantalla.
+	MaxCoverSubjectLength = 200
+	MaxCoverAltLength     = 250
+)
+
+// Caracteres permitidos en la idea de portada, además de letras, marcas
+// diacríticas, dígitos y el espacio. Nada de saltos de línea, caracteres de
+// control ni símbolos con significado en un prompt o en Markdown (#, *, <, {,
+// [, `, ...). El tema, que llega a otro modelo, es el más estricto.
+const (
+	coverSubjectPunctuation = ",.;:'()-"
+	coverAltPunctuation     = ".,;:'\"()-¿?¡!«»’“”–—/%&"
 )
 
 // Resultados de una llamada al proveedor, para el log.
@@ -111,6 +129,24 @@ func (s *AssistantService) SuggestMetadata(ctx context.Context, draft domain.Dra
 	}
 
 	return normalizeMetadata(result), nil
+}
+
+// SuggestCover devuelve la idea de la portada: tema y texto alternativo
+// (ADR-026, punto 2). Valida el largo y los caracteres de los dos antes de
+// devolverlos; si no los cumplen, falla sin reintentar (punto 1).
+func (s *AssistantService) SuggestCover(ctx context.Context, draft domain.Draft) (domain.CoverSuggestion, error) {
+	if s.provider == nil {
+		return domain.CoverSuggestion{}, domain.ErrAssistantDisabled
+	}
+
+	result, err := call(ctx, s, "suggest_cover", draft, s.provider.SuggestCover,
+		func(r domain.CoverSuggestion) domain.AssistantUsage { return r.Usage },
+		func(r domain.CoverSuggestion) error { return validateCover(normalizeCover(r)) })
+	if err != nil {
+		return domain.CoverSuggestion{}, err
+	}
+
+	return normalizeCover(result), nil
 }
 
 // call hace una llamada al proveedor con timeout, valida el resultado y deja un
@@ -209,6 +245,46 @@ func validateMetadata(suggestion domain.MetadataSuggestion) error {
 		if utf8.RuneCountInString(tag) > MaxTagLength {
 			return invalid("tag too long")
 		}
+	}
+
+	return nil
+}
+
+// normalizeCover solo quita los espacios de los extremos. Lo demás no se
+// corrige: un carácter no permitido invalida la sugerencia.
+func normalizeCover(suggestion domain.CoverSuggestion) domain.CoverSuggestion {
+	suggestion.Subject = strings.TrimSpace(suggestion.Subject)
+	suggestion.Alt = strings.TrimSpace(suggestion.Alt)
+
+	return suggestion
+}
+
+func validateCover(suggestion domain.CoverSuggestion) error {
+	if err := validateCoverField("subject", suggestion.Subject, MaxCoverSubjectLength, coverSubjectPunctuation); err != nil {
+		return err
+	}
+
+	return validateCoverField("alt", suggestion.Alt, MaxCoverAltLength, coverAltPunctuation)
+}
+
+// validateCoverField exige texto no vacío, de hasta maxLength caracteres, con
+// solo letras, marcas, dígitos, el espacio U+0020 y la puntuación indicada. Un
+// UTF-8 inválido llega aquí como U+FFFD, que no es ninguno de ellos.
+func validateCoverField(field, value string, maxLength int, punctuation string) error {
+	switch {
+	case value == "":
+		return fmt.Errorf("%w: empty %s", domain.ErrAssistantInvalidOutput, field)
+	case utf8.RuneCountInString(value) > maxLength:
+		return fmt.Errorf("%w: %s too long", domain.ErrAssistantInvalidOutput, field)
+	}
+
+	for _, r := range value {
+		if r == ' ' || unicode.IsLetter(r) || unicode.IsMark(r) || unicode.IsDigit(r) || strings.ContainsRune(punctuation, r) {
+			continue
+		}
+
+		// El log lleva el código del carácter, no el texto del modelo.
+		return fmt.Errorf("%w: %s has a disallowed character %U", domain.ErrAssistantInvalidOutput, field, r)
 	}
 
 	return nil
