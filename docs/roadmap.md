@@ -82,6 +82,7 @@
 - [x] BLOG-043: Activar JavaScript/TypeScript en CodeQL (Settings → Advanced Security) cuando se mergee el primer código de apps/admin o apps/web. (Activado en Settings; `Analyze (javascript-typescript)` corre desde [#34](https://github.com/HuitziDomingo/personal-blog/pull/34))
 - [ ] BLOG-033: Volver el job api a ubuntu-latest cuando su kernel sea compatible con MongoDB 8 (SERVER-121912).
 - [x] BLOG-048: ADR de política de dependencias: edad mínima de versiones con pnpm minimumReleaseAge y cooldown en Dependabot. ([#32](https://github.com/HuitziDomingo/personal-blog/pull/32))
+- [ ] BLOG-115: La prueba de CSP del admin (`check-csp-browser.mjs`) sigue fallando de forma intermitente con «sin respuesta en 15000 ms» aun con el arreglo de AppArmor (BLOG-109). Investigar en qué paso se cuelga (arranque de Chrome, del servidor o carga de la página), si un reintento acotado del arranque lo resuelve, y registrar cada falla con el enlace a su run.
 
 ## Por definir
 
@@ -132,7 +133,7 @@
 - [ ] BLOG-111: Primer paso de ADR-026: la sugerencia de portada del admin (`suggestCover`) contra Gemini real, con su operación en el contrato, salida estructurada (tema y texto alternativo) y validación de largo y caracteres.
 - [ ] BLOG-112: Generación de portadas (ADR-026) en la API: puertos `ImageGenerator` e `ImageStore`, adaptadores de Cloudflare (`net/http`), GCS y disco local, fakes, plantilla cerrada, bucket por usuario, campo `cover` en el post, leyenda «Imagen generada con IA» en la web e `IMAGES_ENABLED=false` por defecto. Antes, leer los términos de Black Forest Labs (punto 11).
 - [ ] BLOG-113: Portada en el admin (ADR-026): vista previa de la imagen generada, aceptar (sube a GCS y la asigna al post) o descartar, y texto alternativo editable.
-- [ ] BLOG-114: Infraestructura de portadas (León): cuenta de Cloudflare en el plan Workers Free, token solo de Workers AI en Secret Manager y bucket de GCS con lectura pública y escritura solo de la cuenta de servicio de la API. En el despliegue, verificar si Vercel comprime el `.bin` del modelo 3D del inicio (BLOG-107, 913 KB sin comprimir).
+- [ ] BLOG-114: Infraestructura de portadas (León): cuenta de Cloudflare en el plan Workers Free, token solo de Workers AI en Secret Manager y bucket de GCS con lectura pública y escritura solo de la cuenta de servicio de la API. En el despliegue, verificar si Vercel comprime el `.bin` del modelo 3D del inicio (BLOG-107, 913 KB sin comprimir). Medir en producción el LCP de `/` y `/en`, en móvil y escritorio, para confirmar o descartar el retraso de ~250 ms en el primer pintado que apareció en local con la isla (BLOG-107).
 - [x] ~~BLOG-023: Definir `domain/comment.go` e implementar comentarios.~~ Reemplazada por BLOG-090 (ADR-022). ([#91](https://github.com/HuitziDomingo/personal-blog/pull/91))
 - [x] ~~BLOG-024: Crear vista de moderación de comentarios.~~ Reemplazada por BLOG-092 (ADR-022). ([#91](https://github.com/HuitziDomingo/personal-blog/pull/91))
 - [x] ~~BLOG-025: Agregar `AIModeration` a la moderación de comentarios.~~ Reemplazada por BLOG-091 (ADR-022). ([#91](https://github.com/HuitziDomingo/personal-blog/pull/91))
