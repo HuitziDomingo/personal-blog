@@ -325,7 +325,7 @@ make web-test       # Vitest de lib/
 ```
 
 - **Rutas:**
-  - `/`: portada (presentación, acerca de mí, biografía, últimos 3 posts y redes).
+  - `/`: portada (isla 3D, presentación, acerca de mí, biografía, últimos 3 posts y redes).
   - `/works` y `/works/[id]`: trabajos, estáticos, con los datos de `lib/site.ts` y los textos de `lib/content`. Un id que no está ahí da 404.
   - `/en`, `/en/works` y `/en/works/[id]`: el portafolio en inglés ([ADR-024](adr/024-portafolio-bilingue.md)). El blog no se duplica: desde inglés, el link al blog avisa que está en español.
   - `/blog`, `/blog/page/[n]` y `/blog/[slug]`: lista de posts paginada de 20 en 20 y cada post. La página 1 es `/blog` (`/blog/page/1` redirige con 308) y cada página tiene su canónica; una página fuera de rango responde 404. `/posts` y `/posts/[slug]` redirigen (308) a `/blog`.
@@ -338,6 +338,12 @@ make web-test       # Vitest de lib/
   - Selector ES/EN en el header: un link con `hreflang` y `lang` a la página equivalente (`alternateHref` en `lib/content/routes.ts`); desde el blog lleva a `/en`.
   - Sin redirección por `Accept-Language`, cookie ni geolocalización: las páginas siguen siendo estáticas o ISR.
 - **Contenido** (`lib/site.ts` y `lib/content`): `lib/site.ts` tiene lo que no cambia con el idioma (nombre, redes, trabajos, imágenes y links); `lib/content`, los textos de cada idioma, del documento «Textos del portafolio (ES / EN)» que aprobó León. Las imágenes van en `assets/img/` (importadas con `next/image`) y las de los posts en `public/img/blog/`. Los 2 artículos de la web anterior están en `docs/web/posts-migrados/`, listos para crearlos desde el admin.
+- **Isla 3D del hero** (`components/island/`, BLOG-107): la isla de fantasía con el Rey Hongo, armada con modelos CC0 de Quaternius; el crédito, con links a quaternius.com, CC0 y Poly Pizza, va debajo de la isla en los dos idiomas.
+  - `island-hero.tsx` (cliente) reserva el hueco con la proporción de la imagen fija (`assets/img/isla.webp`, servida con `next/image`) y la muestra mientras tanto. Con `prefers-reduced-motion`, sin WebGL o si la escena falla, se queda con la imagen.
+  - `island-scene.tsx` es la escena de three.js y llega con `next/dynamic` y `ssr: false`: su chunk (three incluido) solo se pide cuando el navegador queda libre (`requestIdleCallback`, o 1.5 s sin él) y la isla está en pantalla (`IntersectionObserver`). Ninguna otra página lo carga, y tampoco entra en el JS inicial de la portada.
+  - Una sola animación en bucle (`Idle`), un giro lento y una flotación. El bucle se pausa con la isla fuera de pantalla o la pestaña oculta, y al desmontar se liberan geometrías, materiales, texturas y el contexto WebGL.
+  - El modelo es `public/models/isla/isla.gltf`, con el `.bin` y las texturas en archivos aparte: con las texturas dentro de un GLB, `GLTFLoader` las cargaría desde URLs `blob:`, que la CSP no permite. Solo `GLTFLoader`, sin Draco, Meshopt ni KTX2, así que la CSP no cambia.
+  - `node scripts/build-island-model.mjs <isla-3-bosque-fantasia-quaternius.glb>` lo regenera a partir del GLB compuesto en la investigación de BLOG-107: deja solo la animación `Idle` y aplica `prune`, `dedup` y `resample` con `@gltf-transform/cli` 4.5.1 por `pnpm dlx`, sin instalarlo en el repo.
 - **Tema** (`components/theme/system.ts` y `lib/brand.ts`): colores de la marca con contraste AA (lo comprueba `lib/brand.test.ts`). El modo claro, oscuro o sistema lo aplica un script inline en `<head>` (`lib/color-mode.ts`) antes de pintar; la CSP de ADR-017 lo permite sin nonces.
 - **SEO** (`lib/seo.ts`): cada página pide su metadata con `pageMetadata` (canónica, `hreflang`, Open Graph, Twitter y el RSS). Las páginas del portafolio declaran `es`, `en` y `x-default` hacia el español; el blog, solo `es` y `x-default`. El sitemap lista las dos versiones del portafolio con sus alternativas. La imagen de un post es la primera imagen de su Markdown, si tiene; si no, `/og.png`; las páginas en inglés usan `/en/og.png`, con la descripción en inglés. Las fechas usan `Intl` con el locale de la página (`lib/format.ts`). `SITE_URL` decide las URLs absolutas.
 - **Datos** (`lib/api.ts`): `fetch` nativo hacia la API pública de posts, con la caché de Next (`revalidate: 60`). Solo el servidor de Next llama a la API, así que no hace falta `localhost:3000` en `ALLOWED_ORIGINS`.
