@@ -17,6 +17,7 @@ type server struct {
 	assistant Assistant
 	comments  Comments
 	cvs       CVs
+	covers    Covers
 }
 
 var _ gen.StrictServerInterface = server{}

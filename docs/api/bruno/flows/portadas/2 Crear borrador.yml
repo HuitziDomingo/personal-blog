@@ -1,0 +1,41 @@
+info:
+  name: 2 Crear borrador
+  type: http
+  seq: 2
+
+http:
+  method: POST
+  url: "{{baseUrl}}/api/v1/admin/posts"
+  body:
+    type: json
+    data: |-
+      {
+        "title": "{{postTitle}}",
+        "content": "# Portadas\n\nUn borrador para el flujo de portadas.",
+        "status": "draft"
+      }
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "201"
+  scripts:
+    - type: before-request
+      code: |-
+        bru.setVar("postTitle", "Flujo de portadas " + Date.now());
+    - type: after-response
+      code: |-
+        bru.setVar("postId", res.body.id);
+    - type: tests
+      code: |-
+        test("a new post has no cover", function () {
+          expect(res.body.cover).to.equal(undefined);
+        });
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: true

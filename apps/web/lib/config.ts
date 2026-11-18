@@ -110,3 +110,53 @@ export function commentsApiOrigin(env: Env = process.env): string | null {
 
   return base === null ? null : new URL(base).origin;
 }
+
+/**
+ * Prefijo de las URLs de las portadas de los posts (ADR-026, punto 9), por
+ * ejemplo `https://storage.googleapis.com/<bucket>/covers/`, o `null` sin
+ * portadas. Es lo único que se agrega a `images.remotePatterns` de next/image:
+ * no se escribe un bucket real en el código. Sin barra final se le agrega.
+ * Una URL que no sea http o https, o con consulta o fragmento, hace fallar el
+ * build.
+ */
+export function coverImagesBaseUrl(env: Env = process.env): URL | null {
+  const configured = env['COVER_IMAGES_BASE_URL'];
+  if (configured === undefined || configured === '') {
+    return null;
+  }
+
+  let url: URL;
+  try {
+    url = new URL(configured);
+  } catch {
+    throw new Error(`COVER_IMAGES_BASE_URL must be an absolute URL, got "${configured}"`);
+  }
+  if ((url.protocol !== 'https:' && url.protocol !== 'http:') || url.search !== '' || url.hash !== '' || url.username !== '') {
+    throw new Error(`COVER_IMAGES_BASE_URL must be an http(s) URL without query, fragment or credentials, got "${configured}"`);
+  }
+  if (!url.pathname.endsWith('/')) {
+    url.pathname += '/';
+  }
+
+  return url;
+}
+
+/** El `remotePatterns` de next/image para las portadas: solo bajo su prefijo. */
+export function coverRemotePatterns(
+  env: Env = process.env,
+): { protocol: 'http' | 'https'; hostname: string; port: string; pathname: string; search: string }[] {
+  const base = coverImagesBaseUrl(env);
+  if (base === null) {
+    return [];
+  }
+
+  return [
+    {
+      protocol: base.protocol === 'https:' ? 'https' : 'http',
+      hostname: base.hostname,
+      port: base.port,
+      pathname: `${base.pathname}**`,
+      search: '',
+    },
+  ];
+}

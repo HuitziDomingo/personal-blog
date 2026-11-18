@@ -239,6 +239,56 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/posts/{id}/cover/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identificador del post. */
+                id: components["parameters"]["PostId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Genera la vista previa de la portada de un post.
+         * @description Pide a Gemini la idea de la portada del post guardado (tema y texto alternativo, como suggestCover) y genera la imagen con el tema en una plantilla cerrada (ADR-026, puntos 1 y 7). Devuelve la imagen ya recortada al tamaño de portada y NO la guarda (punto 4): para usarla, el admin la reenvía con `token` a acceptCover antes de `expiresAt`. Sin reintentos. Tiene su propio límite por usuario (punto 8): por defecto 2 por minuto y 20 por día.
+         */
+        post: operations["generateCoverPreview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/posts/{id}/cover": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identificador del post. */
+                id: components["parameters"]["PostId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Acepta la vista previa de la portada de un post.
+         * @description Guarda en el almacén de portadas la imagen de una vista previa de generateCoverPreview y la asigna al post como portada generada con IA (ADR-026, puntos 4 y 5). La API no confía en el cliente: `token` es una firma de la propia API sobre la imagen exacta, el post, el usuario y el vencimiento, y además comprueba por sus bytes que la imagen es un JPEG del tamaño de portada. Un token inválido o vencido, o una imagen distinta de la generada, responde 400. El texto alternativo se puede editar.
+         */
+        put: operations["acceptCover"];
+        post?: never;
+        /**
+         * Quita la portada de un post.
+         * @description El post queda sin portada y se sigue publicando igual (ADR-026, punto 5). La imagen no se borra del almacén. Quitar la portada de un post sin portada no cambia nada.
+         */
+        delete: operations["removeCover"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/comments": {
         parameters: {
             query?: never;
@@ -570,6 +620,61 @@ export interface components {
             /** @description Texto alternativo de la imagen, en el idioma del borrador. Solo letras, marcas diacríticas, dígitos, el espacio y `. , ; : ' " ( ) - ¿ ? ¡ ! « » ’ “ ” – — / % &`. */
             alt: string;
         };
+        /** @description Portada de un post (ADR-026, punto 5). Opcional: un post sin portada se publica igual. Si `aiGenerated` es true, la web muestra la leyenda «Imagen generada con IA» (punto 6). */
+        Cover: {
+            /**
+             * Format: uri
+             * @description URL pública de la imagen, de 1024 × 576.
+             */
+            url: string;
+            /** @description Texto alternativo de la imagen. */
+            alt: string;
+            /** @description Si la imagen se generó con IA. */
+            aiGenerated: boolean;
+        };
+        /** @description Vista previa de una portada generada con IA (ADR-026, punto 4). No está guardada en ningún sitio: para usarla se reenvían `image` y `token` a acceptCover. */
+        CoverPreview: {
+            /**
+             * Format: byte
+             * @description La imagen, en base64. Se muestra como `data:` con `contentType`.
+             */
+            image: string;
+            /** @description Tipo de la imagen, por ahora `image/jpeg`. */
+            contentType: string;
+            /**
+             * Format: int32
+             * @description Ancho en píxeles (1024).
+             */
+            width: number;
+            /**
+             * Format: int32
+             * @description Alto en píxeles (576).
+             */
+            height: number;
+            /** @description Tema que propuso Gemini y que se usó en la plantilla, en inglés. */
+            subject: string;
+            /** @description Texto alternativo sugerido, en el idioma del post. Se puede editar al aceptar. */
+            alt: string;
+            /** @description Firma de la API sobre la imagen, el post, el usuario y el vencimiento. Se reenvía tal cual a acceptCover. */
+            token: string;
+            /**
+             * Format: date-time
+             * @description Hasta cuándo se puede aceptar la vista previa.
+             */
+            expiresAt: string;
+        };
+        /** @description La vista previa que se acepta, tal como la devolvió generateCoverPreview. */
+        CoverAcceptance: {
+            /**
+             * Format: byte
+             * @description La imagen de la vista previa, en base64 (512 KiB como máximo).
+             */
+            image: string;
+            /** @description El `token` de la vista previa. */
+            token: string;
+            /** @description Texto alternativo de la portada. Solo letras, marcas diacríticas, dígitos, el espacio y `. , ; : ' " ( ) - ¿ ? ¡ ! « » ’ “ ” – — / % &`. Se guarda sin espacios en los extremos. */
+            alt: string;
+        };
         /** @description Datos de un post para listados, sin su contenido. */
         PostSummary: {
             id: string;
@@ -584,6 +689,7 @@ export interface components {
              * @description Nulo mientras no se haya publicado.
              */
             publishedAt?: string | null;
+            cover?: components["schemas"]["Cover"];
             /** Format: date-time */
             createdAt: string;
             /** Format: date-time */
@@ -777,6 +883,15 @@ export interface components {
                 "application/problem+json": components["schemas"]["Problem"];
             };
         };
+        /** @description La generación de portadas está desactivada (`detail`: "image generation is disabled"), se agotó la cuota diaria del proveedor ("image generation quota exhausted, try again tomorrow"), el proveedor falló, agotó su tiempo o devolvió una imagen inválida ("image generation is unavailable, try again later"), o no se pudo guardar la portada ("cover storage is unavailable, try again later"). La vista previa también puede responder con los 503 del asistente, que propone el tema. */
+        ImagesUnavailable: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["Problem"];
+            };
+        };
         /** @description La moderación con LLM está desactivada (`detail`: "comment moderation is disabled") o el clasificador falló, agotó su tiempo o devolvió una salida inválida (`detail`: "comment moderation is unavailable"). */
         ModerationUnavailable: {
             headers: {
@@ -806,6 +921,8 @@ export interface components {
         };
     };
     parameters: {
+        /** @description Identificador del post. */
+        PostId: string;
         /** @description Identificador del post en la URL. */
         Slug: components["schemas"]["Slug"];
         /** @description Identificador del comentario. */
@@ -1285,6 +1402,96 @@ export interface operations {
         requestBody?: never;
         responses: {
             /** @description Post archivado. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["TooManyRequests"];
+            default: components["responses"]["UnexpectedError"];
+        };
+    };
+    generateCoverPreview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identificador del post. */
+                id: components["parameters"]["PostId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Vista previa de la portada, sin guardar. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CoverPreview"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["TooManyRequests"];
+            503: components["responses"]["ImagesUnavailable"];
+            default: components["responses"]["UnexpectedError"];
+        };
+    };
+    acceptCover: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identificador del post. */
+                id: components["parameters"]["PostId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CoverAcceptance"];
+            };
+        };
+        responses: {
+            /** @description Post con su portada nueva. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Post"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            413: components["responses"]["PayloadTooLarge"];
+            429: components["responses"]["TooManyRequests"];
+            503: components["responses"]["ImagesUnavailable"];
+            default: components["responses"]["UnexpectedError"];
+        };
+    };
+    removeCover: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identificador del post. */
+                id: components["parameters"]["PostId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Post sin portada. */
             204: {
                 headers: {
                     [name: string]: unknown;

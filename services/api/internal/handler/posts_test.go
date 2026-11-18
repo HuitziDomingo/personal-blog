@@ -58,6 +58,7 @@ type fakePosts struct {
 	listParams    service.PostListParams
 	publishedArgs []any
 	archived      []string
+	uncovered     []string
 }
 
 func newFakePosts() *fakePosts {
@@ -94,6 +95,19 @@ func (f *fakePosts) Archive(_ context.Context, id string) error {
 	}
 
 	f.archived = append(f.archived, id)
+
+	return nil
+}
+
+func (f *fakePosts) RemoveCover(_ context.Context, id string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	if _, err := f.find(id); err != nil {
+		return err
+	}
+
+	f.uncovered = append(f.uncovered, id)
 
 	return nil
 }

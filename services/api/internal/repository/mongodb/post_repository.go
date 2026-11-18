@@ -19,18 +19,19 @@ var _ domain.PostRepository = (*PostRepository)(nil)
 
 // postDocument es la forma en que se guarda un post en MongoDB.
 type postDocument struct {
-	ID          bson.ObjectID `bson:"_id"`
-	AuthorID    string        `bson:"author_id"`
-	Title       string        `bson:"title"`
-	Slug        string        `bson:"slug"`
-	Excerpt     string        `bson:"excerpt"`
-	Content     string        `bson:"content"`
-	Tags        []string      `bson:"tags"`
-	Status      string        `bson:"status"`
-	SEO         seoDocument   `bson:"seo"`
-	PublishedAt *time.Time    `bson:"published_at"`
-	CreatedAt   time.Time     `bson:"created_at"`
-	UpdatedAt   time.Time     `bson:"updated_at"`
+	ID          bson.ObjectID  `bson:"_id"`
+	AuthorID    string         `bson:"author_id"`
+	Title       string         `bson:"title"`
+	Slug        string         `bson:"slug"`
+	Excerpt     string         `bson:"excerpt"`
+	Content     string         `bson:"content"`
+	Tags        []string       `bson:"tags"`
+	Status      string         `bson:"status"`
+	SEO         seoDocument    `bson:"seo"`
+	Cover       *coverDocument `bson:"cover"`
+	PublishedAt *time.Time     `bson:"published_at"`
+	CreatedAt   time.Time      `bson:"created_at"`
+	UpdatedAt   time.Time      `bson:"updated_at"`
 }
 
 // seoDocument es el subdocumento con los metadatos SEO de un post.
@@ -40,6 +41,23 @@ type seoDocument struct {
 	Keywords     []string `bson:"keywords"`
 	CanonicalURL string   `bson:"canonical_url"`
 	OGImageURL   string   `bson:"og_image_url"`
+}
+
+// coverDocument es la portada de un post (ADR-026). Un post sin portada la
+// guarda como null; los posts anteriores a ella no tienen el campo, y los dos
+// se leen como nil.
+type coverDocument struct {
+	URL         string `bson:"url"`
+	Alt         string `bson:"alt"`
+	AIGenerated bool   `bson:"ai_generated"`
+}
+
+func toCoverDocument(cover *domain.Cover) *coverDocument {
+	if cover == nil {
+		return nil
+	}
+
+	return &coverDocument{URL: cover.URL, Alt: cover.Alt, AIGenerated: cover.AIGenerated}
 }
 
 func toPostDocument(post *domain.Post, id bson.ObjectID) postDocument {
@@ -53,6 +71,7 @@ func toPostDocument(post *domain.Post, id bson.ObjectID) postDocument {
 		Tags:        nonNilStrings(post.Tags),
 		Status:      string(post.Status),
 		SEO:         toSEODocument(post.SEO),
+		Cover:       toCoverDocument(post.Cover),
 		PublishedAt: post.PublishedAt,
 		CreatedAt:   post.CreatedAt,
 		UpdatedAt:   post.UpdatedAt,
@@ -88,6 +107,10 @@ func toDomainPost(document postDocument) *domain.Post {
 		},
 		CreatedAt: document.CreatedAt.UTC(),
 		UpdatedAt: document.UpdatedAt.UTC(),
+	}
+
+	if document.Cover != nil {
+		post.Cover = &domain.Cover{URL: document.Cover.URL, Alt: document.Cover.Alt, AIGenerated: document.Cover.AIGenerated}
 	}
 
 	if document.PublishedAt != nil {
@@ -208,6 +231,7 @@ func (r *PostRepository) Update(ctx context.Context, post *domain.Post) error {
 		{Key: "tags", Value: nonNilStrings(post.Tags)},
 		{Key: "status", Value: string(post.Status)},
 		{Key: "seo", Value: toSEODocument(post.SEO)},
+		{Key: "cover", Value: toCoverDocument(post.Cover)},
 		{Key: "published_at", Value: post.PublishedAt},
 		{Key: "updated_at", Value: post.UpdatedAt},
 	}}})

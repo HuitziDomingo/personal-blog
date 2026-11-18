@@ -142,6 +142,11 @@ func clonePost(post *domain.Post) *domain.Post {
 		clone.PublishedAt = &publishedAt
 	}
 
+	if post.Cover != nil {
+		cover := *post.Cover
+		clone.Cover = &cover
+	}
+
 	return &clone
 }
 
