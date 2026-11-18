@@ -18,8 +18,9 @@ import {
 } from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
-import { createIslandControls } from './island-controls';
+import { createIslandControls, islandRange } from './island-controls';
 import { REDUCED_MOTION_QUERY } from './island-loading';
+import { createSurfaceProbe } from './island-surface';
 
 /** Modelo armado con scripts/build-island-model.mjs: fortaleza flotante (Quaternius, CC0). */
 export const ISLAND_MODEL_URL = '/models/isla/isla.gltf';
@@ -142,7 +143,7 @@ export default function IslandScene({ text, visible, onReady, onError }: IslandS
 
     const camera = new PerspectiveCamera(FOV, 4 / 3, 0.1, 1000);
     // La isla, centrada en el origen y girada a 3/4. La cámara gira a su
-    // alrededor (OrbitControls y su autoRotate); la isla no se mueve.
+    // alrededor (TrackballControls y el giro automático); la isla no se mueve.
     const pivot = new Group();
     pivot.rotation.y = START_ANGLE;
     scene.add(pivot);
@@ -162,14 +163,10 @@ export default function IslandScene({ text, visible, onReady, onError }: IslandS
     };
     resize();
 
-    let last = performance.now();
     const frame = () => {
-      const now = performance.now();
-      // Tope de 0.1 s por cuadro: tras una pausa larga, el giro no salta.
-      const delta = Math.min((now - last) / 1000, 0.1);
-      last = now;
-      // autoRotate y damping: OrbitControls mueve la cámara en cada cuadro.
-      controls.update(delta);
+      // Entrada, giro automático, inercia y topes: los controles mueven la
+      // cámara en cada cuadro, según el reloj (no según cuántos cuadros hubo).
+      controls.update(performance.now());
       renderer.render(scene, camera);
     };
 
@@ -177,9 +174,6 @@ export default function IslandScene({ text, visible, onReady, onError }: IslandS
     let onScreen = true;
     const updateLoop = () => {
       const running = model !== undefined && onScreen && !document.hidden && !disposed;
-      if (running) {
-        last = performance.now();
-      }
       renderer.setAnimationLoop(running ? frame : null);
     };
     const observer = new IntersectionObserver((entries) => {
@@ -231,18 +225,26 @@ export default function IslandScene({ text, visible, onReady, onError }: IslandS
           point.sub(center);
         }
         pivot.add(root);
+        // El raycast del tope de zoom usa las matrices del mundo desde el primer cuadro.
+        pivot.updateMatrixWorld(true);
         model = root;
 
         const distance = fitDistance(points, camera.aspect);
+        // La esfera que envuelve la isla es la del vértice más lejano del centro.
+        const modelRadius = Math.sqrt(points.reduce((max, point) => Math.max(max, point.lengthSq()), 0));
+        const range = islandRange(distance, modelRadius);
         camera.position.set(0, Math.sin(ELEVATION), Math.cos(ELEVATION)).multiplyScalar(distance);
-        camera.near = distance / 100;
-        camera.far = distance * 10;
+        camera.near = range.near;
+        camera.far = range.far;
         camera.lookAt(0, 0, 0);
         camera.updateProjectionMatrix();
-        // El target puede alejarse del centro hasta media altura de la isla; la
-        // esfera que la envuelve es la del vértice más lejano del centro.
-        const modelRadius = Math.sqrt(points.reduce((max, point) => Math.max(max, point.lengthSq()), 0));
-        controls.frame(distance, box.getSize(new Vector3()).y / 2, modelRadius);
+        controls.frame({
+          distance,
+          // El target puede alejarse del centro hasta media altura de la isla.
+          targetRadius: box.getSize(new Vector3()).y / 2,
+          modelRadius,
+          surface: createSurfaceProbe(pivot, modelRadius),
+        });
         canvas.tabIndex = 0;
 
         frame();
