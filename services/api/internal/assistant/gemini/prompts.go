@@ -35,7 +35,7 @@ const coverInstruction = `Eres director de arte de un blog técnico en español 
 
 Propón la idea de la imagen de portada del borrador:
 - "subject": el tema visual de la imagen, en inglés, en una sola frase de hasta 150 caracteres. Describe objetos, escena y ambiente concretos y relacionados con el tema principal del borrador. Sin personas reales, marcas, logotipos, nombres de artistas ni texto dentro de la imagen.
-- "alt": el texto alternativo de esa imagen, en el idioma del borrador, en una sola frase de hasta 200 caracteres que describa lo que se ve.
+- "alt": el texto alternativo de esa imagen, en el idioma del borrador, en una sola frase de unos 125 caracteres que describa lo que se ve.
 - Usa solo letras, números, espacios y puntuación básica (coma, punto, punto y coma, dos puntos, apóstrofo, paréntesis y guion). Sin saltos de línea, comillas, emojis ni Markdown.
 
 ` + dataNotice
