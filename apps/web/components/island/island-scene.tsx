@@ -1,7 +1,7 @@
 'use client';
 
-import { Box, Button, Text } from '@chakra-ui/react';
-import { useEffect, useId, useRef, useState } from 'react';
+import { Box } from '@chakra-ui/react';
+import { useEffect, useId, useRef } from 'react';
 import {
   AmbientLight,
   Box3,
@@ -18,7 +18,7 @@ import {
 } from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
-import { createIslandControls, type IslandControls } from './island-controls';
+import { createIslandControls } from './island-controls';
 import { REDUCED_MOTION_QUERY } from './island-loading';
 
 /** Modelo armado con scripts/build-island-model.mjs: fortaleza flotante (Quaternius, CC0). */
@@ -33,8 +33,6 @@ const MARGIN = 1.08;
 
 /** Textos de los controles, de los diccionarios de ADR-024. */
 export interface IslandControlsText {
-  hint: string;
-  reset: string;
   label: string;
   instructions: string;
 }
@@ -98,8 +96,6 @@ function disposeObject(root: Object3D): void {
 
 export default function IslandScene({ text, visible, onReady, onError }: IslandSceneProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const controlsRef = useRef<IslandControls | undefined>(undefined);
-  const [wheelActive, setWheelActive] = useState(false);
   const instructionsId = useId();
   // El efecto se crea una vez: los textos le llegan por ref.
   const labels = useRef({ label: text.label, instructionsId });
@@ -152,10 +148,8 @@ export default function IslandScene({ text, visible, onReady, onError }: IslandS
     scene.add(pivot);
     let model: Object3D | undefined;
     const controls = createIslandControls(camera, canvas, {
-      onWheelActiveChange: setWheelActive,
       reducedMotion: window.matchMedia(REDUCED_MOTION_QUERY),
     });
-    controlsRef.current = controls;
 
     const resize = () => {
       const { clientWidth, clientHeight } = container;
@@ -245,8 +239,10 @@ export default function IslandScene({ text, visible, onReady, onError }: IslandS
         camera.far = distance * 10;
         camera.lookAt(0, 0, 0);
         camera.updateProjectionMatrix();
-        // El target puede alejarse del centro hasta media altura de la isla.
-        controls.frame(distance, box.getSize(new Vector3()).y / 2);
+        // El target puede alejarse del centro hasta media altura de la isla; la
+        // esfera que la envuelve es la del vértice más lejano del centro.
+        const modelRadius = Math.sqrt(points.reduce((max, point) => Math.max(max, point.lengthSq()), 0));
+        controls.frame(distance, box.getSize(new Vector3()).y / 2, modelRadius);
         canvas.tabIndex = 0;
 
         frame();
@@ -265,7 +261,6 @@ export default function IslandScene({ text, visible, onReady, onError }: IslandS
       disposed = true;
       renderer.setAnimationLoop(null);
       controls.dispose();
-      controlsRef.current = undefined;
       observer.disconnect();
       resizeObserver.disconnect();
       document.removeEventListener('visibilitychange', updateLoop);
@@ -301,51 +296,6 @@ export default function IslandScene({ text, visible, onReady, onError }: IslandS
       <p id={instructionsId} className="sr-only">
         {text.instructions}
       </p>
-      {visible && (
-        <>
-          <Text
-            aria-hidden="true"
-            position="absolute"
-            insetStart="2"
-            bottom="2"
-            px="2"
-            py="1"
-            fontSize="xs"
-            color="fg.muted"
-            bg="bg.panel"
-            borderWidth="1px"
-            borderRadius="md"
-            pointerEvents="none"
-            transition="opacity 0.3s ease"
-            opacity={wheelActive ? 0 : 1}
-            // Solo con ratón: en táctil dos dedos funcionan siempre y la pista sobra.
-            display="none"
-            css={{ '@media (hover: hover) and (pointer: fine)': { display: 'block' } }}
-            data-testid="island-hint"
-          >
-            {text.hint}
-          </Text>
-          <Button
-            position="absolute"
-            insetEnd="2"
-            bottom="2"
-            size="sm"
-            minH="44px"
-            minW="44px"
-            variant="outline"
-            bg="bg.panel"
-            color="fg"
-            borderColor="border"
-            _hover={{ bg: 'brand.code' }}
-            _focusVisible={{ outline: '3px solid', outlineColor: 'brand.accent', outlineOffset: '2px' }}
-            onClick={() => {
-              controlsRef.current?.reset();
-            }}
-          >
-            {text.reset}
-          </Button>
-        </>
-      )}
     </Box>
   );
 }

@@ -69,15 +69,12 @@ export interface SiteContent {
       island: {
         /** Texto alternativo de la imagen fija, que también describe la escena 3D. */
         alt: string;
-        /** Crédito del modelo. `{quaternius}`, `{cc0}` y `{polyPizza}` marcan dónde van sus links. */
-        credit: string;
-        /** Pista sobre la isla 3D: la rueda solo hace zoom tras un clic (BLOG-118). */
-        hint: string;
-        /** Botón que devuelve la cámara al encuadre inicial. */
-        reset: string;
         /** Nombre accesible del canvas interactivo. */
         label: string;
-        /** Cómo se maneja la isla: lo anuncia el lector de pantalla al enfocar el canvas. */
+        /**
+         * Cómo se maneja la isla: solo para lectores de pantalla (sr-only), que
+         * lo anuncian al enfocar el canvas (BLOG-120).
+         */
         instructions: string;
       };
       about: string;

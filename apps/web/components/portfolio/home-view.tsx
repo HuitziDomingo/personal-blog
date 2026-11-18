@@ -7,7 +7,6 @@ import perfil from '@/assets/img/perfil.webp';
 import { SocialIcon } from '@/components/brand-icons';
 import { ExternalLink } from '@/components/external-link';
 import { ChevronRightIcon } from '@/components/icons';
-import { IslandCredit } from '@/components/island/island-credit';
 import { IslandHero } from '@/components/island/island-hero';
 import { PostCard } from '@/components/post-card';
 import { SectionHeading } from '@/components/section-heading';
@@ -30,7 +29,6 @@ export function HomeView({ content, latest }: { content: SiteContent; latest: re
         {/* Donde la web anterior tenía el perro 3D (BLOG-077, BLOG-107). */}
         <Box>
           <IslandHero alt={ui.home.island.alt} controls={ui.home.island} />
-          <IslandCredit text={ui.home.island.credit} />
         </Box>
         <Box bg="brand.surface" borderWidth="1px" borderRadius="xl" px="4" py="3" textAlign="center">
           {text.greeting}
