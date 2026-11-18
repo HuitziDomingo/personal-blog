@@ -2,7 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { inject, Injectable, Provider } from '@angular/core';
 import { catchError, defer, map, Observable, throwError } from 'rxjs';
 
-import { AssistantDraft, AssistantMetadata, ImprovedWriting } from '../api/api-types';
+import { AssistantDraft, AssistantMetadata, CoverSuggestion, ImprovedWriting } from '../api/api-types';
 import { API_BASE_URL } from '../config/api-config';
 import { ApiError } from '../http/api-error';
 import { API_PATHS } from '../http/api-url';
@@ -20,8 +20,8 @@ export class HttpWritingAssistant implements WritingAssistant {
   private readonly http = inject(HttpClient);
   private readonly baseUrl = inject(API_BASE_URL);
 
-  /** La v1 de la API no sugiere portada (ADR-021, punto 1). */
-  readonly suggestsCover = false;
+  /** La idea de portada en texto (ADR-026, punto 2); la API valida los dos campos. */
+  readonly suggestsCover = true;
   readonly notice =
     'Sugerencias de Gemini en su plan gratuito: Google puede usar el borrador para mejorar sus modelos. No lo uses con borradores privados.';
 
@@ -35,10 +35,10 @@ export class HttpWritingAssistant implements WritingAssistant {
     );
   }
 
-  suggestCover(): Observable<CoverIdea> {
-    // El panel no ofrece la acción (suggestsCover es false); esto solo cubre
-    // una llamada por error.
-    return throwError(() => new AssistantError('La idea de portada no está disponible.'));
+  suggestCover(draft: DraftInput): Observable<CoverIdea> {
+    return this.post<CoverSuggestion>(API_PATHS.suggestCover, draft).pipe(
+      map(({ subject, alt }) => ({ description: subject, altText: alt })),
+    );
   }
 
   private post<T>(path: string, draft: DraftInput): Observable<T> {

@@ -8,6 +8,7 @@ export const API_PATHS = {
   adminComments: '/api/v1/admin/comments',
   improveWriting: '/api/v1/admin/assistant/improve-writing',
   suggestMetadata: '/api/v1/admin/assistant/suggest-metadata',
+  suggestCover: '/api/v1/admin/assistant/suggest-cover',
 } as const;
 
 /**

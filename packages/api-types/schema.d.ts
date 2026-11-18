@@ -194,6 +194,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/assistant/suggest-cover": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Sugiere la idea de la portada de un borrador.
+         * @description Devuelve el tema de la imagen de portada y su texto alternativo, en texto: no genera ninguna imagen (ADR-026, punto 2). Es una sugerencia: no se guarda. La API valida el largo y los caracteres de los dos campos antes de devolverlos, y si el modelo no los cumple responde 503 sin reintentar. Comparte el límite por usuario del asistente (ADR-021).
+         */
+        post: operations["suggestCover"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/posts/{id}": {
         parameters: {
             query?: never;
@@ -415,6 +435,13 @@ export interface components {
             excerpt: string;
             /** @description En minúsculas, con los espacios colapsados y sin duplicados. */
             tags: string[];
+        };
+        /** @description Idea de portada (ADR-026). Ninguno de los dos campos tiene saltos de línea, caracteres de control ni espacios en los extremos. */
+        CoverSuggestion: {
+            /** @description Tema de la imagen, en inglés, para la plantilla cerrada del generador de imágenes. Solo letras, marcas diacríticas, dígitos, el espacio y `, . ; : ' ( ) -`. */
+            subject: string;
+            /** @description Texto alternativo de la imagen, en el idioma del borrador. Solo letras, marcas diacríticas, dígitos, el espacio y `. , ; : ' " ( ) - ¿ ? ¡ ! « » ’ “ ” – — / % &`. */
+            alt: string;
         };
         /** @description Datos de un post para listados, sin su contenido. */
         PostSummary: {
@@ -1000,6 +1027,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MetadataSuggestion"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            413: components["responses"]["PayloadTooLarge"];
+            429: components["responses"]["TooManyRequests"];
+            503: components["responses"]["AssistantUnavailable"];
+            default: components["responses"]["UnexpectedError"];
+        };
+    };
+    suggestCover: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AssistantDraft"];
+            };
+        };
+        responses: {
+            /** @description Idea de portada sugerida. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CoverSuggestion"];
                 };
             };
             400: components["responses"]["BadRequest"];

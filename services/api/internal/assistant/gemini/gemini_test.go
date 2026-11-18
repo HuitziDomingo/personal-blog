@@ -206,6 +206,35 @@ func TestSuggestMetadata(t *testing.T) {
 	assert.Equal(t, []any{"title", "excerpt", "tags"}, schema["required"])
 }
 
+func TestSuggestCover(t *testing.T) {
+	fake := newFakeGemini(t, http.StatusOK, "cover_ok.json")
+
+	suggestion, err := newTestAssistant(t, fake).SuggestCover(t.Context(), testDraft)
+
+	require.NoError(t, err)
+	// Sin validar: el largo y los caracteres los comprueba el service.
+	assert.Equal(t, "A small conductor robot guiding several worker robots on a desk, warm light", suggestion.Subject)
+	assert.Equal(t, "Un robot director coordina a varios robots sobre un escritorio.", suggestion.Alt)
+	assert.Equal(t, 42, suggestion.Usage.OutputTokens, "los tokens de razonamiento cuentan")
+
+	body := fake.last.Load().Body
+	assert.Equal(t, coverInstruction, body.SystemInstruction.Parts[0].Text)
+	assert.Equal(t, "application/json", body.GenerationConfig.ResponseMIMEType)
+	assert.Equal(t, []any{"subject", "alt"}, body.GenerationConfig.ResponseJSONSchema["required"])
+	assert.Equal(t, int32(1), fake.hits.Load(), "una sola llamada, sin reintentos")
+}
+
+// Una salida que no es el JSON pedido es una sugerencia inválida, sin
+// reintentos (ADR-026, punto 1).
+func TestSuggestCoverRejectsOutputThatIsNotJSON(t *testing.T) {
+	fake := newFakeGemini(t, http.StatusOK, "not_json.json")
+
+	_, err := newTestAssistant(t, fake).SuggestCover(t.Context(), testDraft)
+
+	require.ErrorIs(t, err, domain.ErrAssistantInvalidOutput)
+	assert.Equal(t, int32(1), fake.hits.Load())
+}
+
 // El borrador va en el mensaje del usuario como JSON, separado de las
 // instrucciones del sistema (ADR-021, punto 6). Un borrador que intenta cerrar
 // el delimitador y dar órdenes llega intacto como dato.

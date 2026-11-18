@@ -14,7 +14,11 @@ export interface MetadataSuggestion {
   tags: string[];
 }
 
-/** Una idea de portada: qué mostrar y su texto alternativo. No es una imagen. */
+/**
+ * Una idea de portada: qué mostrar y su texto alternativo. No es una imagen.
+ * Contra la API, `description` es el tema en inglés que usará el generador de
+ * imágenes (ADR-026) y `altText`, el texto alternativo en el idioma del post.
+ */
 export interface CoverIdea {
   description: string;
   altText: string;
@@ -34,8 +38,8 @@ export class AssistantError extends Error {
  */
 export abstract class WritingAssistant {
   /**
-   * Si ofrece la idea de portada. La API no la tiene en la v1 (ADR-021,
-   * punto 1), así que el panel oculta esa acción cuando es false.
+   * Si ofrece la idea de portada. El panel oculta esa acción cuando es false.
+   * La API la ofrece desde ADR-026 (punto 2).
    */
   abstract readonly suggestsCover: boolean;
   /** Aviso que el panel muestra bajo su título: de dónde salen las sugerencias. */

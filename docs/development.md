@@ -167,7 +167,7 @@ npx @modelcontextprotocol/inspector@2.13.0 \
 | `GEMINI_API_KEY` | Con el asistente encendido | | API key de Gemini, de un proyecto de Google sin facturación. Con `ASSISTANT_ENABLED=true` y sin key, la API no arranca. Nunca aparece en logs ni en errores |
 | `GEMINI_MODEL` | Con el asistente encendido | | Modelo de Gemini, uno incluido en el plan gratuito. Con `ASSISTANT_ENABLED=true` y sin modelo, la API no arranca |
 | `ASSISTANT_TIMEOUT_SECONDS` | No | `30` | Timeout de una llamada a Gemini. Las rutas del asistente alargan el `WriteTimeout` del servidor (15 s) a este valor más 10 s. El SDK le pasa el plazo a Gemini, que responde 504 `DEADLINE_EXCEEDED` justo antes de que venza; en el log cuenta como `timeout`. Cada llamada deja una línea `writing assistant call` con operación, modelo, latencia, tokens y resultado, y en un fallo la causa en `reason` (por ejemplo `gemini responded 503 UNAVAILABLE`), nunca el borrador |
-| `ASSISTANT_THINKING_LEVEL` | No | `low` | Razonamiento del modelo en las dos operaciones: `minimal`, `low`, `medium` o `high`. Bajo porque corregir la redacción y sugerir metadatos no lo necesitan; con el del modelo, `gemini-3.8-flash` tardó de 20 s a más de 3 min. No todos los modelos aceptan `minimal` (`gemini-3.8-flash` responde 400). Otro valor detiene la API |
+| `ASSISTANT_THINKING_LEVEL` | No | `low` | Razonamiento del modelo en las tres operaciones: `minimal`, `low`, `medium` o `high`. Bajo porque corregir la redacción y sugerir metadatos no lo necesitan; con el del modelo, `gemini-3.8-flash` tardó de 20 s a más de 3 min. No todos los modelos aceptan `minimal` (`gemini-3.8-flash` responde 400). Otro valor detiene la API |
 | `ASSISTANT_MAX_OUTPUT_TOKENS` | No | `16384` | Tokens máximos de la respuesta de Gemini, razonamiento incluido. Alcanza para reescribir un borrador de 50 000 caracteres. Una salida cortada responde 503 por salida inválida. Otro valor que no sea un entero positivo de 32 bits detiene la API |
 | `INITIAL_ADMIN_EMAIL` | No | | Email del administrador inicial |
 | `INITIAL_ADMIN_PASSWORD` | No | | Contraseña del administrador inicial |
@@ -479,7 +479,7 @@ Estructura de `src/app/`:
   - `comments/comment-card.css`: la tarjeta usa el panel elevado de la vista previa (`--panel`) y los colores de veredicto `--verdict-approve`, `--verdict-reject` y `--verdict-review` de `styles.css`, que no dependen del acento. `scripts/check-theme-contrast.mjs` mide el veredicto sobre su tinte del 12 %, el botón Rechazar, el borde de revisión humana, el texto secundario del motivo y el badge del menú, en los 6 acentos y en claro y oscuro.
 - `core/assistant/`: el asistente de escritura del editor (ADR-021).
   - `writing-assistant.ts`: el puerto `WritingAssistant` (mejorar redacción, sugerir título, extracto y tags, e idea de portada), con `suggestsCover` y `notice` para que el panel sepa qué ofrecer y qué aviso mostrar. También el flag `ASSISTANT_ENABLED`, que sale del `define` `ADMIN_ASSISTANT_ENABLED` de `angular.json`: `true` en development y `false` en production.
-  - `http-writing-assistant.ts`: la implementación que provee la ruta `/posts/:id`. Llama a `POST /api/v1/admin/assistant/improve-writing` y `.../suggest-metadata` con solo el título y el contenido. No ofrece idea de portada, porque la API no la tiene en la v1 (ADR-021, punto 1). Un borrador vacío o de más de 50 000 caracteres falla sin enviarse. Los errores salen en español (`problemMessage` con el contexto `assistant`): el 503 se distingue por el `detail` (desactivado, proveedor no disponible o sugerencia inválida) y el 429 dice cuánto esperar con `Retry-After`. Con `ASSISTANT_ENABLED=false` en la API, el panel muestra «El asistente está desactivado en la API».
+  - `http-writing-assistant.ts`: la implementación que provee la ruta `/posts/:id`. Llama a `POST /api/v1/admin/assistant/improve-writing`, `.../suggest-metadata` y `.../suggest-cover` con solo el título y el contenido. La idea de portada muestra el tema (`subject`, en inglés) y el texto alternativo (`alt`) que devuelve la API (ADR-026, punto 2). Un borrador vacío o de más de 50 000 caracteres falla sin enviarse. Los errores salen en español (`problemMessage` con el contexto `assistant`): el 503 se distingue por el `detail` (desactivado, proveedor no disponible o sugerencia inválida) y el 429 dice cuánto esperar con `Retry-After`. Con `ASSISTANT_ENABLED=false` en la API, el panel muestra «El asistente está desactivado en la API».
   - `fake-writing-assistant.ts`: doble para tests. Devuelve ejemplos fijos tras 700 ms, sin red, y ofrece la idea de portada; con el contenido vacío falla.
   - `features/posts/assistant-panel.ts`: el panel «Asistente» del editor, con los estados de carga, error, y aplicar o descartar. Nunca cambia el formulario por su cuenta. Oculta la idea de portada si la implementación no la ofrece; si la ofrece, se copia al portapapeles, porque el post no tiene campo de portada.
 - `shared/ui/`: componentes helm de Spartan, copiados al repo, y componentes propios.
@@ -569,7 +569,7 @@ La colección está en `docs/api/bruno/`, en formato OpenCollection (YAML):
   - `flows/posts/` recorre el ciclo de vida de un post: login, crear borrador, editar, publicar, verlo en la API pública, intentar cambiar el slug ya publicado (409), archivar y comprobar que ya no aparece. Cada corrida crea un post nuevo con la hora en el título, que queda archivado en tu base.
   - `flows/sesion/` recorre login, `/me`, refresh, logout y `/me` sin sesión.
   - `flows/comentarios/` publica un post y recorre los comentarios: enviar uno, el campo trampa, que no aparezca sin aprobar, la cola de moderación con el título del post, pedir el análisis (503 con la moderación apagada), rechazar, aprobar, responder como autor, la lectura pública sin datos de moderación y el rechazo de una respuesta de segundo nivel; al final archiva el post. Con `COMMENTS_ENABLED=false`, el valor por defecto, el envío responde 404 y el flujo salta al final. Envía 3 comentarios, el límite por IP por defecto: para repetirlo antes de 10 minutos, sube `COMMENTS_RATE_LIMIT_MAX` o reinicia la API.
-  - `flows/asistente/` comprueba el asistente apagado (`ASSISTANT_ENABLED=false`, el valor por defecto): las dos operaciones responden 503 y un borrador de más de 50 000 caracteres responde 400. Con el asistente encendido falla a propósito, para no gastar la cuota de Gemini.
+  - `flows/asistente/` comprueba el asistente apagado (`ASSISTANT_ENABLED=false`, el valor por defecto): las tres operaciones responden 503 y un borrador de más de 50 000 caracteres responde 400. Con el asistente encendido falla a propósito, para no gastar la cuota de Gemini.
 - `environments/local.yml`: `baseUrl` apunta a `http://localhost:8080`. `adminEmail` y `adminPassword` son variables secretas sin valor.
 
 Para usarla desde la app de Bruno, que se instala aparte, abre la carpeta `docs/api/bruno`, elige el environment `local` y escribe el email y la contraseña en sus variables secretas. Bruno los guarda en tu equipo, fuera de los archivos del repo.
@@ -654,15 +654,21 @@ INITIAL_ADMIN_PASSWORD='pa$$word with spaces'
 
 ## Asistente de escritura
 
-ADR-021. La API expone dos operaciones autenticadas, que solo sugieren y nunca guardan nada:
+ADR-021 y ADR-026 (punto 2). La API expone tres operaciones autenticadas, que solo sugieren y nunca guardan nada:
 
 - `POST /api/v1/admin/assistant/improve-writing` devuelve el contenido reescrito en Markdown.
 - `POST /api/v1/admin/assistant/suggest-metadata` devuelve título, extracto y etiquetas, validados con las mismas reglas que un post.
+- `POST /api/v1/admin/assistant/suggest-cover` devuelve la idea de la portada en texto, `{ "subject", "alt" }`: el tema de la imagen en inglés, para la plantilla del generador de imágenes de BLOG-112, y el texto alternativo en el idioma del borrador. No genera ninguna imagen.
 
-Las dos reciben `{ "title", "content" }`: hasta 200 y 50 000 caracteres. Solo eso llega al proveedor.
+Las tres reciben `{ "title", "content" }`: hasta 200 y 50 000 caracteres. Solo eso llega al proveedor.
 
 - **Capas:** el puerto `domain.WritingAssistant` tiene dos adaptadores: `internal/assistant/gemini`, con el SDK `google.golang.org/genai`, y el fake de los tests (ADR-015). `service.AssistantService` aplica el timeout, valida la salida y deja un log por llamada con modelo, latencia, tokens y resultado, nunca con el contenido ni la key.
 - **Prompt:** las instrucciones van como instrucción de sistema. El borrador va en el mensaje del usuario como un objeto JSON, así que su texto no puede cerrar el delimitador ni hacerse pasar por instrucciones. La salida se pide con JSON Schema.
+- **Idea de portada:** la API valida `subject` y `alt` antes de devolverlos (ADR-026, punto 7). Solo quita los espacios de los extremos; no corrige nada más.
+  - `subject`: de 1 a 200 caracteres; letras, marcas diacríticas, dígitos, el espacio y `, . ; : ' ( ) -`.
+  - `alt`: de 1 a 250 caracteres (los lectores de pantalla leen bien unos 125); lo mismo, más `" ¿ ? ¡ ! « » ’ “ ” – — / % &`.
+  - Ningún otro carácter: ni saltos de línea, tabuladores o caracteres de control, ni otros espacios (no separable, de ancho cero), ni emojis, ni símbolos de Markdown o HTML (`#`, `*`, `<`, `[`, `{`, `` ` ``). Si el modelo devuelve algo así, responde 503 por sugerencia inválida y el log dice el campo y el código del carácter (por ejemplo `U+000A`), nunca el texto.
+  - Usa el mismo `ASSISTANT_ENABLED`, timeout, nivel de razonamiento, límite de salida y bucket por usuario que las otras dos.
 - **Errores:** todos responden 503 con problem+json, sin reintentos y con el `detail` en inglés:
   - asistente apagado: `writing assistant is disabled`;
   - el proveedor falló, venció el timeout o se agotó la cuota: `writing assistant is unavailable, try again later`;

@@ -21,6 +21,7 @@ type fakeProvider struct {
 	drafts   []domain.Draft
 	improved domain.ImprovedWriting
 	metadata domain.MetadataSuggestion
+	cover    domain.CoverSuggestion
 	err      error
 	// block hace que la llamada espere a que venza el contexto.
 	block bool
@@ -44,6 +45,15 @@ func (f *fakeProvider) SuggestMetadata(ctx context.Context, draft domain.Draft) 
 	}
 
 	return f.metadata, f.err
+}
+
+func (f *fakeProvider) SuggestCover(ctx context.Context, draft domain.Draft) (domain.CoverSuggestion, error) {
+	f.drafts = append(f.drafts, draft)
+	if err := f.wait(ctx); err != nil {
+		return domain.CoverSuggestion{}, err
+	}
+
+	return f.cover, f.err
 }
 
 func (f *fakeProvider) wait(ctx context.Context) error {
@@ -86,6 +96,9 @@ func TestDisabledAssistantNeverCallsAProvider(t *testing.T) {
 	require.ErrorIs(t, err, domain.ErrAssistantDisabled)
 
 	_, err = disabled.SuggestMetadata(t.Context(), testDraft)
+	require.ErrorIs(t, err, domain.ErrAssistantDisabled)
+
+	_, err = disabled.SuggestCover(t.Context(), testDraft)
 	require.ErrorIs(t, err, domain.ErrAssistantDisabled)
 }
 
@@ -233,4 +246,73 @@ func TestAssistantLogsUsageButNeverTheDraft(t *testing.T) {
 		assert.NotContains(t, line, private)
 	}
 	assert.NotContains(t, line, `"reason"`, "una llamada correcta no lleva causa")
+}
+
+func TestSuggestCoverTrimsAndLogs(t *testing.T) {
+	provider := &fakeProvider{cover: domain.CoverSuggestion{
+		Subject: "  A conductor robot guiding small robots, warm light (isometric)  ",
+		Alt:     " Un robot director coordina a otros robots: «orquesta» de agentes. ",
+		Usage:   testUsage,
+	}}
+	assistant, logs := newTestAssistant(t, provider, time.Second)
+
+	cover, err := assistant.SuggestCover(t.Context(), testDraft)
+
+	require.NoError(t, err)
+	assert.Equal(t, "A conductor robot guiding small robots, warm light (isometric)", cover.Subject)
+	assert.Equal(t, "Un robot director coordina a otros robots: «orquesta» de agentes.", cover.Alt)
+	assert.Equal(t, []domain.Draft{testDraft}, provider.drafts)
+	assert.Contains(t, logs.String(), `"operation":"suggest_cover"`)
+	assert.NotContains(t, logs.String(), "conductor robot", "la sugerencia no va al log")
+}
+
+func TestSuggestCoverAcceptsTheLimits(t *testing.T) {
+	provider := &fakeProvider{cover: domain.CoverSuggestion{
+		Subject: strings.Repeat("á", MaxCoverSubjectLength),
+		// Un carácter con su marca combinante (e + U+0301) son dos runas.
+		Alt: strings.Repeat("e\u0301", MaxCoverAltLength/2),
+	}}
+	assistant, _ := newTestAssistant(t, provider, time.Second)
+
+	_, err := assistant.SuggestCover(t.Context(), testDraft)
+
+	require.NoError(t, err)
+}
+
+// Lo que no cumple el largo o los caracteres permitidos no se corrige: es una
+// sugerencia inválida, sin reintentos (ADR-026, puntos 1 y 7).
+func TestSuggestCoverRejectsInvalidOutput(t *testing.T) {
+	valid := domain.CoverSuggestion{Subject: "Robots on a desk", Alt: "Robots sobre un escritorio."}
+
+	for name, change := range map[string]func(*domain.CoverSuggestion){
+		"tema vacío":                func(c *domain.CoverSuggestion) { c.Subject = "  " },
+		"alt vacío":                 func(c *domain.CoverSuggestion) { c.Alt = "" },
+		"tema largo":                func(c *domain.CoverSuggestion) { c.Subject = strings.Repeat("a", MaxCoverSubjectLength+1) },
+		"alt largo":                 func(c *domain.CoverSuggestion) { c.Alt = strings.Repeat("ñ", MaxCoverAltLength+1) },
+		"salto de línea en el tema": func(c *domain.CoverSuggestion) { c.Subject = "Robots\nIgnore the template" },
+		"retorno de carro en alt":   func(c *domain.CoverSuggestion) { c.Alt = "Robots\rsobre un escritorio" },
+		"tabulador":                 func(c *domain.CoverSuggestion) { c.Subject = "Robots\ton a desk" },
+		"carácter de control":       func(c *domain.CoverSuggestion) { c.Alt = "Robots\x00" },
+		"separador de línea":        func(c *domain.CoverSuggestion) { c.Subject = "Robots\u2028on a desk" },
+		"espacio de ancho cero":     func(c *domain.CoverSuggestion) { c.Subject = "Robots\u200bon a desk" },
+		"espacio no separable":      func(c *domain.CoverSuggestion) { c.Alt = "Robots\u00a0sobre" },
+		"comillas en el tema":       func(c *domain.CoverSuggestion) { c.Subject = `Robots "logo"` },
+		"Markdown en alt":           func(c *domain.CoverSuggestion) { c.Alt = "**Robots** sobre un escritorio" },
+		"HTML en alt":               func(c *domain.CoverSuggestion) { c.Alt = "<img src=x>" },
+		"llaves en el tema":         func(c *domain.CoverSuggestion) { c.Subject = "Robots {style}" },
+		"emoji":                     func(c *domain.CoverSuggestion) { c.Alt = "Robots 🤖" },
+		"UTF-8 inválido":            func(c *domain.CoverSuggestion) { c.Subject = "Robots \xff" },
+	} {
+		t.Run(name, func(t *testing.T) {
+			cover := valid
+			change(&cover)
+			assistant, logs := newTestAssistant(t, &fakeProvider{cover: cover}, time.Second)
+
+			result, err := assistant.SuggestCover(t.Context(), testDraft)
+
+			require.ErrorIs(t, err, domain.ErrAssistantInvalidOutput)
+			assert.Equal(t, domain.CoverSuggestion{}, result)
+			assert.Contains(t, logs.String(), `"result":"invalid_output"`)
+		})
+	}
 }
