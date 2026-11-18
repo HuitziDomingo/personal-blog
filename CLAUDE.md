@@ -135,6 +135,7 @@ Ubicación: [docs/roadmap.md](docs/roadmap.md).
 
 - No toques GCP, Vercel, Atlas, DNS, secretos ni producción.
 - Nada de credenciales en el código.
+- Nunca mates procesos por patrón (`pkill -f`, `killall`). Detén solo los procesos que tú iniciaste, por el PID que guardaste al arrancarlos.
 
 ## Modo aprendizaje Go
 
