@@ -27,6 +27,12 @@ export const en: SiteContent = {
   ],
   bio: [
     {
+      period: '2026',
+      title: 'Freelance project, Santo Sazón.',
+      description:
+        'Catering platform in production: NestJS API, Angular dashboard, React Native app and Astro landing page, deployed on Google Cloud.',
+    },
+    {
       period: '2026 – present',
       title: 'Personal project, huitzi.xyz.',
       description: 'Go API, Angular admin, Next.js frontend, MongoDB and an AI writing assistant (Gemini) that costs $0 by design.',
@@ -55,6 +61,25 @@ export const en: SiteContent = {
     { period: '2014 – present', title: 'Co-founder and freelance frontend developer at {debred}.' },
   ],
   works: {
+    'santo-sazon': {
+      summary:
+        'Full-stack platform for a family catering business in Mexico City: mobile app, admin dashboard, API and landing page. Orders, Mercado Pago payments, WhatsApp notifications and an AI assistant powered by MCP.',
+      sections: [
+        [
+          'A family business took orders only by WhatsApp and phone. I designed, built and deployed end to end an ecosystem of four applications in an Nx monorepo sharing TypeScript types: a NestJS API with PostgreSQL, an Angular dashboard with Taiga UI, a React Native mobile app with Expo, and an Astro landing page.',
+        ],
+        [
+          "Mercado Pago payments always computed on the server, with signature-verified webhooks. Sessions with rotating refresh tokens and reuse detection. An AI chat that browses the menu and places orders through MCP, always with the user's permissions. Account deletion with anonymization of personal data.",
+        ],
+        [
+          'CI/CD with GitHub Actions to Google Cloud Run, more than 1,100 automated tests, decisions documented in ADRs, and an OWASP-based security audit before launch. I used AI agents to support the implementation; I defined the architecture, reviewed every change and ran production.',
+        ],
+      ],
+      imageAlts: [
+        'Santo Sazón home page on desktop: “El sazón de casa, servido para tu evento” over a table of Mexican dishes, with the “Ver menú” and “Pedir por WhatsApp” buttons.',
+        'The same Santo Sazón home page on a phone, with the compact menu and the buttons stacked.',
+      ],
+    },
     'huitzi-xyz': {
       summary:
         'This site, built as a real product: a Go API with hexagonal architecture, an Angular admin, a Next.js frontend, a read-only MCP server and an AI writing assistant with cost limits, security controls and human review. Every decision is documented in public ADRs.',

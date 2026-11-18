@@ -43,13 +43,25 @@ describe('diccionarios', () => {
     }
   });
 
+  it('ponen Santo Sazón primero, con sus tres secciones y su entrada de trayectoria en los dos idiomas', () => {
+    const [first] = works;
+    expect(first?.id).toBe('santo-sazon');
+    expect(first?.year).toBe('2026');
+    expect(first?.link.href).toBe('https://santosazon.mx');
+    for (const content of [es, en]) {
+      expect(content.works['santo-sazon'].sections, content.locale).toHaveLength(3);
+      expect(content.bio[0]?.period, content.locale).toBe('2026');
+      expect(content.bio[0]?.title, content.locale).toContain('Santo Sazón');
+    }
+  });
+
   it('marcan con {debred} el link a Debred en los dos idiomas', () => {
     const marks = (content: typeof es) =>
       leaves(content)
         .filter(([, text]) => text.includes('{debred}'))
         .map(([path]) => path);
     expect(marks(en)).toEqual(marks(es));
-    expect(marks(es)).toEqual(['about[1]', 'bio[5].title']);
+    expect(marks(es)).toEqual(['about[1]', 'bio[6].title']);
   });
 
   it('dan crédito a Quaternius con los mismos links en los dos idiomas (BLOG-107)', () => {
@@ -78,9 +90,10 @@ describe('traducciones', () => {
     expect(same).toEqual([
       'profile.authorBadge',
       'profile.authorRole',
-      'bio[2].period',
+      'bio[0].period',
       'bio[3].period',
       'bio[4].period',
+      'bio[5].period',
       'ui.nav.blog',
       'ui.works.website',
     ]);

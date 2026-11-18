@@ -8,7 +8,7 @@ export const LOCALES = ['es', 'en'] as const;
 export type Locale = (typeof LOCALES)[number];
 
 /** Ids de los trabajos; cada idioma tiene que traer el texto de todos. */
-export const WORK_IDS = ['huitzi-xyz', 'debred', 'youtube', 'dalyza', 'aum'] as const;
+export const WORK_IDS = ['santo-sazon', 'huitzi-xyz', 'debred', 'youtube', 'dalyza', 'aum'] as const;
 export type WorkId = (typeof WORK_IDS)[number];
 
 export interface BioEntry {

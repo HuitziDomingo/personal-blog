@@ -27,6 +27,12 @@ export const es: SiteContent = {
   ],
   bio: [
     {
+      period: '2026',
+      title: 'Proyecto freelance, Santo Sazón.',
+      description:
+        'Plataforma de catering en producción: API en NestJS, panel en Angular, app en React Native y landing en Astro, desplegada en Google Cloud.',
+    },
+    {
       period: '2026 – hoy',
       title: 'Proyecto propio, huitzi.xyz.',
       description:
@@ -56,6 +62,25 @@ export const es: SiteContent = {
     { period: '2014 – hoy', title: 'Cofundador y desarrollador frontend freelance en {debred}.' },
   ],
   works: {
+    'santo-sazon': {
+      summary:
+        'Plataforma full-stack para un negocio familiar de catering en CDMX: app móvil, panel de administración, API y landing. Pedidos, pagos con Mercado Pago, avisos por WhatsApp y un asistente con IA que usa MCP.',
+      sections: [
+        [
+          'Un negocio familiar tomaba pedidos solo por WhatsApp y teléfono. Diseñé, construí y desplegué de punta a punta un ecosistema de cuatro aplicaciones en un monorepo Nx que comparten tipos de TypeScript: API en NestJS con PostgreSQL, panel en Angular con Taiga UI, app móvil en React Native con Expo y landing en Astro.',
+        ],
+        [
+          'Pagos con Mercado Pago calculados siempre en el servidor y webhooks con firma verificada. Sesiones con refresh tokens rotativos y detección de reúso. Un chat con IA que consulta el menú y crea pedidos mediante MCP, siempre con los permisos del usuario. Eliminación de cuenta con anonimización de datos personales.',
+        ],
+        [
+          'CI/CD con GitHub Actions hacia Google Cloud Run, más de 1,100 pruebas automatizadas, decisiones documentadas en ADRs y una auditoría de seguridad basada en OWASP antes del lanzamiento. Trabajé con agentes de IA como apoyo en la implementación; yo definí la arquitectura, revisé cada cambio y operé producción.',
+        ],
+      ],
+      imageAlts: [
+        'Página de inicio de Santo Sazón en escritorio: «El sazón de casa, servido para tu evento» sobre una mesa con platillos mexicanos, con los botones «Ver menú» y «Pedir por WhatsApp».',
+        'La misma página de inicio de Santo Sazón en un teléfono, con el menú compacto y los botones uno debajo del otro.',
+      ],
+    },
     'huitzi-xyz': {
       summary:
         'Este sitio, construido como un producto real: API en Go con arquitectura hexagonal, admin en Angular, web en Next.js, servidor MCP de solo lectura y un asistente de escritura con IA con límites de costo, seguridad y revisión humana. Cada decisión está documentada en ADRs públicos.',
