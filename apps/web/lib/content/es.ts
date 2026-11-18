@@ -122,6 +122,10 @@ export const es: SiteContent = {
     footer: { social: 'Redes', rss: 'RSS del blog' },
     home: {
       photoAlt: 'Foto de Huitzitzili Domingo León Nieves',
+      island: {
+        alt: 'Isla flotante de fantasía con una casa, árboles en espiral, setas, nubes y el Rey Hongo',
+        credit: 'Isla hecha con modelos de {quaternius} ({cc0}), de {polyPizza}.',
+      },
       about: 'Acerca de mí',
       bio: 'Trayectoria',
       latestPosts: 'Últimos posts',

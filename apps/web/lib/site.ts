@@ -40,6 +40,13 @@ export const socialLinks: readonly ExternalLink[] = [
 
 export const debredUrl = 'https://www.debred.com';
 
+/** Links del crédito de la isla del hero (BLOG-107): `{marca}` del texto → link. */
+export const islandCreditLinks = {
+  quaternius: { label: 'Quaternius', href: 'https://quaternius.com/' },
+  cc0: { label: 'CC0', href: 'https://creativecommons.org/publicdomain/zero/1.0/' },
+  polyPizza: { label: 'Poly Pizza', href: 'https://poly.pizza/u/Quaternius' },
+} as const;
+
 export interface Work {
   id: WorkId;
   /** Título en la rejilla de /works. */

@@ -127,6 +127,10 @@ export const en: SiteContent = {
     footer: { social: 'Social', rss: 'Blog RSS feed' },
     home: {
       photoAlt: 'Photo of Huitzitzili Domingo León Nieves',
+      island: {
+        alt: 'Floating fantasy island with a house, spiral trees, mushrooms, clouds and the Mushroom King',
+        credit: 'Island made with models by {quaternius} ({cc0}), from {polyPizza}.',
+      },
       about: 'About me',
       bio: 'Experience',
       latestPosts: 'Latest posts',

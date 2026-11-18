@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { works } from '../site';
+import { islandCreditLinks, works } from '../site';
 
 import { en } from './en';
 import { es } from './es';
@@ -50,6 +50,14 @@ describe('diccionarios', () => {
         .map(([path]) => path);
     expect(marks(en)).toEqual(marks(es));
     expect(marks(es)).toEqual(['about[1]', 'bio[5].title']);
+  });
+
+  it('dan crédito a Quaternius con los mismos links en los dos idiomas (BLOG-107)', () => {
+    for (const content of [es, en]) {
+      const marks = [...content.ui.home.island.credit.matchAll(/\{(\w+)\}/g)].map((match) => match[1]);
+      expect(marks, content.locale).toEqual(Object.keys(islandCreditLinks));
+      expect(content.ui.home.island.alt, content.locale).not.toBe('');
+    }
   });
 
   it('declaran el idioma de la página y el del selector', () => {

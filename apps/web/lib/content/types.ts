@@ -65,6 +65,13 @@ export interface SiteContent {
     footer: { social: string; rss: string };
     home: {
       photoAlt: string;
+      /** Isla 3D del hero (BLOG-107). */
+      island: {
+        /** Texto alternativo de la imagen fija, que también describe la escena 3D. */
+        alt: string;
+        /** Crédito del modelo. `{quaternius}`, `{cc0}` y `{polyPizza}` marcan dónde van sus links. */
+        credit: string;
+      };
       about: string;
       bio: string;
       latestPosts: string;

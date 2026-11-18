@@ -7,6 +7,8 @@ import perfil from '@/assets/img/perfil.webp';
 import { SocialIcon } from '@/components/brand-icons';
 import { ExternalLink } from '@/components/external-link';
 import { ChevronRightIcon } from '@/components/icons';
+import { IslandCredit } from '@/components/island/island-credit';
+import { IslandHero } from '@/components/island/island-hero';
 import { PostCard } from '@/components/post-card';
 import { SectionHeading } from '@/components/section-heading';
 import type { PostSummary } from '@/lib/api';
@@ -18,13 +20,18 @@ import { profile, socialLinks } from '@/lib/site';
 
 import { WithDebredLink } from './with-debred-link';
 
-/** Portada en un idioma: saludo, «Acerca de mí», biografía, posts y redes. */
+/** Portada en un idioma: isla 3D, saludo, «Acerca de mí», biografía, posts y redes. */
 export function HomeView({ content, latest }: { content: SiteContent; latest: readonly PostSummary[] }) {
   const { profile: text, ui } = content;
 
   return (
     <Stack gap={{ base: '12', md: '16' }} maxW="3xl" mx="auto">
       <Stack gap="6">
+        {/* Donde la web anterior tenía el perro 3D (BLOG-077, BLOG-107). */}
+        <Box>
+          <IslandHero alt={ui.home.island.alt} />
+          <IslandCredit text={ui.home.island.credit} />
+        </Box>
         <Box bg="brand.surface" borderWidth="1px" borderRadius="xl" px="4" py="3" textAlign="center">
           {text.greeting}
         </Box>
