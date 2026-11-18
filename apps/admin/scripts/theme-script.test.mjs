@@ -5,12 +5,13 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 
+import { BACKGROUND_STORAGE_KEY, BACKGROUNDS, DEFAULT_BACKGROUND } from '../src/app/core/theme/backgrounds.ts';
 import { ACCENTS, THEME_STORAGE_KEYS } from '../src/app/core/theme/theme.ts';
 
 const html = readFileSync(new URL('../src/index.html', import.meta.url), 'utf8');
 const scripts = [...html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script\b[^>]*>/gi)].map(([, body]) => body);
 
-function run({ stored = {}, systemDark = false, storageThrows = false } = {}) {
+function run({ stored = {}, systemDark = false, storageThrows = false, path = '/posts', random = 0 } = {}) {
   const classes = new Set();
   const attributes = {};
   const root = {
@@ -27,18 +28,32 @@ function run({ stored = {}, systemDark = false, storageThrows = false } = {}) {
   };
   const matchMedia = (query) => ({ matches: query === '(prefers-color-scheme: dark)' && systemDark });
   const window = { matchMedia };
+  const preloads = [];
+  const document = {
+    documentElement: root,
+    head: { appendChild: (link) => preloads.push(link) },
+    createElement: () => ({ setAttribute(name, value) { this[name] = value; } }),
+  };
+  const math = Object.create(Math, { random: { value: () => random } });
 
-  new Function('document', 'window', 'localStorage', 'matchMedia', scripts[0])(
-    { documentElement: root },
+  new Function('document', 'window', 'localStorage', 'matchMedia', 'location', 'Math', scripts[0])(
+    document,
     window,
     localStorage,
     matchMedia,
+    { pathname: path },
+    math,
   );
 
-  return { dark: classes.has('dark'), accent: attributes['data-accent'] };
+  return {
+    dark: classes.has('dark'),
+    accent: attributes['data-accent'],
+    loginBackground: attributes['data-login-background'],
+    preloads: preloads.map(({ rel, as, type, media, href, fetchpriority }) => ({ rel, as, type, media, href, fetchpriority })),
+  };
 }
 
-test('index.html tiene un solo script inline, el del tema', () => {
+test('index.html tiene un solo script inline, el del tema y el fondo', () => {
   assert.equal(scripts.length, 1);
   for (const key of Object.values(THEME_STORAGE_KEYS)) {
     assert.ok(scripts[0].includes(`'${key}'`), `el script no lee ${key}`);
@@ -69,5 +84,40 @@ test('ignora un modo inválido', () => {
 });
 
 test('si localStorage falla, usa el tema del sistema', () => {
-  assert.deepEqual(run({ storageThrows: true, systemDark: true }), { dark: true, accent: 'neutral' });
+  const result = run({ storageThrows: true, systemDark: true });
+  assert.equal(result.dark, true);
+  assert.equal(result.accent, 'neutral');
+  assert.equal(result.preloads[0].href, `backgrounds/${DEFAULT_BACKGROUND}-dark-portrait.avif`);
+});
+
+test('el script usa la misma lista de fondos y la misma clave que backgrounds.ts', () => {
+  assert.ok(scripts[0].includes(`var backgrounds = ${JSON.stringify(BACKGROUNDS).replaceAll('"', "'").replaceAll(',', ', ')};`));
+  assert.ok(scripts[0].includes(`'${BACKGROUND_STORAGE_KEY}'`));
+  assert.ok(scripts[0].includes(`background = '${DEFAULT_BACKGROUND}'`));
+});
+
+test('fuera del login precarga el fondo guardado, en el tema actual, con los dos recortes por media', () => {
+  const { preloads, loginBackground } = run({ stored: { 'admin-background': 'map', 'admin-theme': 'dark' } });
+  assert.equal(loginBackground, undefined);
+  assert.deepEqual(preloads, [
+    { rel: 'preload', as: 'image', type: 'image/avif', media: '(orientation: portrait)', href: 'backgrounds/map-dark-portrait.avif', fetchpriority: 'high' },
+    { rel: 'preload', as: 'image', type: 'image/avif', media: 'not all and (orientation: portrait)', href: 'backgrounds/map-dark-landscape.avif', fetchpriority: 'high' },
+  ]);
+});
+
+test('un fondo guardado inválido cae al de por defecto', () => {
+  const { preloads } = run({ stored: { 'admin-background': '../../x' } });
+  assert.equal(preloads[1].href, `backgrounds/${DEFAULT_BACKGROUND}-light-landscape.avif`);
+});
+
+test('en /login elige uno al azar, lo marca en <html> y precarga solo ese', () => {
+  for (const [index, background] of BACKGROUNDS.entries()) {
+    const random = (index + 0.5) / BACKGROUNDS.length;
+    const result = run({ path: '/login', random, stored: { 'admin-background': 'fold' } });
+    assert.equal(result.loginBackground, background);
+    assert.deepEqual(result.preloads.map((link) => link.href), [
+      `backgrounds/${background}-light-portrait.avif`,
+      `backgrounds/${background}-light-landscape.avif`,
+    ]);
+  }
 });

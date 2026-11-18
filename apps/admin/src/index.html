@@ -24,6 +24,38 @@
         }
         root.classList.toggle('dark', mode === 'dark');
         root.setAttribute('data-accent', accent);
+
+        // Fondo (BLOG-121): en el login, uno al azar en cada carga; en el
+        // resto, el guardado. Se precarga solo esa imagen, en la versión del
+        // tema y con el recorte que toque (el navegador descarta el <link>
+        // cuyo media no coincide).
+        var backgrounds = ['fold', 'map'];
+        var background = null;
+        if (/\/login\/?$/.test(location.pathname)) {
+          background = backgrounds[Math.floor(Math.random() * backgrounds.length)];
+          root.setAttribute('data-login-background', background);
+        } else {
+          try {
+            background = localStorage.getItem('admin-background');
+          } catch (e) {}
+          if (backgrounds.indexOf(background) === -1) {
+            background = 'fold';
+          }
+        }
+        var crops = [
+          ['portrait', '(orientation: portrait)'],
+          ['landscape', 'not all and (orientation: portrait)'],
+        ];
+        for (var i = 0; i < crops.length; i++) {
+          var link = document.createElement('link');
+          link.rel = 'preload';
+          link.as = 'image';
+          link.type = 'image/avif';
+          link.media = crops[i][1];
+          link.href = 'backgrounds/' + background + '-' + mode + '-' + crops[i][0] + '.avif';
+          link.setAttribute('fetchpriority', 'high');
+          document.head.appendChild(link);
+        }
       })();
     </script>
   </head>

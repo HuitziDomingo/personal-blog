@@ -1,0 +1,57 @@
+// Fondos de pantalla del admin, en pares claro y oscuro (BLOG-121). Como
+// theme.ts, este archivo no importa nada: lo leen con Node los scripts que
+// generan y miden las imágenes, y el test del script de index.html.
+//
+// Los dos pares son provisionales, hasta que León elija la colección.
+
+export const BACKGROUNDS = ['fold', 'map'] as const;
+export type BackgroundId = (typeof BACKGROUNDS)[number];
+
+/** Fondo del menú cuando no hay uno guardado. */
+export const DEFAULT_BACKGROUND: BackgroundId = 'fold';
+
+export const BACKGROUND_VARIANTS = ['light', 'dark'] as const;
+export type BackgroundVariant = (typeof BACKGROUND_VARIANTS)[number];
+
+/** Recortes: apaisado para escritorio y tablet en horizontal, vertical para móvil. */
+export const BACKGROUND_ORIENTATIONS = ['landscape', 'portrait'] as const;
+export type BackgroundOrientation = (typeof BACKGROUND_ORIENTATIONS)[number];
+
+export const BACKGROUND_SIZES: Readonly<Record<BackgroundOrientation, { width: number; height: number }>> = {
+  landscape: { width: 1920, height: 1200 },
+  portrait: { width: 900, height: 1600 },
+};
+
+/** Media query del recorte vertical. El apaisado es el que queda. */
+export const PORTRAIT_QUERY = '(orientation: portrait)';
+
+export interface BackgroundInfo {
+  label: string;
+  author: string;
+  license: string;
+  licenseUrl: string;
+  /** Archivos de origen en gnome-backgrounds 51.0.1 (backgrounds/). */
+  files: Readonly<Record<BackgroundVariant, string>>;
+}
+
+const CC_BY_SA_3 = { license: 'CC BY-SA 3.0', licenseUrl: 'https://creativecommons.org/licenses/by-sa/3.0/' };
+
+export const BACKGROUND_INFO: Readonly<Record<BackgroundId, BackgroundInfo>> = {
+  fold: { label: 'Pliegue', author: 'Jakub Steiner', ...CC_BY_SA_3, files: { light: 'fold-l.jxl', dark: 'fold-d.jxl' } },
+  map: { label: 'Mapa', author: 'Dominik Baran', ...CC_BY_SA_3, files: { light: 'map-l.svg', dark: 'map-d.svg' } },
+};
+
+/** Clave de localStorage. El script de index.html usa la misma. */
+export const BACKGROUND_STORAGE_KEY = 'admin-background';
+
+/** Atributo de <html> con el fondo que eligió el script de index.html (el del login es aleatorio). */
+export const BACKGROUND_ATTRIBUTE = 'data-background';
+
+/** Ruta del archivo dentro de public/ (sin barra inicial: va relativa al <base href>). */
+export function backgroundPath(id: BackgroundId, variant: BackgroundVariant, orientation: BackgroundOrientation): string {
+  return `backgrounds/${id}-${variant}-${orientation}.avif`;
+}
+
+export function isBackground(value: unknown): value is BackgroundId {
+  return (BACKGROUNDS as readonly unknown[]).includes(value);
+}

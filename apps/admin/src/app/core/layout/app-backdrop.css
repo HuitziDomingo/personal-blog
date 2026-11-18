@@ -1,0 +1,36 @@
+/*
+ * Capas del fondo (BLOG-121). La visible aparece con un fundido; las demás
+ * se apagan sin transición pero con 0.6 s de retraso, así quedan debajo
+ * mientras la nueva aparece. Sin imagen todavía, se ve --background.
+ */
+:host {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  background: var(--background);
+  pointer-events: none;
+}
+
+img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0;
+  transition: opacity 0s linear 0.6s;
+}
+
+img.is-shown {
+  z-index: 1;
+  opacity: 1;
+  transition: opacity 0.6s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  img,
+  img.is-shown {
+    transition: none;
+  }
+}

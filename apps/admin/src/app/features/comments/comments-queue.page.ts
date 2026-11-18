@@ -45,7 +45,7 @@ const EMPTY: Record<CommentStatus, { title: string; description: string }> = {
   imports: [RouterLink, NgIcon, HlmButtonImports, HlmEmptyImports, CommentCard],
   providers: [provideIcons({ lucideChevronLeft, lucideChevronRight, lucideCircleAlert, lucideInbox, lucideLoaderCircle, lucideRotateCw })],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  host: { class: 'mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 p-4 sm:p-6' },
+  host: { class: 'glass-card mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 p-4 sm:p-6' },
   template: `
     <header class="flex flex-wrap items-end justify-between gap-4">
       <div class="flex flex-col gap-1">

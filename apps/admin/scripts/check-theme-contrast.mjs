@@ -23,6 +23,28 @@ const DEFAULT_STYLES = fileURLToPath(new URL('../src/styles.css', import.meta.ur
 /** Opacidad del fondo de las superficies con efecto glass (bg-background/80). */
 export const GLASS_ALPHA = 0.8;
 
+/** Opacidad del tinte de las cards de vidrio sobre el fondo de pantalla (.glass-card en styles.css). */
+export const CARD_GLASS_ALPHA = 0.8;
+
+/**
+ * Colores más oscuro y más claro de cada fondo, ya desenfocado, medidos con
+ * scripts/measure-backgrounds.mjs (BLOG-121). Clave: `<fondo>-<light|dark>-<recorte>`.
+ */
+const EXTREMES = JSON.parse(readFileSync(new URL('../src/app/core/theme/background-extremes.json', import.meta.url), 'utf8'));
+
+/** `#rrggbb` a sRGB lineal. */
+export function hexToLinearSrgb(hex) {
+  return [1, 3, 5].map((start) => decode(Number.parseInt(hex.slice(start, start + 2), 16) / 255));
+}
+
+/** Los extremos de los fondos que se ven con este modo (claro u oscuro). */
+export function backdropExtremes(mode, extremes = EXTREMES) {
+  return Object.entries(extremes)
+    .filter(([key]) => key.includes(`-${mode}-`))
+    .flatMap(([, { darkest, lightest }]) => [darkest, lightest])
+    .map(hexToLinearSrgb);
+}
+
 /** Opacidad del tinte del veredicto sobre el panel (comment-card.css). */
 export const VERDICT_TINT = 0.12;
 
@@ -134,7 +156,7 @@ export function themes(css) {
 }
 
 /** Comprobaciones de contraste de un tema: devuelve una fila por par de colores. */
-export function checks({ vars }) {
+export function checks({ vars, mode }) {
   const color = (name) => {
     if (!vars[name]) {
       throw new Error(`falta la variable ${name}`);
@@ -148,6 +170,10 @@ export function checks({ vars }) {
   // Lo que se ve detrás del glass, en el peor caso: negro o blanco al 100 %.
   const glass = [BLACK, WHITE].map((behind) => composite(background, GLASS_ALPHA, behind));
   const worstOnGlass = (fg) => Math.min(...glass.map((bg) => contrast(fg, bg)));
+  // Cards de vidrio: el tinte sobre la zona más oscura y la más clara de cada
+  // fondo de este modo.
+  const card = backdropExtremes(mode).map((behind) => composite(color('--glass-tint'), CARD_GLASS_ALPHA, behind));
+  const worstOnCard = (fg) => Math.min(...card.map((bg) => contrast(fg, bg)));
 
   return [
     { pair: 'Texto principal (foreground / background)', ratio: contrast(foreground, background), min: TEXT },
@@ -160,6 +186,13 @@ export function checks({ vars }) {
     { pair: 'Texto del menú sobre el glass, peor caso', ratio: worstOnGlass(color('--sidebar-foreground')), min: TEXT },
     { pair: 'Link activo (sidebar-accent-foreground / sidebar-accent)', ratio: contrast(color('--sidebar-accent-foreground'), color('--sidebar-accent')), min: TEXT },
     { pair: 'Acento sobre el glass, peor caso', ratio: worstOnGlass(primary), min: NON_TEXT },
+    { pair: 'Texto sobre las cards de vidrio, peor zona de cada fondo (foreground)', ratio: worstOnCard(foreground), min: TEXT },
+    { pair: 'Texto secundario sobre las cards de vidrio, peor zona (glass-muted-foreground)', ratio: worstOnCard(color('--glass-muted-foreground')), min: TEXT },
+    { pair: 'Error sobre las cards de vidrio, peor zona (glass-destructive)', ratio: worstOnCard(color('--glass-destructive')), min: TEXT },
+    { pair: 'Acento sobre las cards de vidrio, peor zona (primary)', ratio: worstOnCard(primary), min: NON_TEXT },
+    // Respaldo sin backdrop-filter o con prefers-reduced-transparency: superficie sólida.
+    { pair: 'Texto secundario del vidrio sobre su respaldo sólido (glass-muted-foreground / background)', ratio: contrast(color('--glass-muted-foreground'), background), min: TEXT },
+    { pair: 'Error del vidrio sobre su respaldo sólido (glass-destructive / background)', ratio: contrast(color('--glass-destructive'), background), min: TEXT },
     { pair: 'Texto del panel (panel-foreground / panel)', ratio: contrast(color('--panel-foreground'), color('--panel')), min: TEXT },
     { pair: 'Texto secundario del panel (panel-muted-foreground / panel)', ratio: contrast(color('--panel-muted-foreground'), color('--panel')), min: TEXT },
     { pair: 'Código en el panel (panel-foreground / panel-code)', ratio: contrast(color('--panel-foreground'), color('--panel-code')), min: TEXT },
