@@ -10,22 +10,39 @@ const MAX_POLAR = (80 * Math.PI) / 180;
 /** Zoom: de la mitad a 1.6 veces la distancia del encuadre inicial. */
 const MIN_DISTANCE_FACTOR = 0.5;
 const MAX_DISTANCE_FACTOR = 1.6;
+/** autoRotate: 0.6 equivale a una vuelta cada 100 s (60 / 0.6). */
+const AUTO_ROTATE_SPEED = 0.6;
 
 export interface IslandControls {
   /** Fija el encuadre inicial: los límites y el estado al que vuelve `reset`. */
   frame: (distance: number, targetRadius: number) => void;
-  /** Para el bucle de render: aplica el damping. */
-  update: () => void;
-  /** Devuelve cámara y target al encuadre inicial, sin la inercia del damping. */
+  /** Para el bucle de render: aplica el damping y el giro automático (`delta` en segundos). */
+  update: (delta: number) => void;
+  /**
+   * Devuelve cámara y target al encuadre inicial, sin la inercia del damping,
+   * y reanuda el giro automático (salvo con reduced-motion).
+   */
   reset: () => void;
+  /** Si la cámara gira sola ahora mismo. */
+  readonly autoRotating: boolean;
   dispose: () => void;
 }
 
 export interface IslandControlsOptions {
   /** Cuando la rueda pasa a hacer zoom o deja de hacerlo. */
   onWheelActiveChange: (active: boolean) => void;
-  /** Mientras el usuario arrastra (de `start` a `end` de OrbitControls). */
-  onInteractingChange: (interacting: boolean) => void;
+  /**
+   * `prefers-reduced-motion: reduce`. Si coincide, o pasa a coincidir con la
+   * isla ya cargada, la cámara no gira sola, ni siquiera tras restablecer.
+   */
+  reducedMotion: MotionQuery;
+}
+
+/** Lo que se usa de un `MediaQueryList`: los tests le pasan uno falso. */
+export interface MotionQuery {
+  readonly matches: boolean;
+  addEventListener(type: 'change', listener: (event: MediaQueryListEvent) => void): void;
+  removeEventListener(type: 'change', listener: (event: MediaQueryListEvent) => void): void;
 }
 
 /**
@@ -51,18 +68,20 @@ function holdMultiTouch(canvas: HTMLCanvasElement): () => void {
 }
 
 /**
- * OrbitControls de la isla (BLOG-118).
+ * OrbitControls de la isla (BLOG-118, BLOG-119).
  *
  * - Ratón: botón izquierdo gira, derecho mueve y la rueda hace zoom solo tras
  *   pulsar sobre la isla (`createWheelGate`).
  * - Táctil: un dedo desplaza la página; dos dedos giran y hacen zoom.
  * - Teclado: con el canvas enfocado, flechas para mover y Mayúsculas + flechas
  *   para girar (lo que trae OrbitControls).
+ * - Giro automático lento (`autoRotate`) que se detiene en cuanto el usuario
+ *   interactúa (arrastre, pellizco, rueda o teclas) y solo vuelve con `reset`.
  */
 export function createIslandControls(
   camera: PerspectiveCamera,
   canvas: HTMLCanvasElement,
-  { onWheelActiveChange, onInteractingChange }: IslandControlsOptions,
+  { onWheelActiveChange, reducedMotion }: IslandControlsOptions,
 ): IslandControls {
   const controls = new OrbitControls(camera, canvas);
   controls.enableZoom = false;
@@ -87,14 +106,26 @@ export function createIslandControls(
   const releaseMultiTouch = holdMultiTouch(canvas);
   controls.listenToKeyEvents(canvas);
 
-  const onStart = () => {
-    onInteractingChange(true);
+  controls.autoRotateSpeed = AUTO_ROTATE_SPEED;
+  controls.autoRotate = !reducedMotion.matches;
+  const stopAutoRotate = () => {
+    controls.autoRotate = false;
   };
-  const onEnd = () => {
-    onInteractingChange(false);
+  // `start` llega con el arrastre, el pellizco y la rueda; las flechas no lo
+  // emiten, así que se escuchan aparte (Tab o Escape no paran el giro).
+  const onKeyDown = (event: KeyboardEvent) => {
+    if (Object.values<string>(controls.keys).includes(event.code)) {
+      stopAutoRotate();
+    }
   };
-  controls.addEventListener('start', onStart);
-  controls.addEventListener('end', onEnd);
+  controls.addEventListener('start', stopAutoRotate);
+  canvas.addEventListener('keydown', onKeyDown);
+  const onMotionChange = (event: MediaQueryListEvent) => {
+    if (event.matches) {
+      stopAutoRotate();
+    }
+  };
+  reducedMotion.addEventListener('change', onMotionChange);
 
   return {
     frame: (distance, targetRadius) => {
@@ -105,8 +136,8 @@ export function createIslandControls(
       controls.update();
       controls.saveState();
     },
-    update: () => {
-      controls.update();
+    update: (delta) => {
+      controls.update(delta);
     },
     reset: () => {
       // Sin damping, `update` aplica y vacía la inercia que quedara; luego
@@ -115,10 +146,15 @@ export function createIslandControls(
       controls.update();
       controls.reset();
       controls.enableDamping = true;
+      controls.autoRotate = !reducedMotion.matches;
+    },
+    get autoRotating() {
+      return controls.autoRotate;
     },
     dispose: () => {
-      controls.removeEventListener('start', onStart);
-      controls.removeEventListener('end', onEnd);
+      controls.removeEventListener('start', stopAutoRotate);
+      canvas.removeEventListener('keydown', onKeyDown);
+      reducedMotion.removeEventListener('change', onMotionChange);
       releaseMultiTouch();
       gate.dispose();
       controls.dispose();

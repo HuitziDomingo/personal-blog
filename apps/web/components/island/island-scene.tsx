@@ -4,7 +4,6 @@ import { Box, Button, Text } from '@chakra-ui/react';
 import { useEffect, useId, useRef, useState } from 'react';
 import {
   AmbientLight,
-  AnimationMixer,
   Box3,
   DirectionalLight,
   Group,
@@ -13,7 +12,6 @@ import {
   type Object3D,
   PerspectiveCamera,
   Scene,
-  SkinnedMesh,
   type Texture,
   Vector3,
   WebGLRenderer,
@@ -21,22 +19,16 @@ import {
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
 import { createIslandControls, type IslandControls } from './island-controls';
+import { REDUCED_MOTION_QUERY } from './island-loading';
 
-/** Modelo armado con scripts/build-island-model.mjs (Quaternius, CC0). */
+/** Modelo armado con scripts/build-island-model.mjs: fortaleza flotante (Quaternius, CC0). */
 export const ISLAND_MODEL_URL = '/models/isla/isla.gltf';
-/** La única animación que se reproduce, en bucle. */
-export const ISLAND_CLIP = 'CharacterArmature|Idle';
-/** Una vuelta completa de la isla, en segundos. */
-const TURN_SECONDS = 90;
 /** Giro inicial: la isla empieza vista de 3/4, como la imagen fija. */
 const START_ANGLE = Math.PI / 4;
-/** Flotación: amplitud (fracción del radio) y periodo en segundos. */
-const FLOAT_AMPLITUDE = 0.03;
-const FLOAT_SECONDS = 6;
 const FOV = 30;
 /** Ángulo de la cámara sobre el horizonte. */
 const ELEVATION = (25 * Math.PI) / 180;
-/** Aire alrededor de la isla (y de su flotación) dentro del hueco. */
+/** Aire alrededor de la isla dentro del hueco. */
 const MARGIN = 1.08;
 
 /** Textos de los controles, de los diccionarios de ADR-024. */
@@ -153,19 +145,15 @@ export default function IslandScene({ text, visible, onReady, onError }: IslandS
     scene.add(fill);
 
     const camera = new PerspectiveCamera(FOV, 4 / 3, 0.1, 1000);
-    // La isla gira y flota dentro de `pivot`, centrada en el origen.
+    // La isla, centrada en el origen y girada a 3/4. La cámara gira a su
+    // alrededor (OrbitControls y su autoRotate); la isla no se mueve.
     const pivot = new Group();
+    pivot.rotation.y = START_ANGLE;
     scene.add(pivot);
-    let mixer: AnimationMixer | undefined;
     let model: Object3D | undefined;
-    let radius = 1;
-    // El giro se detiene mientras el usuario arrastra: la isla no se le escapa.
-    let interacting = false;
     const controls = createIslandControls(camera, canvas, {
       onWheelActiveChange: setWheelActive,
-      onInteractingChange: (value) => {
-        interacting = value;
-      },
+      reducedMotion: window.matchMedia(REDUCED_MOTION_QUERY),
     });
     controlsRef.current = controls;
 
@@ -181,22 +169,13 @@ export default function IslandScene({ text, visible, onReady, onError }: IslandS
     resize();
 
     let last = performance.now();
-    let elapsed = 0;
-    let turned = 0;
     const frame = () => {
       const now = performance.now();
-      // Tope de 0.1 s por cuadro: tras una pausa larga, la animación no salta.
+      // Tope de 0.1 s por cuadro: tras una pausa larga, el giro no salta.
       const delta = Math.min((now - last) / 1000, 0.1);
       last = now;
-      elapsed += delta;
-      if (!interacting) {
-        turned += delta;
-      }
-      mixer?.update(delta);
-      // Damping: OrbitControls sigue moviendo la cámara unos cuadros tras soltar.
-      controls.update();
-      pivot.rotation.y = START_ANGLE + (turned / TURN_SECONDS) * Math.PI * 2;
-      pivot.position.y = Math.sin((elapsed / FLOAT_SECONDS) * Math.PI * 2) * radius * FLOAT_AMPLITUDE;
+      // autoRotate y damping: OrbitControls mueve la cámara en cada cuadro.
+      controls.update(delta);
       renderer.render(scene, camera);
     };
 
@@ -232,14 +211,12 @@ export default function IslandScene({ text, visible, onReady, onError }: IslandS
           return;
         }
         const root = gltf.scene;
-        // Vértices de la isla en el espacio de `pivot`, sin las mallas con
-        // esqueleto: three las dibuja con los huesos, pero su transformación de
-        // nodo las haría parecer en otro sitio. El Rey Hongo está sobre la isla.
+        // Vértices de la isla en el espacio de `pivot`.
         root.updateMatrixWorld(true);
         const points: Vector3[] = [];
         const box = new Box3();
         root.traverse((object) => {
-          if (object instanceof Mesh && !(object instanceof SkinnedMesh)) {
+          if (object instanceof Mesh) {
             const position = (object as Mesh).geometry.getAttribute('position');
             for (let index = 0; index < position.count; index++) {
               const point = new Vector3().fromBufferAttribute(position, index).applyMatrix4(object.matrixWorld);
@@ -261,7 +238,6 @@ export default function IslandScene({ text, visible, onReady, onError }: IslandS
         }
         pivot.add(root);
         model = root;
-        radius = box.getSize(new Vector3()).y / 2;
 
         const distance = fitDistance(points, camera.aspect);
         camera.position.set(0, Math.sin(ELEVATION), Math.cos(ELEVATION)).multiplyScalar(distance);
@@ -269,14 +245,9 @@ export default function IslandScene({ text, visible, onReady, onError }: IslandS
         camera.far = distance * 10;
         camera.lookAt(0, 0, 0);
         camera.updateProjectionMatrix();
-        controls.frame(distance, radius);
+        // El target puede alejarse del centro hasta media altura de la isla.
+        controls.frame(distance, box.getSize(new Vector3()).y / 2);
         canvas.tabIndex = 0;
-
-        const clip = gltf.animations.find((animation) => animation.name === ISLAND_CLIP);
-        if (clip) {
-          mixer = new AnimationMixer(root);
-          mixer.clipAction(clip).play();
-        }
 
         frame();
         updateLoop();
@@ -299,9 +270,7 @@ export default function IslandScene({ text, visible, onReady, onError }: IslandS
       resizeObserver.disconnect();
       document.removeEventListener('visibilitychange', updateLoop);
       canvas.removeEventListener('webglcontextlost', onContextLost);
-      mixer?.stopAllAction();
       if (model) {
-        mixer?.uncacheRoot(model);
         disposeObject(model);
       }
       renderer.dispose();
