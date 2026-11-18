@@ -1,5 +1,6 @@
 # Go
 bin/
+!.claude/skills/archify/bin/
 services/api/tmp/
 *.exe
 *.so
