@@ -5,6 +5,8 @@ import dalyza from '@/assets/img/works/dalyza.webp';
 import debred from '@/assets/img/works/debred.webp';
 import familiaDebred from '@/assets/img/works/familia-debred.webp';
 import huitziXyz from '@/assets/img/works/huitzi-xyz.webp';
+import santoSazon from '@/assets/img/works/santo-sazon.webp';
+import santoSazonMovil from '@/assets/img/works/santo-sazon-movil.webp';
 import youtube from '@/assets/img/works/youtube.webp';
 
 import { es } from './content/es';
@@ -54,6 +56,14 @@ export interface Work {
 
 /** Trabajos, en el orden del documento de textos: el más reciente primero, luego los anteriores. */
 export const works: readonly Work[] = [
+  {
+    id: 'santo-sazon',
+    title: 'Santo Sazón',
+    heading: 'Santo Sazón',
+    year: '2026',
+    link: { label: 'https://santosazon.mx', href: 'https://santosazon.mx' },
+    images: [santoSazon, santoSazonMovil],
+  },
   {
     id: 'huitzi-xyz',
     title: 'huitzi.xyz',
