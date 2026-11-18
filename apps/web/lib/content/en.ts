@@ -130,6 +130,11 @@ export const en: SiteContent = {
       island: {
         alt: 'Floating fantasy island with a house, spiral trees, mushrooms, clouds and the Mushroom King',
         credit: 'Island made with models by {quaternius} ({cc0}), from {polyPizza}.',
+        hint: 'Click to interact',
+        reset: 'Reset view',
+        label: 'Interactive 3D island',
+        instructions:
+          'With a mouse, drag to rotate, right-drag to pan and, after clicking, use the wheel to zoom. With a keyboard, arrow keys to pan and Shift plus arrow keys to rotate. On a touch screen, two fingers to rotate and zoom.',
       },
       about: 'About me',
       bio: 'Experience',

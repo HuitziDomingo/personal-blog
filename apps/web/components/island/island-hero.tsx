@@ -7,6 +7,7 @@ import { useEffect, useRef, useState } from 'react';
 
 import poster from '@/assets/img/isla.webp';
 
+import type { IslandControlsText } from './island-scene';
 import { browserLoadingEnv, islandMode, REDUCED_MOTION_QUERY, supportsWebGL, whenIdleAndVisible } from './island-loading';
 
 // three.js va solo en este chunk: se pide cuando el componente se monta, no
@@ -24,7 +25,7 @@ export type IslandPhase = 'waiting' | 'loading' | 'ready' | 'static';
 /** Proporción del hueco: la de la imagen fija, para que nada se mueva (CLS 0). */
 const ASPECT_RATIO = `${String(poster.width)} / ${String(poster.height)}`;
 
-export function IslandHero({ alt }: { alt: string }) {
+export function IslandHero({ alt, controls }: { alt: string; controls: IslandControlsText }) {
   const ref = useRef<HTMLDivElement>(null);
   const [phase, setPhase] = useState<IslandPhase>('waiting');
 
@@ -90,6 +91,7 @@ export function IslandHero({ alt }: { alt: string }) {
       />
       {showScene && (
         <IslandScene
+          text={controls}
           visible={phase === 'ready'}
           onReady={() => {
             setPhase((current) => (current === 'loading' ? 'ready' : current));

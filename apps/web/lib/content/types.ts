@@ -71,6 +71,14 @@ export interface SiteContent {
         alt: string;
         /** Crédito del modelo. `{quaternius}`, `{cc0}` y `{polyPizza}` marcan dónde van sus links. */
         credit: string;
+        /** Pista sobre la isla 3D: la rueda solo hace zoom tras un clic (BLOG-118). */
+        hint: string;
+        /** Botón que devuelve la cámara al encuadre inicial. */
+        reset: string;
+        /** Nombre accesible del canvas interactivo. */
+        label: string;
+        /** Cómo se maneja la isla: lo anuncia el lector de pantalla al enfocar el canvas. */
+        instructions: string;
       };
       about: string;
       bio: string;

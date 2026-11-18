@@ -125,6 +125,11 @@ export const es: SiteContent = {
       island: {
         alt: 'Isla flotante de fantasía con una casa, árboles en espiral, setas, nubes y el Rey Hongo',
         credit: 'Isla hecha con modelos de {quaternius} ({cc0}), de {polyPizza}.',
+        hint: 'Haz clic para interactuar',
+        reset: 'Restablecer vista',
+        label: 'Isla 3D interactiva',
+        instructions:
+          'Con el ratón, arrastra para girar, arrastra con el botón derecho para mover y, tras hacer clic, usa la rueda para acercar. Con el teclado, flechas para mover y Mayúsculas más flechas para girar. En pantalla táctil, dos dedos para girar y acercar.',
       },
       about: 'Acerca de mí',
       bio: 'Trayectoria',
