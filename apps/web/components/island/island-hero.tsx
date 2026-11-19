@@ -69,7 +69,7 @@ export function IslandHero({ alt, controls }: { alt: string; controls: IslandCon
       ref={ref}
       position="relative"
       w="full"
-      maxW="480px"
+      maxW="720px"
       mx="auto"
       aspectRatio={ASPECT_RATIO}
       data-island-phase={phase}
@@ -77,7 +77,9 @@ export function IslandHero({ alt, controls }: { alt: string; controls: IslandCon
       <Image
         src={poster}
         alt={alt}
-        sizes="(min-width: 520px) 480px, calc(100vw - 2rem)"
+        // 720 px desde 768 px de ventana (la columna de la portada); antes, el
+        // ancho de la ventana menos el margen de la página.
+        sizes="(min-width: 768px) 720px, calc(100vw - 2rem)"
         // Es el elemento del LCP: se precarga (`priority` está deprecada en
         // Next 16) y se pide con prioridad alta.
         preload
