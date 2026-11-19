@@ -2,11 +2,7 @@ package handler
 
 import (
 	"context"
-	"net/http"
-	"strings"
 	"time"
-
-	"github.com/gin-gonic/gin"
 
 	"github.com/HuitziDomingo/personal-blog/services/api/internal/domain"
 	"github.com/HuitziDomingo/personal-blog/services/api/internal/handler/gen"
@@ -82,20 +78,4 @@ func (s server) SuggestCover(ctx context.Context, request gen.SuggestCoverReques
 
 func toDraft(body gen.AssistantDraft) domain.Draft {
 	return domain.Draft{Title: body.Title, Content: body.Content}
-}
-
-// extendAssistantWriteDeadline alarga el WriteTimeout del servidor solo para el
-// asistente: la llamada al proveedor puede tardar hasta su timeout, más que el
-// WriteTimeout general. Subir ese límite para todas las rutas daría más tiempo
-// a cualquier cliente lento.
-func extendAssistantWriteDeadline(timeout time.Duration) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		if timeout <= 0 || !strings.HasPrefix(c.Request.URL.Path, assistantPathPrefix) {
-			return
-		}
-
-		// Falla si el writer no lo soporta (por ejemplo, httptest en los
-		// tests): entonces no hay deadline que alargar.
-		_ = http.NewResponseController(c.Writer).SetWriteDeadline(time.Now().Add(timeout + assistantWriteMargin))
-	}
 }

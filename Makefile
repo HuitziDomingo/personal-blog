@@ -2,7 +2,7 @@ API_DIR := services/api
 # Swagger UI para ver el contrato en local; fijada por tag y digest.
 SWAGGER_UI_IMAGE := swaggerapi/swagger-ui:v5.33.3@sha256:b26661cd754a7efbb2e1aab419ffb5603320d8f35f0bd086d1d7506e23934d23
 
-.PHONY: web-dev web-lint web-typecheck web-test web-build web-start e2e e2e-clean admin-dev admin-lint admin-test admin-build admin-preview admin-csp-test api-run api-watch api-test api-test-integration api-moderation-samples api-lint api-build mcp-build api-docker-build api-docs api-flows generate db-up db-down db-logs db-reset docs-architecture
+.PHONY: web-dev web-lint web-typecheck web-test web-build web-start e2e e2e-clean admin-dev admin-lint admin-test admin-build admin-preview admin-csp-test api-run api-watch api-test api-test-integration api-moderation-samples api-rag-eval api-lint api-build mcp-build api-docker-build api-docs api-flows generate db-up db-down db-logs db-reset docs-architecture
 
 api-run:
 	@test -f .env || { echo "Falta .env: copia .env.example a .env"; exit 1; }
@@ -27,6 +27,13 @@ api-test-integration: db-up
 api-moderation-samples:
 	@test -f .env || { echo "Falta .env: copia .env.example a .env y pon GEMINI_API_KEY"; exit 1; }
 	@set -a && . ./.env && set +a && cd $(API_DIR) && MODERATION_LIVE_MODEL=gemini-3.6-flash go test -tags gemini_live -run TestModerationSamplesAgainstGemini -count=1 -v ./internal/assistant/gemini/
+
+# Mide recall@4 del RAG (ADR-027, punto 12) con embeddings reales sobre el set
+# de testdata/rag_eval.json. Gasta cuota del plan gratuito: nunca en CI. Carga
+# .env sin imprimirlo; RAG_EVAL_MODEL y RAG_MIN_SCORE cambian modelo y umbral.
+api-rag-eval:
+	@test -f .env || { echo "Falta .env: copia .env.example a .env y pon GEMINI_API_KEY"; exit 1; }
+	@set -a && . ./.env && set +a && cd $(API_DIR) && go test -tags gemini_live -run TestRAGEvalAgainstGemini -count=1 -v ./internal/assistant/gemini/
 
 api-lint:
 	cd $(API_DIR) && golangci-lint run ./...

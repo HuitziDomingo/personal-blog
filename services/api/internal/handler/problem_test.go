@@ -33,6 +33,7 @@ func testRouterConfig() RouterConfig {
 		Posts:          newFakePosts(),
 		Assistant:      &fakeAssistant{},
 		Comments:       newFakeComments(),
+		RAG:            &fakeRAG{},
 	}
 }
 
