@@ -1,21 +1,27 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from "vitest";
 
-import { ApiUnavailableError, createPostsApi, MAX_CONCURRENT_REQUESTS, type ApiDeps, type PostPage } from './api';
-import { createLimiter } from './concurrency';
+import {
+  ApiUnavailableError,
+  createPostsApi,
+  MAX_CONCURRENT_REQUESTS,
+  type ApiDeps,
+  type PostPage,
+} from "./api";
+import { createLimiter } from "./concurrency";
 
-const BASE = 'http://api.test';
+const BASE = "http://api.test";
 
-function summary(slug: string): PostPage['items'][number] {
+function summary(slug: string): PostPage["items"][number] {
   return {
     id: slug,
-    authorId: 'a',
+    authorId: "a",
     title: slug,
     slug,
     tags: [],
-    status: 'published',
-    createdAt: '2026-11-01T00:00:00Z',
-    updatedAt: '2026-11-01T00:00:00Z',
-    publishedAt: '2026-11-01T00:00:00Z',
+    status: "published",
+    createdAt: "2026-11-01T00:00:00Z",
+    updatedAt: "2026-11-01T00:00:00Z",
+    publishedAt: "2026-11-01T00:00:00Z",
   };
 }
 
@@ -23,7 +29,7 @@ function summary(slug: string): PostPage['items'][number] {
 class FakeApi {
   readonly calls: string[] = [];
   readonly sleeps: number[] = [];
-  published: string[] = ['hola-mundo'];
+  published: string[] = ["hola-mundo"];
   /** Respuestas forzadas por ruta, consumidas en orden. */
   readonly forced = new Map<string, Response[]>();
 
@@ -47,95 +53,134 @@ class FakeApi {
     if (forced) {
       return forced;
     }
-    if (url.pathname === '/api/v1/posts') {
-      const limit = Number(url.searchParams.get('limit'));
-      const offset = Number(url.searchParams.get('offset'));
+    if (url.pathname === "/api/v1/posts") {
+      const limit = Number(url.searchParams.get("limit"));
+      const offset = Number(url.searchParams.get("offset"));
       const items = this.published.slice(offset, offset + limit).map(summary);
-      return Response.json({ items, total: this.published.length, limit, offset });
+      return Response.json({
+        items,
+        total: this.published.length,
+        limit,
+        offset,
+      });
     }
-    const slug = url.pathname.replace('/api/v1/posts/', '');
+    const slug = url.pathname.replace("/api/v1/posts/", "");
     return this.published.includes(slug)
-      ? Response.json({ ...summary(slug), content: '# Hola' })
-      : Response.json({ title: 'Not Found', status: 404 }, { status: 404 });
+      ? Response.json({ ...summary(slug), content: "# Hola" })
+      : Response.json({ title: "Not Found", status: 404 }, { status: 404 });
   }
 }
 
 function status(code: number, headers: Record<string, string> = {}): Response {
-  return new Response(JSON.stringify({ status: code }), { status: code, headers });
+  return new Response(JSON.stringify({ status: code }), {
+    status: code,
+    headers,
+  });
 }
 
-describe('getPublished', () => {
-  it('devuelve el post publicado', async () => {
+describe("getPublished", () => {
+  it("devuelve el post publicado", async () => {
     const api = new FakeApi();
 
-    const post = await createPostsApi(api.deps()).getPublished('hola-mundo');
+    const post = await createPostsApi(api.deps()).getPublished("hola-mundo");
 
-    expect(post?.slug).toBe('hola-mundo');
+    expect(post?.slug).toBe("hola-mundo");
   });
 
-  it.each(['..', 'Hola', 'a/b', 'a'.repeat(81), '-a', ''])('un slug fuera del contrato (%j) no llama a la API', async (slug) => {
-    const api = new FakeApi();
+  it.each(["..", "Hola", "a/b", "a".repeat(81), "-a", ""])(
+    "un slug fuera del contrato (%j) no llama a la API",
+    async (slug) => {
+      const api = new FakeApi();
 
-    expect(await createPostsApi(api.deps()).getPublished(slug)).toBeNull();
-    expect(api.calls).toEqual([]);
-  });
+      expect(await createPostsApi(api.deps()).getPublished(slug)).toBeNull();
+      expect(api.calls).toEqual([]);
+    }
+  );
 
-  it('un slug inventado que cumple el patrón solo consulta la lista de publicados', async () => {
+  it("un slug inventado que cumple el patrón solo consulta la lista de publicados", async () => {
     const api = new FakeApi();
     const posts = createPostsApi(api.deps());
 
-    expect(await posts.getPublished('no-existe')).toBeNull();
-    expect(await posts.getPublished('tampoco-existe')).toBeNull();
-    expect(api.calls.every((call) => call.startsWith('/api/v1/posts?'))).toBe(true);
+    expect(await posts.getPublished("no-existe")).toBeNull();
+    expect(await posts.getPublished("tampoco-existe")).toBeNull();
+    expect(api.calls.every((call) => call.startsWith("/api/v1/posts?"))).toBe(
+      true
+    );
   });
 
-  it('solo un 404 de la API es «no existe»', async () => {
+  it("solo un 404 de la API es «no existe»", async () => {
     const api = new FakeApi();
-    api.forced.set('/api/v1/posts/hola-mundo', [status(404)]);
+    api.forced.set("/api/v1/posts/hola-mundo", [status(404)]);
 
-    expect(await createPostsApi(api.deps()).getPublished('hola-mundo')).toBeNull();
+    expect(
+      await createPostsApi(api.deps()).getPublished("hola-mundo")
+    ).toBeNull();
   });
 
-  it.each([429, 500, 502, 503])('un %i nunca se convierte en 404: lanza ApiUnavailableError', async (code) => {
-    const api = new FakeApi();
-    api.forced.set('/api/v1/posts/hola-mundo', [status(code, { 'Retry-After': '1' })]);
+  it.each([429, 500, 502, 503])(
+    "un %i nunca se convierte en 404: lanza ApiUnavailableError",
+    async (code) => {
+      const api = new FakeApi();
+      api.forced.set("/api/v1/posts/hola-mundo", [
+        status(code, { "Retry-After": "1" }),
+      ]);
 
-    await expect(createPostsApi(api.deps()).getPublished('hola-mundo')).rejects.toMatchObject({
-      name: 'ApiUnavailableError',
-      status: code,
+      await expect(
+        createPostsApi(api.deps()).getPublished("hola-mundo")
+      ).rejects.toMatchObject({
+        name: "ApiUnavailableError",
+        status: code,
+      });
+    }
+  );
+
+  it("si falla la lista de publicados, lanza en lugar de responder 404", async () => {
+    const api = new FakeApi();
+    api.forced.set("/api/v1/posts", [status(503)]);
+
+    await expect(
+      createPostsApi(api.deps()).getPublished("hola-mundo")
+    ).rejects.toBeInstanceOf(ApiUnavailableError);
+  });
+
+  it("un error de red tampoco es un 404", async () => {
+    const api = new FakeApi();
+
+    const posts = createPostsApi(
+      api.deps({ fetch: () => Promise.reject(new TypeError("fetch failed")) })
+    );
+
+    await expect(posts.getPublished("hola-mundo")).rejects.toMatchObject({
+      name: "ApiUnavailableError",
+      status: null,
     });
-  });
-
-  it('si falla la lista de publicados, lanza en lugar de responder 404', async () => {
-    const api = new FakeApi();
-    api.forced.set('/api/v1/posts', [status(503)]);
-
-    await expect(createPostsApi(api.deps()).getPublished('hola-mundo')).rejects.toBeInstanceOf(ApiUnavailableError);
-  });
-
-  it('un error de red tampoco es un 404', async () => {
-    const api = new FakeApi();
-
-    const posts = createPostsApi(api.deps({ fetch: () => Promise.reject(new TypeError('fetch failed')) }));
-
-    await expect(posts.getPublished('hola-mundo')).rejects.toMatchObject({ name: 'ApiUnavailableError', status: null });
   });
 });
 
-describe('429 durante el build', () => {
-  it('espera el Retry-After y reintenta', async () => {
+describe("429 durante el build", () => {
+  it("espera el Retry-After y reintenta", async () => {
     const api = new FakeApi();
-    api.forced.set('/api/v1/posts', [status(429, { 'Retry-After': '7' }), status(429)]);
+    api.forced.set("/api/v1/posts", [
+      status(429, { "Retry-After": "7" }),
+      status(429),
+    ]);
 
-    const page = await createPostsApi(api.deps({ isBuild: true })).listPublished();
+    const page = await createPostsApi(
+      api.deps({ isBuild: true })
+    ).listPublished();
 
-    expect(page.items.map((post) => post.slug)).toEqual(['hola-mundo']);
+    expect(page.items.map((post) => post.slug)).toEqual(["hola-mundo"]);
     expect(api.sleeps).toEqual([7000, 1000]);
   });
 
-  it('se rinde tras 2 reintentos con ApiUnavailableError, y nunca espera más de 10 s', async () => {
+  it("se rinde tras 2 reintentos con ApiUnavailableError, y nunca espera más de 10 s", async () => {
     const api = new FakeApi();
-    api.forced.set('/api/v1/posts', [429, 429, 429, 429].map((code) => status(code, { 'Retry-After': '3600' })));
+    api.forced.set(
+      "/api/v1/posts",
+      [429, 429, 429, 429].map((code) =>
+        status(code, { "Retry-After": "3600" })
+      )
+    );
 
     const result = createPostsApi(api.deps({ isBuild: true })).listPublished();
 
@@ -145,17 +190,19 @@ describe('429 durante el build', () => {
     expect(api.sleeps).toEqual([10_000, 10_000]);
   });
 
-  it('fuera del build no espera: lanza y Next conserva la página anterior', async () => {
+  it("fuera del build no espera: lanza y Next conserva la página anterior", async () => {
     const api = new FakeApi();
-    api.forced.set('/api/v1/posts', [status(429, { 'Retry-After': '7' })]);
+    api.forced.set("/api/v1/posts", [status(429, { "Retry-After": "7" })]);
 
-    await expect(createPostsApi(api.deps()).listPublished()).rejects.toMatchObject({ status: 429 });
+    await expect(
+      createPostsApi(api.deps()).listPublished()
+    ).rejects.toMatchObject({ status: 429 });
     expect(api.sleeps).toEqual([]);
   });
 });
 
-describe('publishedSlugs', () => {
-  it('recorre todas las páginas de 100', async () => {
+describe("publishedSlugs", () => {
+  it("recorre todas las páginas de 100", async () => {
     const api = new FakeApi();
     api.published = Array.from({ length: 230 }, (_, i) => `post-${String(i)}`);
 
@@ -163,41 +210,49 @@ describe('publishedSlugs', () => {
 
     expect(slugs).toHaveLength(230);
     expect(api.calls).toEqual([
-      '/api/v1/posts?limit=100&offset=0',
-      '/api/v1/posts?limit=100&offset=100',
-      '/api/v1/posts?limit=100&offset=200',
+      "/api/v1/posts?limit=100&offset=0",
+      "/api/v1/posts?limit=100&offset=100",
+      "/api/v1/posts?limit=100&offset=200",
     ]);
   });
 });
 
-describe('publishedSummaries', () => {
-  it('devuelve los resúmenes con las mismas peticiones que publishedSlugs', async () => {
+describe("publishedSummaries", () => {
+  it("devuelve los resúmenes con las mismas peticiones que publishedSlugs", async () => {
     const api = new FakeApi();
     api.published = Array.from({ length: 150 }, (_, i) => `post-${String(i)}`);
 
     const posts = await createPostsApi(api.deps()).publishedSummaries();
 
     expect(posts.map((post) => post.slug)).toEqual(api.published);
-    expect(posts[0]).toMatchObject({ title: 'post-0', updatedAt: '2026-11-01T00:00:00Z' });
-    expect(api.calls).toEqual(['/api/v1/posts?limit=100&offset=0', '/api/v1/posts?limit=100&offset=100']);
+    expect(posts[0]).toMatchObject({
+      title: "post-0",
+      updatedAt: "2026-11-01T00:00:00Z",
+    });
+    expect(api.calls).toEqual([
+      "/api/v1/posts?limit=100&offset=0",
+      "/api/v1/posts?limit=100&offset=100",
+    ]);
   });
 });
 
-describe('sin API (WEB_SKIP_API=1, build del CI)', () => {
-  it('no llama a nada y devuelve listas vacías', async () => {
+describe("sin API (WEB_SKIP_API=1, build del CI)", () => {
+  it("no llama a nada y devuelve listas vacías", async () => {
     const api = new FakeApi();
     const posts = createPostsApi(api.deps({ baseUrl: null }));
 
     expect((await posts.listPublished()).items).toEqual([]);
     expect(await posts.publishedSlugs()).toEqual([]);
     expect(await posts.publishedSummaries()).toEqual([]);
-    expect(await posts.getPublished('hola-mundo')).toBeNull();
+    expect(await posts.getPublished("hola-mundo")).toBeNull();
     expect(api.calls).toEqual([]);
   });
 });
 
-describe('concurrencia (BLOG-104)', () => {
-  it(`nunca hay más de ${String(MAX_CONCURRENT_REQUESTS)} peticiones en vuelo`, async () => {
+describe("concurrencia (BLOG-104)", () => {
+  it(`nunca hay más de ${String(
+    MAX_CONCURRENT_REQUESTS
+  )} peticiones en vuelo`, async () => {
     const api = new FakeApi();
     api.published = Array.from({ length: 12 }, (_, i) => `post-${String(i)}`);
     let inFlight = 0;
@@ -209,31 +264,92 @@ describe('concurrencia (BLOG-104)', () => {
         peak = Math.max(peak, inFlight);
         await new Promise((resolve) => setTimeout(resolve, 1));
         inFlight--;
-        return Response.json({ items: [], total: 0, limit: 100, offset: 0, url: url.pathname });
+        return Response.json({
+          items: [],
+          total: 0,
+          limit: 100,
+          offset: 0,
+          url: url.pathname,
+        });
       },
     });
     const client = createPostsApi(deps);
 
-    await Promise.all(api.published.map((slug) => client.approvedComments(slug)));
+    await Promise.all(
+      api.published.map((slug) => client.approvedComments(slug))
+    );
 
     expect(MAX_CONCURRENT_REQUESTS).toBe(4);
     expect(peak).toBe(MAX_CONCURRENT_REQUESTS);
   });
 
-  it('la espera de un 429 no ocupa un turno', async () => {
+  it("la espera de un 429 no ocupa un turno", async () => {
     const api = new FakeApi();
     const limit = createLimiter(1);
     let releaseSleep!: () => void;
     const sleeping = new Promise<void>((resolve) => (releaseSleep = resolve));
-    api.forced.set('/api/v1/posts', [status(429, { 'Retry-After': '1' })]);
+    api.forced.set("/api/v1/posts", [status(429, { "Retry-After": "1" })]);
     const deps = api.deps({ isBuild: true, limit, sleep: () => sleeping });
 
     const first = createPostsApi(deps).listPublished();
     // Con el primero esperando el Retry-After, otra petición entra con el único turno.
     await new Promise((resolve) => setTimeout(resolve, 0));
-    await expect(createPostsApi(deps).getPublished('hola-mundo')).resolves.toMatchObject({ slug: 'hola-mundo' });
+    await expect(
+      createPostsApi(deps).getPublished("hola-mundo")
+    ).resolves.toMatchObject({ slug: "hola-mundo" });
 
     releaseSleep();
     await expect(first).resolves.toMatchObject({ total: 1 });
+  });
+});
+
+describe("currentCvPdfs (ADR-028)", () => {
+  it("pide el PDF vigente de cada idioma con la caché de Next", async () => {
+    const api = new FakeApi();
+    const pdfs = {
+      es: {
+        url: "https://files.example/cv/es/a.pdf",
+        size: 10,
+        uploadedAt: "2026-11-19T18:00:00Z",
+      },
+    };
+    api.forced.set("/api/v1/cv", [Response.json(pdfs)]);
+    const inits: unknown[] = [];
+    const client = createPostsApi(
+      api.deps({
+        fetch: (url, init) => (
+          inits.push(init), Promise.resolve(api["respond"](url))
+        ),
+      })
+    );
+
+    await expect(client.currentCvPdfs()).resolves.toEqual(pdfs);
+    expect(api.calls).toEqual(["/api/v1/cv"]);
+    expect(inits).toEqual([{ next: { revalidate: 60 } }]);
+  });
+
+  it("sin API o con un 404, ningún PDF", async () => {
+    const api = new FakeApi();
+    await expect(
+      createPostsApi(api.deps({ baseUrl: null })).currentCvPdfs()
+    ).resolves.toEqual({});
+
+    api.forced.set("/api/v1/cv", [
+      Response.json({ status: 404 }, { status: 404 }),
+    ]);
+    await expect(createPostsApi(api.deps()).currentCvPdfs()).resolves.toEqual(
+      {}
+    );
+  });
+
+  it("un 503 se lanza, como en el resto del cliente", async () => {
+    const api = new FakeApi();
+    api.forced.set("/api/v1/cv", [
+      Response.json({ status: 503 }, { status: 503 }),
+    ]);
+
+    await expect(
+      createPostsApi(api.deps()).currentCvPdfs()
+    ).rejects.toBeInstanceOf(ApiUnavailableError);
   });
 });

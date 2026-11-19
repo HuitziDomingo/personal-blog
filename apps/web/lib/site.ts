@@ -1,24 +1,24 @@
-import type { StaticImageData } from 'next/image';
+import type { StaticImageData } from "next/image";
 
-import aum from '@/assets/img/works/aum.webp';
-import dalyza from '@/assets/img/works/dalyza.webp';
-import debred from '@/assets/img/works/debred.webp';
-import familiaDebred from '@/assets/img/works/familia-debred.webp';
-import huitziXyz from '@/assets/img/works/huitzi-xyz.webp';
-import santoSazon from '@/assets/img/works/santo-sazon.webp';
-import santoSazonMovil from '@/assets/img/works/santo-sazon-movil.webp';
-import youtube from '@/assets/img/works/youtube.webp';
+import aum from "@/assets/img/works/aum.webp";
+import dalyza from "@/assets/img/works/dalyza.webp";
+import debred from "@/assets/img/works/debred.webp";
+import familiaDebred from "@/assets/img/works/familia-debred.webp";
+import huitziXyz from "@/assets/img/works/huitzi-xyz.webp";
+import santoSazon from "@/assets/img/works/santo-sazon.webp";
+import santoSazonMovil from "@/assets/img/works/santo-sazon-movil.webp";
+import youtube from "@/assets/img/works/youtube.webp";
 
-import { es } from './content/es';
-import type { WorkId } from './content/types';
+import { es } from "./content/es";
+import type { WorkId } from "./content/types";
 
 /**
  * Datos del sitio que no cambian con el idioma: nombres, redes, links e
  * imágenes. Los textos de cada idioma están en lib/content (ADR-024).
  */
 export const profile = {
-  name: 'Huitzitzili Domingo León Nieves',
-  shortName: 'Huitzitzili León',
+  name: "Huitzitzili Domingo León Nieves",
+  shortName: "Huitzitzili León",
 } as const;
 
 /** Descripción del blog, que solo existe en español (ADR-024, punto 1). */
@@ -31,16 +31,42 @@ export interface ExternalLink {
 }
 
 export const socialLinks: readonly ExternalLink[] = [
-  { network: 'GitHub', label: '@HuitziDomingo', href: 'https://github.com/HuitziDomingo' },
-  { network: 'YouTube', label: 'MexicanDevelopers', href: 'https://www.youtube.com/channel/UCujmxDXST1nMxdzIojyMD0g' },
   {
-    network: 'LinkedIn',
-    label: '@HuitziDomingo',
-    href: 'https://www.linkedin.com/in/huitzitzili-domingo-le%C3%B3n-nieves-0b32a953/',
+    network: "GitHub",
+    label: "@HuitziDomingo",
+    href: "https://github.com/HuitziDomingo",
+  },
+  {
+    network: "YouTube",
+    label: "MexicanDevelopers",
+    href: "https://www.youtube.com/channel/UCujmxDXST1nMxdzIojyMD0g",
+  },
+  {
+    network: "LinkedIn",
+    label: "@HuitziDomingo",
+    href: "https://www.linkedin.com/in/huitzitzili-domingo-le%C3%B3n-nieves-0b32a953/",
   },
 ];
 
-export const debredUrl = 'https://www.debred.com';
+export const debredUrl = "https://www.debred.com";
+
+/**
+ * Contacto del CV (ADR-028, punto 7): sin teléfono ni email. El PDF y la
+ * página son públicos; el CV completo se manda a los reclutadores aparte.
+ */
+export const cvContact: readonly ExternalLink[] = [
+  { network: "Web", label: "huitzi.xyz", href: "https://huitzi.xyz" },
+  {
+    network: "LinkedIn",
+    label: "linkedin.com/in/huitzitzili-domingo",
+    href: "https://www.linkedin.com/in/huitzitzili-domingo",
+  },
+  {
+    network: "GitHub",
+    label: "github.com/HuitziDomingo",
+    href: "https://github.com/HuitziDomingo",
+  },
+];
 
 export interface Work {
   id: WorkId;
@@ -57,51 +83,57 @@ export interface Work {
 /** Trabajos, en el orden del documento de textos: el más reciente primero, luego los anteriores. */
 export const works: readonly Work[] = [
   {
-    id: 'santo-sazon',
-    title: 'Santo Sazón',
-    heading: 'Santo Sazón',
-    year: '2026',
-    link: { label: 'https://santosazon.mx', href: 'https://santosazon.mx' },
+    id: "santo-sazon",
+    title: "Santo Sazón",
+    heading: "Santo Sazón",
+    year: "2026",
+    link: { label: "https://santosazon.mx", href: "https://santosazon.mx" },
     images: [santoSazon, santoSazonMovil],
   },
   {
-    id: 'huitzi-xyz',
-    title: 'huitzi.xyz',
-    heading: 'huitzi.xyz',
-    year: '2026',
-    link: { label: 'https://huitzi.xyz', href: 'https://huitzi.xyz' },
+    id: "huitzi-xyz",
+    title: "huitzi.xyz",
+    heading: "huitzi.xyz",
+    year: "2026",
+    link: { label: "https://huitzi.xyz", href: "https://huitzi.xyz" },
     images: [huitziXyz],
   },
   {
-    id: 'debred',
-    title: 'Debred',
-    heading: 'Debred',
-    year: '2014',
-    link: { label: 'https://www.debred.com', href: 'https://www.debred.com' },
+    id: "debred",
+    title: "Debred",
+    heading: "Debred",
+    year: "2014",
+    link: { label: "https://www.debred.com", href: "https://www.debred.com" },
     images: [debred, familiaDebred],
   },
   {
-    id: 'youtube',
-    title: 'YouTube',
-    heading: 'YouTube',
-    year: '2021',
-    link: { label: 'MexicanDevelopers', href: 'https://www.youtube.com/channel/UCujmxDXST1nMxdzIojyMD0g' },
+    id: "youtube",
+    title: "YouTube",
+    heading: "YouTube",
+    year: "2021",
+    link: {
+      label: "MexicanDevelopers",
+      href: "https://www.youtube.com/channel/UCujmxDXST1nMxdzIojyMD0g",
+    },
     images: [youtube],
   },
   {
-    id: 'dalyza',
-    title: 'Dalyza',
-    heading: 'Dalyza',
-    year: '2016',
-    link: { label: 'https://www.dalyza.com', href: 'https://www.dalyza.com' },
+    id: "dalyza",
+    title: "Dalyza",
+    heading: "Dalyza",
+    year: "2016",
+    link: { label: "https://www.dalyza.com", href: "https://www.dalyza.com" },
     images: [dalyza],
   },
   {
-    id: 'aum',
-    title: 'Aum Internacional',
-    heading: 'AUM',
-    year: '2019',
-    link: { label: 'https://www.auminternacional.com', href: 'https://www.auminternacional.com' },
+    id: "aum",
+    title: "Aum Internacional",
+    heading: "AUM",
+    year: "2019",
+    link: {
+      label: "https://www.auminternacional.com",
+      href: "https://www.auminternacional.com",
+    },
     images: [aum],
   },
 ];
@@ -112,7 +144,7 @@ export function findWork(id: string): Work | undefined {
 
 /** Video destacado de la sección de posts de la web anterior. */
 export const featuredVideo = {
-  heading: 'Curso de React Native',
-  title: 'Mi canal de YouTube',
-  href: 'https://www.youtube.com/watch?v=ftxucvCPvys',
+  heading: "Curso de React Native",
+  title: "Mi canal de YouTube",
+  href: "https://www.youtube.com/watch?v=ftxucvCPvys",
 } as const;
