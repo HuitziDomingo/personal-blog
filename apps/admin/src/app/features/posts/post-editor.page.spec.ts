@@ -8,9 +8,9 @@ import { firstValueFrom, Observable, of, Subject, throwError } from 'rxjs';
 
 import { Post, PostWrite } from '../../core/api/api-types';
 import { PostsApi } from '../../core/api/posts-api';
-import { provideFakeWritingAssistant } from '../../core/assistant/fake-writing-assistant';
+import { FakeWritingAssistant, provideFakeWritingAssistant } from '../../core/assistant/fake-writing-assistant';
 import { provideHttpWritingAssistant } from '../../core/assistant/http-writing-assistant';
-import { ASSISTANT_ENABLED, MetadataSuggestion, WritingAssistant } from '../../core/assistant/writing-assistant';
+import { ASSISTANT_ENABLED, ContextDraftInput, MetadataSuggestion, WritingAssistant } from '../../core/assistant/writing-assistant';
 import { POSTS_ROUTES } from './posts.routes';
 import { ApiError } from '../../core/http/api-error';
 import { MarkdownEditor } from '../../shared/markdown-editor/markdown-editor';
@@ -546,6 +546,12 @@ describe('PostEditorPage', () => {
         suggestCover() {
           return of({ description: 'Idea', altText: 'Alt' });
         }
+        contextAvailable() {
+          return of(false);
+        }
+        improveWithContext() {
+          return of({ suggestion: 'x', internalLinks: [], contradictions: [], posts: [] });
+        }
       }
       const { page } = await renderEditor(new FakePostsApi(), 'new', [{ provide: WritingAssistant, useClass: InstantAssistant }]);
 
@@ -556,6 +562,38 @@ describe('PostEditorPage', () => {
       expect((screen.getByLabelText('Extracto') as HTMLTextAreaElement).value).toBe('Extracto sugerido');
       expect((screen.getByLabelText('Etiquetas') as HTMLInputElement).value).toBe('ia, go');
       expect(page['form'].dirty).toBe(true);
+    });
+  });
+
+  describe('mejorar con mi contexto', () => {
+    /** Guarda el id que recibe: los fragmentos del post editado no son contexto. */
+    class ContextAssistant extends FakeWritingAssistant {
+      readonly postIds: (string | null)[] = [];
+      override improveWithContext(draft: ContextDraftInput) {
+        this.postIds.push(draft.postId);
+        return of({ suggestion: 'Sugerencia.', internalLinks: [], contradictions: [], posts: [] });
+      }
+    }
+
+    it('envía el id del post que se edita', async () => {
+      const api = new FakePostsApi();
+      api.post = stored();
+      const assistant = new ContextAssistant();
+      await renderEditor(api, 'p1', [{ provide: WritingAssistant, useValue: assistant }]);
+
+      await fireEvent.click(await screen.findByRole('button', { name: 'Mejorar con mi contexto' }));
+
+      expect(assistant.postIds).toEqual(['p1']);
+    });
+
+    it('un post nuevo no excluye ningún post', async () => {
+      const assistant = new ContextAssistant();
+      await renderEditor(new FakePostsApi(), 'new', [{ provide: WritingAssistant, useValue: assistant }]);
+      await type('Contenido', '# Borrador');
+
+      await fireEvent.click(await screen.findByRole('button', { name: 'Mejorar con mi contexto' }));
+
+      expect(assistant.postIds).toEqual([null]);
     });
   });
 
