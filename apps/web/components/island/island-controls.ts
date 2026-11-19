@@ -1,5 +1,4 @@
-import { type PerspectiveCamera, Quaternion, Vector2, Vector3 } from 'three';
-import { TrackballControls } from 'three/addons/controls/TrackballControls.js';
+import { Euler, type Object3D, type PerspectiveCamera, Vector2, Vector3 } from 'three';
 
 import type { PointPicker, SurfaceProbe } from './island-surface';
 import { createWheelGate } from './island-wheel-gate';
@@ -25,14 +24,18 @@ export const NEAR_FACTOR = 0.01;
 export const ZOOM_SPEED = 0.003;
 /** Suavizado de la rueda: el zoom pendiente se aplica con esta constante de tiempo (s). */
 export const ZOOM_SMOOTHING = 0.08;
-/** Velocidad del arrastre (TrackballControls trae 1): media anchura del canvas ≈ 170°. */
+/** Velocidad del arrastre: radianes por media anchura del canvas (≈ 170°), como antes. */
 export const ROTATE_SPEED = 3;
 /**
- * Velocidad del pan con el botón derecho (TrackballControls trae 0.3). BLOG-128:
- * la mitad de los 0.6 de antes. Solo el ratón: dos dedos giran y hacen zoom, no
- * mueven, y Mayúsculas + flechas usan `KEY_PAN_STEP`.
+ * Velocidad del pan con el botón derecho (BLOG-128). Conserva la sensación
+ * de antes: TrackballControls movía `PAN_SPEED` veces la distancia por
+ * ancho de canvas y su inercia (amortiguación 0.2) lo multiplicaba por 5;
+ * aquí se aplica de una vez, `PAN_SPEED / 0.2`. Solo el ratón: dos dedos giran
+ * y hacen zoom, y Mayúsculas + flechas usan `KEY_PAN_STEP`.
  */
 export const PAN_SPEED = 0.3;
+/** Inercia del giro tras soltar: la velocidad cae a 1/e en estos segundos (como la de TrackballControls a 60 fps). */
+export const INERTIA_TIME = 0.15;
 /** Giro automático: segundos por vuelta (BLOG-126: 80 s, un 25 % más rápido que los 100 s de antes). */
 export const AUTO_ROTATE_PERIOD = 80;
 /** Giro automático en radianes por segundo; la entrada termina a esta misma velocidad. */
@@ -52,10 +55,10 @@ export const KEY_PAN_STEP = 0.05;
 
 /** Tope por cuadro (s) del giro automático: tras una pausa larga no salta. */
 const MAX_FRAME_DELTA = 0.1;
-/** Eje del giro automático y de la entrada: la vertical del mundo, no la de la cámara. */
-const WORLD_UP = new Vector3(0, 1, 0);
-/** Un código de tecla que no existe: desactiva las teclas A, S y D de TrackballControls. */
-const NO_KEY = 'IslandNoKey';
+/** Ganancia del pan: lo que antes sumaba la inercia de TrackballControls (1 / 0.2). */
+const PAN_GAIN = 1 / 0.2;
+/** Por debajo de esta velocidad (rad/s) la inercia se da por terminada. */
+const INERTIA_STOP = 1e-4;
 const ARROWS: readonly string[] = ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'];
 /** Píxeles que tiene que moverse el centro de dos dedos, desde que se apoyaron, para contar como arrastre. */
 const TOUCH_DRAG_THRESHOLD = 12;
@@ -88,8 +91,8 @@ export function easeOutCirc(u: number): number {
 }
 
 /**
- * Ángulo (radianes, alrededor de la vertical) que lleva girado la cámara a
- * los `elapsed` segundos de la entrada:
+ * Ángulo (radianes) que la entrada suma al yaw de la isla a los `elapsed`
+ * segundos:
  *
  *   θ(t) = ω·T·u + A·ease(u),   u = t / T
  *
@@ -125,6 +128,33 @@ export function islandRange(distance: number, modelRadius: number): IslandRange 
   };
 }
 
+/**
+ * Orientación de la isla: primero el yaw alrededor de su eje vertical y
+ * después el pitch alrededor del eje X del mundo (el horizontal de la
+ * pantalla). En matrices, R = Rx(pitch)·Ry(yaw): el orden `XYZ` de three.js.
+ * Se calcula desde cero en cada cuadro, sin acumular giros, así que el eje
+ * vertical de la isla siempre queda en el plano vertical de la cámara: nunca
+ * se inclina hacia un lado (sin roll).
+ */
+export function islandOrientation(yaw: number, pitch: number, target = new Euler()): Euler {
+  return target.set(pitch, yaw, 0, 'XYZ');
+}
+
+/**
+ * Signo del arrastre horizontal sobre el yaw: con la isla boca abajo, su eje
+ * vertical apunta hacia abajo en pantalla y el mismo yaw la haría girar al
+ * revés de la mano; se invierte para que siempre siga a la mano.
+ *
+ * «Boca abajo» se mide contra la cámara: el eje vertical de la isla
+ * (`modelUp`, en el mundo) frente al «arriba» de la pantalla (`screenUp`).
+ * Con la cámara a nivel es exactamente cos(pitch) < 0; con la cámara 25° por
+ * encima, la cara de delante empieza a ir al revés a los 65° de pitch, no a
+ * los 90°, y así el cambio cae justo donde se nota.
+ */
+export function yawDragSign(modelUp: Vector3, screenUp: Vector3): 1 | -1 {
+  return modelUp.dot(screenUp) < 0 ? -1 : 1;
+}
+
 /** Distancia mínima de la cámara al target, con `surface` la de la superficie en esa dirección. */
 export function minCameraDistance(surface: number, { minDistance, margin }: IslandRange): number {
   return surface > 0 ? Math.max(minDistance, surface + margin) : minDistance;
@@ -133,7 +163,9 @@ export function minCameraDistance(surface: number, { minDistance, margin }: Isla
 export interface IslandFrame {
   /** Distancia de la cámara en el encuadre inicial. */
   distance: number;
-  /** Radio de la esfera que envuelve la isla; el target no sale de ella. */
+  /** Yaw inicial de la isla (la vista de la imagen fija). */
+  yaw: number;
+  /** Radio de la esfera que envuelve la isla. */
   modelRadius: number;
   /** Superficie del modelo en cada dirección (`createSurfaceProbe`). */
   surface: SurfaceProbe;
@@ -153,11 +185,14 @@ export interface IslandControls {
   /** Para el bucle de render, con `performance.now()`: entrada, giro automático, inercia y topes. */
   update: (now: number) => void;
   /**
-   * Devuelve cámara (posición y vertical) y target al encuadre inicial, sin
-   * inercia. El giro automático sigue. Lo disparan el doble clic y la tecla R.
+   * Devuelve yaw, pitch, pan y zoom a los iniciales, sin inercia. El giro
+   * automático sigue. Lo disparan el doble clic y la tecla R.
    */
   reset: () => void;
-  /** Si la cámara gira sola: siempre, salvo con reduced-motion. */
+  /** Ángulos actuales de la isla, en radianes. */
+  readonly yaw: number;
+  readonly pitch: number;
+  /** Si la isla gira sola: siempre, salvo con reduced-motion. */
   readonly autoRotating: boolean;
   /** Si la animación de entrada sigue en curso. */
   readonly introPlaying: boolean;
@@ -165,6 +200,8 @@ export interface IslandControls {
 }
 
 export interface IslandControlsOptions {
+  /** El objeto que gira (el pivote del modelo): su orientación es `islandOrientation(yaw, pitch)`. */
+  model: Object3D;
   /**
    * `prefers-reduced-motion: reduce`. Si coincide, o pasa a coincidir con la
    * isla ya cargada, la cámara no gira sola, ni siquiera tras restablecer,
@@ -207,96 +244,103 @@ function isResetKey(event: KeyboardEvent): boolean {
   return event.code === 'KeyR' && !event.ctrlKey && !event.metaKey && !event.altKey;
 }
 
-/** Lo único de TrackballControls fuera de su API pública que se toca: la inercia del giro. */
-interface TrackballInertia {
-  _lastAngle: number;
-}
-
 /**
- * Controles de la isla con TrackballControls (BLOG-118, BLOG-120, BLOG-123).
+ * Controles de la isla: tornamesa sobre el modelo (BLOG-129).
  *
- * - Giro libre en cualquier eje, polos incluidos: la vertical de la cámara
- *   gira con ella.
- * - Ratón: botón izquierdo gira, derecho mueve y la rueda hace zoom solo tras
- *   pulsar sobre la isla (`createWheelGate`).
- * - Táctil: un dedo desplaza la página; dos dedos giran (arrastrando) y hacen
- *   zoom (pellizcando). Lo hace este módulo: TrackballControls no ve los
- *   toques, porque con un dedo giraría y no dejaría desplazar la página.
- * - Teclado, con el canvas enfocado: flechas para girar, Mayúsculas + flechas
- *   para mover y R para restablecer.
+ * La cámara no gira: el modelo tiene dos ángulos independientes, yaw y pitch,
+ * y su orientación se recalcula en cada cuadro con `islandOrientation`.
+ * - Ratón: el botón izquierdo gira (horizontal → yaw, vertical → pitch, sin
+ *   límite), el derecho mueve (pan sin límite) y la rueda hace zoom hacia el
+ *   punto bajo el puntero, solo tras pulsar sobre la isla (`createWheelGate`).
+ * - Táctil: un dedo desplaza la página; dos dedos giran (arrastrando el
+ *   centro) y hacen zoom (pellizcando).
+ * - Teclado, con el canvas enfocado: flechas para girar (↑ muestra la isla
+ *   desde arriba), Mayúsculas + flechas para mover y R para restablecer.
  * - Doble clic: restablece la vista.
- * - Zoom hacia el punto de la isla bajo el puntero (o el centro de los dos
- *   dedos), con `zoomToward`: hasta `MAX_DISTANCE_FACTOR` veces el encuadre
- *   y, de cerca, hasta la superficie del modelo en la dirección de la cámara
- *   (`SurfaceProbe`). TrackballControls no hace zoom.
- * - Entrada (`introAngle`), que se corta en cuanto el usuario interactúa, y
- *   giro automático lento, hecho a mano: gira la cámara alrededor de la
- *   vertical que pasa por el target después de TrackballControls, así que el
- *   zoom, las flechas y la inercia se le suman. Solo se pausa mientras el
- *   usuario arrastra (girar, mover o dos dedos) y al soltar vuelve con una
- *   rampa suave (`rampAngle`).
+ * - Zoom: hasta `MAX_DISTANCE_FACTOR` veces el encuadre y, de cerca, hasta la
+ *   superficie del modelo girado en la dirección de la cámara (`SurfaceProbe`).
+ * - Entrada (`introAngle`) y giro automático lento, que suman al yaw. El giro
+ *   se pausa mientras el usuario arrastra y vuelve con una rampa al soltar;
+ *   tras un arrastre queda inercia en yaw y pitch, que decae con el tiempo.
  */
 export function createIslandControls(
   camera: PerspectiveCamera,
   canvas: HTMLCanvasElement,
-  { reducedMotion }: IslandControlsOptions,
+  { model, reducedMotion }: IslandControlsOptions,
 ): IslandControls {
-  // Sin elemento: así los listeners de este módulo se registran antes que los
-  // de TrackballControls y pueden quedarse con los toques y la rueda.
-  const controls = new TrackballControls(camera);
-  controls.rotateSpeed = ROTATE_SPEED;
-  controls.panSpeed = PAN_SPEED;
-  // El zoom es de este módulo (hacia el puntero); con `noPan` en false,
-  // TrackballControls sigue aplicando sus topes de distancia al mover.
-  controls.noZoom = true;
-  // TrackballControls escucha A, S y D en `window` (en toda la página) para
-  // cambiar de modo; con un código que no existe, nunca hacen nada.
-  controls.keys = [NO_KEY, NO_KEY, NO_KEY];
-
-  const target = controls.target;
+  const target = new Vector3();
   let range: IslandRange = islandRange(1, 1);
   let modelRadius = 0;
   let surface: SurfaceProbe = () => 0;
   let pick: PointPicker = () => undefined;
+  const home = { position: new Vector3(), target: new Vector3(), yaw: 0, pitch: 0 };
+  let yaw = 0;
+  let pitch = 0;
+  // Inercia tras soltar un arrastre (rad/s) y la velocidad que llevaba el arrastre.
+  const inertia = { yaw: 0, pitch: 0 };
+  const dragVelocity = { yaw: 0, pitch: 0, at: undefined as number | undefined };
   // Zoom de la rueda que falta por aplicar (logaritmo del factor) y su punto de anclaje.
   let pendingZoom: { log: number; anchor: Vector3 | undefined } | undefined;
-  const home = { position: new Vector3(), up: new Vector3(0, 1, 0), target: new Vector3() };
   let autoRotate = !reducedMotion.matches;
   // Entrada: si ya se pidió `play`, su instante de inicio (el primer `update`
-  // después) y la posición de partida.
-  let intro: { playing: boolean; start: number | undefined; offset: Vector3 } | undefined;
-  // Arrastre en curso (botón izquierdo o derecho, o dos dedos moviéndose):
-  // pausa el giro automático. Al soltar, `ramp` cuenta los segundos de la rampa.
-  let dragging: 'mouse' | 'touch' | undefined;
-  let ramp: { elapsed: number } | undefined;
-  const pauseRotation = (by: 'mouse' | 'touch') => {
-    dragging = by;
-    ramp = undefined;
-  };
-  const resumeRotation = (by: 'mouse' | 'touch') => {
-    if (dragging === by) {
-      dragging = undefined;
-      ramp = { elapsed: 0 };
-    }
-  };
+  // después) y el yaw de partida.
+  let intro: { playing: boolean; start: number | undefined; yaw: number } | undefined;
   let last: number | undefined;
-
+  // Arrastre en curso: pausa el giro automático. Al soltar, `ramp` cuenta los
+  // segundos de la rampa. `sign` es el signo del yaw, fijado al empezar.
+  let dragging: { by: 'mouse' | 'touch'; mode: 'rotate' | 'pan'; x: number; y: number; sign: 1 | -1 } | undefined;
+  let ramp: { elapsed: number } | undefined;
   // Toques activos sobre el canvas y el último centro y separación de los dos primeros.
   const touches = new Map<number, { x: number; y: number }>();
   let pinch: { x: number; y: number; spread: number } | undefined;
-  // Centro y separación de los dos dedos al apoyarse: para distinguir arrastre de pellizco.
-  let gesture: { x: number; y: number; spread: number } | undefined;
+  // Centro y separación de los dos dedos al apoyarse, y el signo del yaw de ese gesto.
+  let gesture: { x: number; y: number; spread: number; sign: 1 | -1 } | undefined;
 
   const eye = new Vector3();
   const axis = new Vector3();
   const side = new Vector3();
   const up = new Vector3();
-  const rotation = new Quaternion();
+  const orientation = new Euler();
 
-  // Interactuar solo corta la entrada; el giro automático sigue de fondo
-  // (BLOG-125) y la rotación del usuario se le suma.
+  /** Aplica yaw y pitch al modelo, desde cero. */
+  const orient = () => {
+    model.rotation.copy(islandOrientation(yaw, pitch, orientation));
+    model.updateMatrixWorld(true);
+  };
+
   const stopIntro = () => {
     intro = undefined;
+  };
+
+  const modelUp = new Vector3();
+  const screenUp = new Vector3();
+  /** El signo del yaw ahora mismo (ver `yawDragSign`). */
+  const currentYawSign = () => {
+    modelUp.set(0, 1, 0).applyEuler(islandOrientation(yaw, pitch, orientation));
+    camera.updateMatrixWorld();
+    screenUp.setFromMatrixColumn(camera.matrixWorld, 1);
+    return yawDragSign(modelUp, screenUp);
+  };
+
+  /** Ancho del canvas en píxeles, para pasar el arrastre a radianes. */
+  const halfWidth = () => Math.max(canvas.clientWidth, 1) / 2;
+
+  /** Gira la isla por un arrastre de (dx, dy) píxeles, con el signo del yaw de ese arrastre. */
+  const rotateBy = (dx: number, dy: number, sign: 1 | -1, now: number | undefined) => {
+    const dYaw = (sign * dx * ROTATE_SPEED) / halfWidth();
+    const dPitch = (dy * ROTATE_SPEED) / halfWidth();
+    yaw += dYaw;
+    pitch += dPitch;
+    // Velocidad del arrastre para la inercia: media móvil sobre el tiempo entre eventos.
+    if (now !== undefined) {
+      const dt = dragVelocity.at === undefined ? 0 : (now - dragVelocity.at) / 1000;
+      if (dt > 0) {
+        const keep = Math.exp(-dt / 0.05);
+        dragVelocity.yaw = dragVelocity.yaw * keep + (dYaw / dt) * (1 - keep);
+        dragVelocity.pitch = dragVelocity.pitch * keep + (dPitch / dt) * (1 - keep);
+      }
+      dragVelocity.at = now;
+    }
   };
 
   const minDistanceAt = (at: Vector3, direction: Vector3) => minCameraDistance(surface(at, direction), range);
@@ -316,27 +360,7 @@ export function createIslandControls(
     camera.lookAt(target);
   };
 
-  /** Gira la cámara (posición y vertical) alrededor del target. */
-  const turn = (rotationAxis: Vector3, angle: number) => {
-    rotation.setFromAxisAngle(rotationAxis, angle);
-    eye.subVectors(camera.position, target).applyQuaternion(rotation);
-    camera.up.applyQuaternion(rotation);
-    camera.position.addVectors(target, eye);
-    camera.lookAt(target);
-  };
-
-  /** Como un arrastre de TrackballControls en la dirección (x, y) de la pantalla, con y hacia arriba. */
-  const drag = (x: number, y: number, angle: number) => {
-    eye.subVectors(camera.position, target);
-    up.copy(camera.up).normalize().multiplyScalar(y);
-    side.crossVectors(camera.up, eye).normalize().multiplyScalar(x);
-    axis.crossVectors(up.add(side), eye).normalize();
-    if (axis.lengthSq() > 0) {
-      turn(axis, angle);
-    }
-  };
-
-  /** Mueve cámara y target juntos, en el plano de la pantalla. */
+  /** Mueve cámara y target juntos, en el plano de la pantalla (fracciones de la distancia). */
   const pan = (x: number, y: number) => {
     const distance = camera.position.distanceTo(target);
     camera.updateMatrix();
@@ -348,10 +372,7 @@ export function createIslandControls(
     camera.lookAt(target);
   };
 
-  /**
-   * Topes de la cámara: fuera del modelo y a no más del máximo del target.
-   * El target no tiene límite: con el botón derecho, la isla puede salir del cuadro.
-   */
+  /** Topes de la cámara: fuera del modelo (girado) y a no más del máximo del target. */
   const clamp = () => {
     eye.subVectors(camera.position, target);
     const length = eye.length();
@@ -368,22 +389,41 @@ export function createIslandControls(
     }
   };
 
+  const pauseRotation = (state: NonNullable<typeof dragging>) => {
+    dragging = state;
+    ramp = undefined;
+    inertia.yaw = 0;
+    inertia.pitch = 0;
+    dragVelocity.yaw = 0;
+    dragVelocity.pitch = 0;
+    dragVelocity.at = undefined;
+  };
+  const resumeRotation = (by: 'mouse' | 'touch', now: number | undefined) => {
+    if (dragging?.by !== by) {
+      return;
+    }
+    if (dragging.mode === 'rotate') {
+      // Si el puntero llevaba un rato quieto, no queda inercia.
+      const idle = now === undefined || dragVelocity.at === undefined ? 0 : (now - dragVelocity.at) / 1000;
+      const keep = Math.exp(-idle / 0.05);
+      inertia.yaw = dragVelocity.yaw * keep;
+      inertia.pitch = dragVelocity.pitch * keep;
+    }
+    dragging = undefined;
+    ramp = { elapsed: 0 };
+  };
+
   const reset = () => {
     intro = undefined;
-    // Un `update` sin inercia aplica y vacía lo pendiente (arrastre, rueda,
-    // movimiento); el giro que seguiría por inercia se borra a mano.
-    controls.staticMoving = true;
-    controls.update();
-    controls.staticMoving = false;
-    (controls as unknown as TrackballInertia)._lastAngle = 0;
-    touches.clear();
-    pinch = undefined;
-    gesture = undefined;
+    inertia.yaw = 0;
+    inertia.pitch = 0;
     pendingZoom = undefined;
+    yaw = home.yaw;
+    pitch = home.pitch;
     target.copy(home.target);
     camera.position.copy(home.position);
-    camera.up.copy(home.up);
     camera.lookAt(target);
+    orient();
   };
 
   // --- Rueda: solo después de un clic sobre la isla ----------------------------
@@ -402,7 +442,7 @@ export function createIslandControls(
     pendingZoom = { log: (pendingZoom?.log ?? 0) + pixels * ZOOM_SPEED, anchor };
   };
 
-  // --- Toques: dos dedos giran y pellizcan ---------------------------------------
+  // --- Puntero: ratón (girar y mover) y dos dedos (girar y pellizcar) -----------
 
   const measure = () => {
     const [first, second] = [...touches.values()];
@@ -415,67 +455,101 @@ export function createIslandControls(
       spread: Math.hypot(first.x - second.x, first.y - second.y),
     };
   };
+
   const onPointerDown = (event: PointerEvent) => {
-    // El canvas pudo moverse en la página desde la última vez (fuentes,
-    // imágenes): TrackballControls mide el arrastre respecto a su caja.
-    controls.handleResize();
-    if (event.pointerType !== 'touch') {
-      // Girar (izquierdo) o mover (derecho) pausan el giro; el central solo activa la rueda.
-      if (event.button === 0 || event.button === 2) {
-        pauseRotation('mouse');
+    if (event.pointerType === 'touch') {
+      touches.set(event.pointerId, { x: event.clientX, y: event.clientY });
+      pinch = measure();
+      if (touches.size === 2 && pinch) {
+        stopIntro();
+        // El signo del yaw se fija al empezar el gesto (ver `yawDragSign`).
+        gesture = { ...pinch, sign: currentYawSign() };
       }
       return;
     }
-    event.stopImmediatePropagation();
-    touches.set(event.pointerId, { x: event.clientX, y: event.clientY });
-    pinch = measure();
-    if (touches.size === 2) {
-      stopIntro();
-      gesture = pinch;
-    }
-  };
-  const onPointerMove = (event: PointerEvent) => {
-    if (event.pointerType !== 'touch' || !touches.has(event.pointerId)) {
+    // Girar (izquierdo) o mover (derecho); el central solo activa la rueda.
+    if (event.button !== 0 && event.button !== 2) {
       return;
     }
-    event.stopImmediatePropagation();
-    touches.set(event.pointerId, { x: event.clientX, y: event.clientY });
-    const next = measure();
-    if (pinch && next) {
-      // Mismas unidades que TrackballControls: media anchura del canvas es 1.
-      const half = Math.max(canvas.clientWidth, 1) / 2;
-      const x = (next.x - pinch.x) / half;
-      const y = (pinch.y - next.y) / half;
-      // Si el centro de los dos dedos se aleja de donde empezó, es un arrastre
-      // (giro): pausa. Un pellizco no pausa, como la rueda. Cada dedo llega en
-      // su propio evento, así que en un pellizco el centro se mueve como mucho
-      // la mitad de lo que cambia la separación: eso no cuenta como arrastre.
-      if (gesture) {
+    event.preventDefault();
+    stopIntro();
+    pendingZoom = undefined;
+    canvas.setPointerCapture(event.pointerId);
+    canvas.style.cursor = 'grabbing';
+    pauseRotation({
+      by: 'mouse',
+      mode: event.button === 0 ? 'rotate' : 'pan',
+      x: event.clientX,
+      y: event.clientY,
+      // Fijo para todo el arrastre: si cruza los 90°, no cambia de sentido a mitad.
+      sign: currentYawSign(),
+    });
+  };
+
+  const onPointerMove = (event: PointerEvent) => {
+    if (event.pointerType === 'touch') {
+      if (!touches.has(event.pointerId)) {
+        return;
+      }
+      touches.set(event.pointerId, { x: event.clientX, y: event.clientY });
+      const next = measure();
+      if (pinch && next && gesture) {
+        // Si el centro de los dos dedos se aleja de donde empezó, es un arrastre
+        // (giro): pausa. Un pellizco no pausa, como la rueda. Cada dedo llega en
+        // su propio evento, así que en un pellizco el centro se mueve como mucho
+        // la mitad de lo que cambia la separación: eso no cuenta como arrastre.
         const moved = Math.hypot(next.x - gesture.x, next.y - gesture.y);
-        if (moved > TOUCH_DRAG_THRESHOLD && moved > 0.75 * Math.abs(next.spread - gesture.spread)) {
-          pauseRotation('touch');
+        if (dragging?.by !== 'touch' && moved > TOUCH_DRAG_THRESHOLD && moved > 0.75 * Math.abs(next.spread - gesture.spread)) {
+          pauseRotation({ by: 'touch', mode: 'rotate', x: next.x, y: next.y, sign: gesture.sign });
+        }
+        rotateBy(next.x - pinch.x, next.y - pinch.y, gesture.sign, event.timeStamp);
+        if (next.spread > 0 && next.spread !== pinch.spread) {
+          // Hacia el punto de la isla entre los dos dedos.
+          const factor = pinch.spread / next.spread;
+          orient();
+          zoom(factor < 1 ? pickAt(next.x, next.y) : undefined, factor);
         }
       }
-      drag(x, y, Math.hypot(x, y) * ROTATE_SPEED);
-      if (next.spread > 0 && next.spread !== pinch.spread) {
-        // Hacia el punto de la isla entre los dos dedos.
-        const factor = pinch.spread / next.spread;
-        zoom(factor < 1 ? pickAt(next.x, next.y) : undefined, factor);
-      }
-    }
-    pinch = next;
-  };
-  const onPointerUp = (event: PointerEvent) => {
-    if (event.pointerType !== 'touch') {
+      pinch = next;
       return;
     }
-    event.stopImmediatePropagation();
-    touches.delete(event.pointerId);
-    pinch = measure();
-    if (touches.size < 2) {
-      gesture = undefined;
-      resumeRotation('touch');
+    if (dragging?.by !== 'mouse') {
+      return;
     }
+    const dx = event.clientX - dragging.x;
+    const dy = event.clientY - dragging.y;
+    dragging.x = event.clientX;
+    dragging.y = event.clientY;
+    if (dragging.mode === 'rotate') {
+      rotateBy(dx, dy, dragging.sign, event.timeStamp);
+    } else {
+      const box = canvas.getBoundingClientRect();
+      pan((-dx / Math.max(box.width, 1)) * PAN_SPEED * PAN_GAIN, (dy / Math.max(box.height, 1)) * PAN_SPEED * PAN_GAIN);
+    }
+  };
+
+  const onPointerUp = (event: PointerEvent) => {
+    if (event.pointerType === 'touch') {
+      touches.delete(event.pointerId);
+      pinch = measure();
+      if (touches.size < 2) {
+        gesture = undefined;
+        resumeRotation('touch', event.timeStamp);
+      }
+      return;
+    }
+    if (dragging?.by === 'mouse') {
+      if (canvas.hasPointerCapture(event.pointerId)) {
+        canvas.releasePointerCapture(event.pointerId);
+      }
+      canvas.style.cursor = 'grab';
+      resumeRotation('mouse', event.timeStamp);
+    }
+  };
+
+  const onContextMenu = (event: Event) => {
+    // El botón derecho mueve la isla: sin menú contextual sobre el canvas.
+    event.preventDefault();
   };
 
   // --- Teclado ---------------------------------------------------------------------
@@ -497,40 +571,30 @@ export function createIslandControls(
       // Mover la vista a la derecha deja la isla a la izquierda: va al revés que la flecha.
       pan(-x * KEY_PAN_STEP, -y * KEY_PAN_STEP);
     } else {
-      // ↑ sube la cámara (la isla, vista desde arriba): al revés que arrastrar hacia arriba.
-      drag(x, -y, KEY_ROTATE_ANGLE);
+      // → gira como arrastrar a la derecha (con el mismo signo boca abajo) y
+      // ↑ inclina la cara de arriba hacia la cámara: la isla, vista desde arriba.
+      yaw += currentYawSign() * x * KEY_ROTATE_ANGLE;
+      pitch += y * KEY_ROTATE_ANGLE;
+      orient();
     }
   };
 
-  const onStart = () => {
-    stopIntro();
-    // Un arrastre cambia la vista: el zoom pendiente ya no va hacia el mismo punto.
-    pendingZoom = undefined;
-    canvas.style.cursor = 'grabbing';
-  };
-  const onEnd = () => {
-    canvas.style.cursor = 'grab';
-    resumeRotation('mouse');
-  };
-  // Con reduced-motion en caliente la portada vuelve a la imagen fija; por si
-  // la escena siguiera montada, aquí también se para todo.
   const onMotionChange = (event: MediaQueryListEvent) => {
+    // Con reduced-motion en caliente la portada vuelve a la imagen fija; por si
+    // la escena siguiera montada, aquí también se para todo.
     if (event.matches) {
       autoRotate = false;
       stopIntro();
     }
   };
 
-  // En captura y antes de `connect`: llegan antes que los de TrackballControls.
+  // Escuchados en captura: llegan antes que cualquier otro listener del canvas.
   canvas.addEventListener('pointerdown', onPointerDown, true);
   canvas.addEventListener('pointermove', onPointerMove, true);
   canvas.addEventListener('pointerup', onPointerUp, true);
   canvas.addEventListener('pointercancel', onPointerUp, true);
-  canvas.addEventListener('wheel', onWheel, true);
-  controls.connect(canvas);
-  controls.handleResize();
-  controls.addEventListener('start', onStart);
-  controls.addEventListener('end', onEnd);
+  canvas.addEventListener('wheel', onWheel, { capture: true, passive: false });
+  canvas.addEventListener('contextmenu', onContextMenu);
   // Un dedo en vertical desplaza la página; los gestos de dos los toma `holdMultiTouch`.
   canvas.style.touchAction = 'pan-y';
   canvas.style.cursor = 'grab';
@@ -545,17 +609,18 @@ export function createIslandControls(
       modelRadius = framing.modelRadius;
       surface = framing.surface;
       pick = framing.pick;
-      controls.minDistance = range.minDistance;
-      controls.maxDistance = range.maxDistance;
       target.set(0, 0, 0);
       camera.up.set(0, 1, 0);
       camera.lookAt(target);
+      yaw = framing.yaw;
+      pitch = 0;
       home.position.copy(camera.position);
-      home.up.copy(camera.up);
       home.target.copy(target);
-      controls.update();
+      home.yaw = yaw;
+      home.pitch = pitch;
+      orient();
       autoRotate = !reducedMotion.matches;
-      intro = autoRotate ? { playing: false, start: undefined, offset: camera.position.clone() } : undefined;
+      intro = autoRotate ? { playing: false, start: undefined, yaw } : undefined;
       last = undefined;
     },
     play: () => {
@@ -566,6 +631,10 @@ export function createIslandControls(
     update: (now) => {
       const delta = last === undefined ? 0 : Math.min((now - last) / 1000, MAX_FRAME_DELTA);
       last = now;
+      if (intro && !intro.playing) {
+        // Lista, pero la isla todavía no se ve: espera en el encuadre.
+        return;
+      }
       let autoAngle = AUTO_ROTATE_SPEED * delta;
       if (dragging) {
         autoAngle = 0;
@@ -578,44 +647,56 @@ export function createIslandControls(
           ramp = undefined;
         }
       }
-      if (intro && !intro.playing) {
-        // Lista, pero la isla todavía no se ve: la cámara espera en el encuadre.
-        return;
-      }
       if (intro) {
         intro.start ??= now;
         const elapsed = (now - intro.start) / 1000;
-        // La cámara gira alrededor del target sin pasar por TrackballControls,
-        // en sentido negativo como el giro automático.
-        camera.position.copy(intro.offset).applyAxisAngle(WORLD_UP, -introAngle(elapsed)).add(target);
-        camera.lookAt(target);
         if (elapsed < INTRO_DURATION) {
+          yaw = intro.yaw + introAngle(elapsed);
+          orient();
           return;
         }
         // Lo que pasó del final en este cuadro ya es giro automático: sin escalón.
-        intro = undefined;
+        yaw = intro.yaw + introAngle(INTRO_DURATION);
         autoAngle = AUTO_ROTATE_SPEED * (elapsed - INTRO_DURATION);
+        intro = undefined;
       }
+      // Inercia de un arrastre: decae con el tiempo, no por cuadro.
+      if (!dragging && (inertia.yaw !== 0 || inertia.pitch !== 0)) {
+        const keep = Math.exp(-delta / INERTIA_TIME);
+        // Integral exacta de v·e^(−t/τ) en este cuadro.
+        yaw += inertia.yaw * INERTIA_TIME * (1 - keep);
+        pitch += inertia.pitch * INERTIA_TIME * (1 - keep);
+        inertia.yaw *= keep;
+        inertia.pitch *= keep;
+        if (Math.hypot(inertia.yaw, inertia.pitch) < INERTIA_STOP) {
+          inertia.yaw = 0;
+          inertia.pitch = 0;
+        }
+      }
+      // El giro automático suma al yaw, nunca se invierte.
+      if (autoRotate) {
+        yaw += autoAngle;
+      }
+      orient();
       if (pendingZoom) {
         // Una fracción de lo pendiente en cada cuadro, según el tiempo: suave y sin depender del frame rate.
-        const step = Math.abs(pendingZoom.log) < 1e-4 ? pendingZoom.log : pendingZoom.log * (1 - Math.exp(-delta / ZOOM_SMOOTHING));
+        const step =
+          Math.abs(pendingZoom.log) < 1e-4 ? pendingZoom.log : pendingZoom.log * (1 - Math.exp(-delta / ZOOM_SMOOTHING));
         zoom(pendingZoom.anchor, Math.exp(step));
         pendingZoom.log -= step;
         if (pendingZoom.log === 0) {
           pendingZoom = undefined;
         }
       }
-      controls.update();
-      // Después de TrackballControls: su arrastre, su inercia y el pan ya están
-      // aplicados, y el giro automático se suma. TrackballControls recalcula
-      // su vector cámara-target desde la posición en cada `update`, así que
-      // no lo deshace en el siguiente cuadro.
-      if (autoRotate) {
-        turn(WORLD_UP, -autoAngle);
-      }
       clamp();
     },
     reset,
+    get yaw() {
+      return yaw;
+    },
+    get pitch() {
+      return pitch;
+    },
     get autoRotating() {
       return autoRotate;
     },
@@ -627,15 +708,13 @@ export function createIslandControls(
       canvas.removeEventListener('pointermove', onPointerMove, true);
       canvas.removeEventListener('pointerup', onPointerUp, true);
       canvas.removeEventListener('pointercancel', onPointerUp, true);
-      canvas.removeEventListener('wheel', onWheel, true);
-      controls.removeEventListener('start', onStart);
-      controls.removeEventListener('end', onEnd);
+      canvas.removeEventListener('wheel', onWheel, { capture: true });
+      canvas.removeEventListener('contextmenu', onContextMenu);
       canvas.removeEventListener('keydown', onKeyDown);
       canvas.removeEventListener('dblclick', reset);
       reducedMotion.removeEventListener('change', onMotionChange);
       releaseMultiTouch();
       gate.dispose();
-      controls.dispose();
       canvas.style.touchAction = '';
       canvas.style.cursor = '';
     },

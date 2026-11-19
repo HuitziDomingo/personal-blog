@@ -4,7 +4,6 @@ import { Box } from '@chakra-ui/react';
 import { useEffect, useId, useRef } from 'react';
 import {
   AmbientLight,
-  AnimationMixer,
   Box3,
   DirectionalLight,
   Group,
@@ -21,7 +20,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
 import { createIslandControls, type IslandControls, islandRange } from './island-controls';
 import { REDUCED_MOTION_QUERY } from './island-loading';
-import { currentIslandModel } from './island-model';
+import { ISLAND_MODEL_URL } from './island-model';
 import { createPointPicker, createSurfaceProbe } from './island-surface';
 
 /** Giro inicial: la isla empieza vista de 3/4, como la imagen fija. */
@@ -152,16 +151,13 @@ export default function IslandScene({ text, visible, onReady, onError }: IslandS
     scene.add(fill);
 
     const camera = new PerspectiveCamera(FOV, 4 / 3, 0.1, 1000);
-    // La isla, centrada en el origen y girada a 3/4. La cámara gira a su
-    // alrededor (TrackballControls y el giro automático); la isla no se mueve.
+    // La isla, centrada en el origen. Los controles giran el pivote (yaw y
+    // pitch, como una tornamesa); la cámara solo se acerca y se mueve.
     const pivot = new Group();
-    pivot.rotation.y = START_ANGLE;
     scene.add(pivot);
     let model: Object3D | undefined;
-    // La fortaleza, o el modelo de prueba de `?isla=` (solo en desarrollo y previews).
-    const islandModel = currentIslandModel();
-    let mixer: AnimationMixer | undefined;
     const controls = createIslandControls(camera, canvas, {
+      model: pivot,
       reducedMotion: window.matchMedia(REDUCED_MOTION_QUERY),
     });
     controlsRef.current = controls;
@@ -177,15 +173,10 @@ export default function IslandScene({ text, visible, onReady, onError }: IslandS
     };
     resize();
 
-    let lastFrame: number | undefined;
     const frame = () => {
-      const now = performance.now();
-      // Entrada, giro automático, inercia y topes: los controles mueven la
-      // cámara en cada cuadro, según el reloj (no según cuántos cuadros hubo).
-      controls.update(now);
-      // La animación del modelo, si trae una; con tope de 0.1 s tras una pausa.
-      mixer?.update(lastFrame === undefined ? 0 : Math.min((now - lastFrame) / 1000, 0.1));
-      lastFrame = now;
+      // Entrada, giro automático, inercia y topes: los controles giran la isla
+      // y mueven la cámara en cada cuadro, según el reloj (no según cuántos cuadros hubo).
+      controls.update(performance.now());
       renderer.render(scene, camera);
     };
 
@@ -193,9 +184,6 @@ export default function IslandScene({ text, visible, onReady, onError }: IslandS
     let onScreen = true;
     const updateLoop = () => {
       const running = model !== undefined && onScreen && !document.hidden && !disposed;
-      if (!running) {
-        lastFrame = undefined;
-      }
       renderer.setAnimationLoop(running ? frame : null);
     };
     const observer = new IntersectionObserver((entries) => {
@@ -214,7 +202,7 @@ export default function IslandScene({ text, visible, onReady, onError }: IslandS
     canvas.addEventListener('webglcontextlost', onContextLost);
 
     new GLTFLoader().load(
-      islandModel.url,
+      ISLAND_MODEL_URL,
       (gltf) => {
         if (disposed) {
           disposeObject(gltf.scene);
@@ -262,16 +250,12 @@ export default function IslandScene({ text, visible, onReady, onError }: IslandS
         camera.updateProjectionMatrix();
         controls.frame({
           distance,
+          yaw: START_ANGLE,
           modelRadius,
           surface: createSurfaceProbe(pivot, modelRadius),
           pick: createPointPicker(pivot, camera),
         });
         canvas.tabIndex = 0;
-        const clip = gltf.animations.find((animation) => animation.name === islandModel.idleClip);
-        if (clip) {
-          mixer = new AnimationMixer(root);
-          mixer.clipAction(clip).play();
-        }
 
         frame();
         updateLoop();
@@ -288,7 +272,6 @@ export default function IslandScene({ text, visible, onReady, onError }: IslandS
     return () => {
       disposed = true;
       renderer.setAnimationLoop(null);
-      mixer?.stopAllAction();
       controls.dispose();
       controlsRef.current = undefined;
       observer.disconnect();
