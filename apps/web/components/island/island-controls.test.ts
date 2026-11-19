@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   AUTO_ROTATE_SPEED,
   createIslandControls,
-  easeOutCubic,
+  easeOutCirc,
   INTRO_DURATION,
   INTRO_TURNS,
   introAngle,
@@ -54,13 +54,22 @@ const pickSphere: PointPicker = (ndc) => {
   return sphereRaycaster.ray.intersectSphere(new Sphere(new Vector3(), 1), new Vector3()) ?? undefined;
 };
 
-function setup(reducedMotion: boolean, surface: SurfaceProbe = () => 0, pick: PointPicker = () => undefined) {
+function setup(
+  reducedMotion: boolean,
+  surface: SurfaceProbe = () => 0,
+  pick: PointPicker = () => undefined,
+  { visible = true } = {},
+) {
   controls.dispose();
   camera.position.set(0, 4, 9).setLength(DISTANCE);
   camera.up.set(0, 1, 0);
   motion = fakeMotionQuery(reducedMotion);
   controls = createIslandControls(camera, canvas, { reducedMotion: motion });
   controls.frame({ distance: DISTANCE, modelRadius: MODEL_RADIUS, surface, pick });
+  // Como la escena al terminar el fundido: la isla ya se ve.
+  if (visible) {
+    controls.play();
+  }
 }
 
 /** Avanza `frames` cuadros de `ms` milisegundos, como el bucle de render. */
@@ -428,8 +437,9 @@ describe('createIslandControls: restablecer con doble clic y R', () => {
 describe('introAngle', () => {
   const T = INTRO_DURATION;
 
-  it('empieza en 0 (la vista de la imagen fija) y en 1.5 s gira dos vueltas más lo del giro automático', () => {
-    expect(T).toBe(1.5);
+  it('como el perro: empieza en 0 (la vista de la imagen fija) y en 100 cuadros a 60 fps gira 10 vueltas más lo del giro automático', () => {
+    expect(T).toBeCloseTo(1.667, 3);
+    expect(INTRO_TURNS).toBe(10);
     expect(introAngle(0)).toBe(0);
     expect(introAngle(T)).toBeCloseTo(INTRO_TURNS * 2 * Math.PI + AUTO_ROTATE_SPEED * T, 12);
     expect(introAngle(10)).toBe(introAngle(T));
@@ -453,16 +463,31 @@ describe('introAngle', () => {
     expect(endSpeed).toBeCloseTo(AUTO_ROTATE_SPEED, 6);
   });
 
-  it('usa easeOutCubic', () => {
-    expect(easeOutCubic(0)).toBe(0);
-    expect(easeOutCubic(1)).toBe(1);
-    expect(easeOutCubic(0.5)).toBeCloseTo(0.875);
+  it('usa easeOutCirc, la curva del perro', () => {
+    expect(easeOutCirc(0)).toBe(0);
+    expect(easeOutCirc(1)).toBe(1);
+    expect(easeOutCirc(0.5)).toBeCloseTo(Math.sqrt(1 - 0.5 ** 4));
   });
 });
 
 describe('createIslandControls: animación de entrada', () => {
   it('con reduced-motion no hay entrada', () => {
     expect(controls.introPlaying).toBe(false);
+  });
+
+  it('espera a que la isla se vea: hasta `play`, la cámara no se mueve', () => {
+    setup(false, () => 0, () => undefined, { visible: false });
+    const start = camera.position.clone();
+    run(120);
+    expect(controls.introPlaying).toBe(true);
+    expect(camera.position.distanceTo(start)).toBe(0);
+
+    controls.play();
+    run(1);
+    // El primer cuadro tras `play` fija el inicio: todavía en el encuadre.
+    expect(camera.position.distanceTo(start)).toBeLessThan(1e-9);
+    run(10);
+    expect(camera.position.distanceTo(start)).toBeGreaterThan(0.1);
   });
 
   it('el primer cuadro es la vista de la imagen fija', () => {
@@ -490,8 +515,8 @@ describe('createIslandControls: animación de entrada', () => {
     run(1);
     const dt = 1000 / 600;
     const angles: number[] = [];
-    // De 1.4 s a 1.6 s, a 600 cuadros por segundo.
-    run(Math.round(1400 / dt), dt);
+    // De T − 0.1 s a T + 0.1 s, a 600 cuadros por segundo.
+    run(Math.round((INTRO_DURATION * 1000 - 100) / dt), dt);
     for (let index = 0; index < 120; index++) {
       run(1, dt);
       angles.push(azimuth());
@@ -579,16 +604,21 @@ describe('createIslandControls: zoom y topes', () => {
     expect(camera.position.length()).toBeCloseTo(RANGE.minDistance, 6);
   });
 
-  it('al mover, el target no sale de la esfera de la isla', () => {
-    drag([0, 150], [400, 150], { button: 2 });
-    drag([0, 150], [400, 150], { button: 2 });
+  it('el pan no tiene límite: la isla puede salir del cuadro, y R la devuelve', () => {
+    const start = camera.position.clone();
+    for (let index = 0; index < 4; index++) {
+      drag([0, 150], [400, 150], { button: 2 });
+    }
     run(200);
-    // El target está en la línea de mirada; su distancia al centro es como mucho el radio, 3.
+    // El centro de la isla queda lejos de la línea de mirada: fuera del cuadro.
     const direction = camera.getWorldDirection(new Vector3());
     const toCenter = new Vector3().sub(camera.position);
-    const offLine = toCenter.clone().sub(direction.multiplyScalar(toCenter.dot(direction)));
-    expect(offLine.length()).toBeLessThanOrEqual(MODEL_RADIUS + 1e-6);
-    expect(offLine.length()).toBeGreaterThan(1);
+    const offLine = toCenter.clone().sub(direction.clone().multiplyScalar(toCenter.dot(direction)));
+    const halfWidth = Math.tan((camera.fov * Math.PI) / 360) * camera.aspect * toCenter.dot(direction);
+    expect(offLine.length()).toBeGreaterThan(halfWidth + MODEL_RADIUS);
+
+    key('KeyR');
+    expect(camera.position.distanceTo(start)).toBeLessThan(1e-9);
   });
 });
 

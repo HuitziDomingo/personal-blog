@@ -31,9 +31,13 @@ export const ROTATE_SPEED = 3;
 export const PAN_SPEED = 0.6;
 /** Giro automático: una vuelta cada 100 s, en radianes por segundo. */
 export const AUTO_ROTATE_SPEED = (2 * Math.PI) / 100;
-/** Animación de entrada: duración en segundos y vueltas de más sobre el giro automático. */
-export const INTRO_DURATION = 1.5;
-export const INTRO_TURNS = 2;
+/**
+ * Animación de entrada, como el perro de la web anterior (`voxel-dog.js`):
+ * 10 vueltas (20π) con `easeOutCirc` en 100 cuadros a 60 fps (1.67 s), aquí
+ * medidos con el reloj. Son vueltas de más sobre el giro automático.
+ */
+export const INTRO_DURATION = 100 / 60;
+export const INTRO_TURNS = 10;
 /** Flechas: ángulo por pulsación y, con Mayúsculas, fracción de la distancia que se mueve la vista. */
 export const KEY_ROTATE_ANGLE = Math.PI / 12;
 export const KEY_PAN_STEP = 0.05;
@@ -48,9 +52,9 @@ const ARROWS: readonly string[] = ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowD
 /** Píxeles por unidad de `deltaY` según `deltaMode`: píxeles, líneas y páginas. */
 const WHEEL_PIXELS = [1, 33, 800] as const;
 
-/** Curva de frenado de la entrada: sale con velocidad 3 y llega con velocidad 0. */
-export function easeOutCubic(u: number): number {
-  return 1 - (1 - u) ** 3;
+/** Curva de frenado del perro: sale disparada y llega a 1 con velocidad 0. */
+export function easeOutCirc(u: number): number {
+  return Math.sqrt(1 - (u - 1) ** 4);
 }
 
 /**
@@ -65,7 +69,7 @@ export function easeOutCubic(u: number): number {
  */
 export function introAngle(elapsed: number): number {
   const u = Math.min(Math.max(elapsed / INTRO_DURATION, 0), 1);
-  return AUTO_ROTATE_SPEED * INTRO_DURATION * u + INTRO_TURNS * 2 * Math.PI * easeOutCubic(u);
+  return AUTO_ROTATE_SPEED * INTRO_DURATION * u + INTRO_TURNS * 2 * Math.PI * easeOutCirc(u);
 }
 
 /** Planos de la cámara y topes de distancia, a partir del encuadre inicial. */
@@ -110,9 +114,12 @@ export interface IslandFrame {
 export interface IslandControls {
   /**
    * Fija el encuadre inicial (el estado al que vuelve `reset`) y los topes.
-   * Sin reduced-motion, arranca la animación de entrada en el siguiente `update`.
+   * Sin reduced-motion, deja la animación de entrada lista: la cámara se
+   * queda en el encuadre hasta `play`.
    */
   frame: (framing: IslandFrame) => void;
+  /** Arranca la entrada en el siguiente `update`: cuando la isla ya se ve. */
+  play: () => void;
   /** Para el bucle de render, con `performance.now()`: entrada, giro automático, inercia y topes. */
   update: (now: number) => void;
   /**
@@ -222,8 +229,9 @@ export function createIslandControls(
   let pendingZoom: { log: number; anchor: Vector3 | undefined } | undefined;
   const home = { position: new Vector3(), up: new Vector3(0, 1, 0), target: new Vector3() };
   let autoRotate = !reducedMotion.matches;
-  // Entrada: instante de inicio (el primer `update`) y posición de partida.
-  let intro: { start: number | undefined; offset: Vector3 } | undefined;
+  // Entrada: si ya se pidió `play`, su instante de inicio (el primer `update`
+  // después) y la posición de partida.
+  let intro: { playing: boolean; start: number | undefined; offset: Vector3 } | undefined;
   let last: number | undefined;
 
   // Toques activos sobre el canvas y el último centro y separación de los dos primeros.
@@ -291,15 +299,10 @@ export function createIslandControls(
   };
 
   /**
-   * Topes: el target, dentro de la esfera de la isla; la cámara, fuera del
-   * modelo y a no más del máximo del centro.
+   * Topes de la cámara: fuera del modelo y a no más del máximo del target.
+   * El target no tiene límite: con el botón derecho, la isla puede salir del cuadro.
    */
   const clamp = () => {
-    if (target.length() > modelRadius) {
-      side.copy(target).setLength(modelRadius).sub(target);
-      target.add(side);
-      camera.position.add(side);
-    }
     eye.subVectors(camera.position, target);
     const length = eye.length();
     // La sonda (un raycast) solo hace falta dentro de la esfera que envuelve
@@ -308,8 +311,7 @@ export function createIslandControls(
       length < modelRadius + target.length() + range.margin
         ? minDistanceAt(target, axis.copy(eye).normalize())
         : range.minDistance;
-    // El máximo se mide desde el centro: con el target movido, desde él queda algo menos.
-    const clamped = Math.min(Math.max(length, min), Math.max(range.maxDistance - target.length(), min));
+    const clamped = Math.min(Math.max(length, min), range.maxDistance);
     if (clamped !== length) {
       camera.position.addVectors(target, eye.setLength(clamped));
       camera.lookAt(target);
@@ -480,12 +482,21 @@ export function createIslandControls(
       home.target.copy(target);
       controls.update();
       autoRotate = !reducedMotion.matches;
-      intro = autoRotate ? { start: undefined, offset: camera.position.clone() } : undefined;
+      intro = autoRotate ? { playing: false, start: undefined, offset: camera.position.clone() } : undefined;
       last = undefined;
+    },
+    play: () => {
+      if (intro) {
+        intro.playing = true;
+      }
     },
     update: (now) => {
       const delta = last === undefined ? 0 : Math.min((now - last) / 1000, MAX_FRAME_DELTA);
       last = now;
+      if (intro && !intro.playing) {
+        // Lista, pero la isla todavía no se ve: la cámara espera en el encuadre.
+        return;
+      }
       if (intro) {
         intro.start ??= now;
         const elapsed = (now - intro.start) / 1000;

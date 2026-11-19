@@ -4,7 +4,7 @@ import { Vector3 } from 'three';
 export interface ZoomLimits {
   /** Distancia mínima de la cámara a un target, mirando desde `direction` (unitaria). */
   minDistanceAt: (target: Vector3, direction: Vector3) => number;
-  /** Distancia máxima de la cámara al centro del modelo (el origen). */
+  /** Distancia máxima de la cámara al target (en el máximo, el target está en el centro). */
   maxDistance: number;
 }
 
@@ -25,7 +25,9 @@ const nextTarget = new Vector3();
  *   modelo más el margen, o el piso).
  * - Hacia fuera: la cámara se aleja del target y el target vuelve hacia el
  *   centro de la isla en proporción a lo que falta para el máximo; al llegar
- *   al máximo está en el centro, así que la isla nunca se queda fuera de vista.
+ *   al máximo está en el centro. Así, alejarse siempre trae la isla de vuelta
+ *   al cuadro, también después de moverla con el botón derecho (el pan no
+ *   tiene límite).
  */
 export function zoomToward(
   camera: Vector3,
@@ -70,9 +72,13 @@ export function zoomToward(
   // que el target recorre hacia el centro.
   const wanted = distance * factor;
   const room = maxDistance - distance;
-  const progress = room > 0 ? Math.min((wanted - distance) / room, 1) : 1;
+  // Ya en el máximo no se mueve nada: el target no salta al centro de golpe
+  // (si se movió con el botón derecho, se queda donde está hasta restablecer).
+  if (room <= 0) {
+    return;
+  }
+  const progress = Math.min((wanted - distance) / room, 1);
   target.multiplyScalar(1 - progress);
-  // Medida desde el centro: con el target fuera de él, un poco menos desde el target.
-  const length = Math.max(Math.min(wanted, maxDistance - target.length()), 0);
+  const length = Math.min(wanted, maxDistance);
   camera.copy(direction).multiplyScalar(length).add(target);
 }

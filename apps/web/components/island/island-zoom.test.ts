@@ -69,7 +69,15 @@ describe('zoomToward', () => {
     expect(camera.length()).toBeCloseTo(60);
   });
 
-  it('el máximo se mide desde el centro de la isla', () => {
+  it('ya en el máximo, alejar no mueve nada: el target movido no salta al centro', () => {
+    const camera = new Vector3(20, 0, 60);
+    const target = new Vector3(20, 0, 0);
+    zoomToward(camera, target, undefined, 2, limits);
+    expect(target.toArray()).toEqual([20, 0, 0]);
+    expect(camera.toArray()).toEqual([20, 0, 60]);
+  });
+
+  it('en el máximo, con el target en el centro, la distancia es el máximo', () => {
     const camera = new Vector3(0, 0, 55);
     const target = new Vector3(0, 0, 0);
     zoomToward(camera, target, undefined, 2, limits);
