@@ -45,6 +45,16 @@ afterEach(() => {
 });
 
 describe('AdminNav', () => {
+  it('enlaza a los créditos de los fondos, sin links por fondo (BLOG-130)', async () => {
+    await renderNav();
+
+    const credits = screen.getByRole('link', { name: /^Créditos/ });
+    expect(credits.textContent).toBe('Créditos de los fondos de pantalla');
+    expect(credits.getAttribute('href')).toBe('/creditos');
+    expect(screen.queryByText(/GNOME|CC BY-SA/)).toBeNull();
+    expect(screen.queryAllByRole('link').filter((link) => !link.getAttribute('href')?.startsWith('/'))).toHaveLength(0);
+  });
+
   it('enlaza a Posts y a Nuevo post', async () => {
     await renderNav();
 

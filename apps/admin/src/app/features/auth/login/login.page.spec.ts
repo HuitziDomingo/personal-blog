@@ -43,6 +43,16 @@ describe('LoginPage', () => {
     expect(screen.getByRole('button', { name: 'Entrar' })).toBeTruthy();
   });
 
+  it('enlaza a la página de créditos con un solo link, sin links por fondo (BLOG-130)', async () => {
+    await renderLogin();
+
+    const links = screen.getAllByRole('link');
+    expect(links).toHaveLength(1);
+    expect(links[0].textContent).toBe('Créditos de los fondos de pantalla');
+    expect(links[0].getAttribute('href')).toBe('/creditos');
+    expect(screen.queryByText(/GNOME|CC BY-SA/)).toBeNull();
+  });
+
   it('no muestra errores antes de interactuar', async () => {
     await renderLogin();
 

@@ -19,9 +19,7 @@ import { HlmRadioGroupImports } from '@spartan-ng/helm/radio-group';
 import { PendingComments } from '../comments/pending-comments';
 import { SessionService } from '../session/session.service';
 import { ACCENT_LABELS, ACCENTS, isAccent, isThemeMode, THEME_MODE_LABELS, THEME_MODES, ThemeMode } from '../theme/theme';
-import { BackgroundService } from '../theme/background.service';
 import { ThemeService } from '../theme/theme.service';
-import { BackgroundCredit } from './background-credit';
 import { BackgroundPicker } from './background-picker';
 
 /**
@@ -32,7 +30,7 @@ import { BackgroundPicker } from './background-picker';
  */
 @Component({
   selector: 'app-admin-nav',
-  imports: [RouterLink, RouterLinkActive, NgIcon, HlmButtonImports, HlmLabelImports, HlmRadioGroupImports, BackgroundCredit, BackgroundPicker],
+  imports: [RouterLink, RouterLinkActive, NgIcon, HlmButtonImports, HlmLabelImports, HlmRadioGroupImports, BackgroundPicker],
   providers: [
     provideIcons({
       lucideFileText,
@@ -138,8 +136,13 @@ import { BackgroundPicker } from './background-picker';
 
         <div class="flex flex-col gap-2">
           <span id="fondo-titulo" class="text-xs font-semibold">Fondo de pantalla</span>
-          <app-background-picker labelledby="fondo-titulo" describedby="fondo-credito" />
-          <app-background-credit id="fondo-credito" [background]="backgrounds.selected()" />
+          <app-background-picker labelledby="fondo-titulo" />
+          <!-- La atribución CC BY-SA de todos los fondos, en una página (BLOG-130). -->
+          <a
+            routerLink="/creditos"
+            class="focus-visible:ring-ring/50 self-start rounded-sm text-xs underline underline-offset-2 outline-none focus-visible:ring-3"
+            >Créditos<span class="sr-only"> de los fondos de pantalla</span></a
+          >
         </div>
       </div>
     </section>
@@ -181,7 +184,6 @@ export class AdminNav {
     dark: 'lucideMoon',
     system: 'lucideMonitor',
   };
-  protected readonly backgrounds = inject(BackgroundService);
   protected readonly accents = ACCENTS;
   protected readonly accentLabels = ACCENT_LABELS;
 

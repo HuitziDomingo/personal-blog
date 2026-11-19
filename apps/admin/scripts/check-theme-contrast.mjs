@@ -187,7 +187,7 @@ export function checks({ vars, mode }) {
     { pair: 'Link activo (sidebar-accent-foreground / sidebar-accent)', ratio: contrast(color('--sidebar-accent-foreground'), color('--sidebar-accent')), min: TEXT },
     { pair: 'Acento sobre el glass, peor caso', ratio: worstOnGlass(primary), min: NON_TEXT },
     { pair: 'Texto sobre las cards de vidrio, peor zona de cada fondo (foreground)', ratio: worstOnCard(foreground), min: TEXT },
-    { pair: 'Texto secundario sobre las cards de vidrio, peor zona (glass-muted-foreground)', ratio: worstOnCard(color('--glass-muted-foreground')), min: TEXT },
+    { pair: 'Texto secundario y link «Créditos» del login sobre las cards de vidrio, peor zona (glass-muted-foreground)', ratio: worstOnCard(color('--glass-muted-foreground')), min: TEXT },
     { pair: 'Error sobre las cards de vidrio, peor zona (glass-destructive)', ratio: worstOnCard(color('--glass-destructive')), min: TEXT },
     { pair: 'Acento sobre las cards de vidrio, peor zona (primary)', ratio: worstOnCard(primary), min: NON_TEXT },
     // Respaldo sin backdrop-filter o con prefers-reduced-transparency: superficie sólida.

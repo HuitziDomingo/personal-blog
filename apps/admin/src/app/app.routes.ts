@@ -1,6 +1,6 @@
 import { Routes } from '@angular/router';
 
-import { authGuard, guestGuard } from './core/session/session.guards';
+import { anyoneGuard, authGuard, guestGuard } from './core/session/session.guards';
 
 // Las pantallas se cargan por ruta (ADR-012). Toda ruta tiene un guard, así
 // que la primera navegación resuelve la sesión con /auth/me.
@@ -10,6 +10,14 @@ export const routes: Routes = [
     title: 'Iniciar sesión · Admin',
     canMatch: [guestGuard],
     loadComponent: () => import('./features/auth/login/login.page').then((m) => m.LoginPage),
+  },
+  {
+    // Pública (BLOG-130): la atribución CC BY-SA de los fondos tiene que poder
+    // verse desde el login, sin sesión. Va fuera del shell, como el login.
+    path: 'creditos',
+    title: 'Créditos · Admin',
+    canMatch: [anyoneGuard],
+    loadComponent: () => import('./features/credits/credits.page').then((m) => m.CreditsPage),
   },
   {
     // Las pantallas con sesión viven dentro del shell (BLOG-017). El shell va

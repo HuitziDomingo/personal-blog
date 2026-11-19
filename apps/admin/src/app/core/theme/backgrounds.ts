@@ -59,6 +59,13 @@ export const BACKGROUND_INFO: Readonly<Record<BackgroundId, BackgroundInfo>> = {
   },
 };
 
+/** De dónde salen los fondos: la página de créditos lo cita (BLOG-130). */
+export const BACKGROUNDS_SOURCE = {
+  name: 'gnome-backgrounds 51.0.1',
+  projectUrl: 'https://gitlab.gnome.org/GNOME/gnome-backgrounds',
+  releaseUrl: 'https://download.gnome.org/sources/gnome-backgrounds/51/',
+} as const;
+
 /** Clave de localStorage. El script de index.html usa la misma. */
 export const BACKGROUND_STORAGE_KEY = 'admin-background';
 

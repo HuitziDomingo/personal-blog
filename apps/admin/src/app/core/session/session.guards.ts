@@ -32,3 +32,13 @@ export const guestGuard: CanMatchFn = () => {
     .ensureLoaded()
     .pipe(map((status) => (status === 'authenticated' ? router.createUrlTree(['/']) : true)));
 };
+
+/**
+ * Ruta pública (BLOG-130): deja pasar con o sin sesión, pero primero resuelve
+ * la sesión con /auth/me, como las demás, para que la pantalla sepa a dónde
+ * volver.
+ */
+export const anyoneGuard: CanMatchFn = () =>
+  inject(SessionService)
+    .ensureLoaded()
+    .pipe(map(() => true));

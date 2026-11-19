@@ -21,6 +21,9 @@ class EmptyPostsApi {
 
 async function setup(status: SessionStatus) {
   const session = Object.assign(new FakeSession(), { ensureLoaded: () => of(status) });
+  if (status !== 'authenticated') {
+    session.user.set(null);
+  }
   TestBed.configureTestingModule({
     providers: [
       provideRouter(routes),
@@ -79,5 +82,25 @@ describe('rutas del admin', () => {
     await harness.navigateByUrl('/login');
 
     expect(router.url).toBe('/posts');
+  });
+
+  it('sin sesión, /creditos se ve fuera del shell y vuelve al login (BLOG-130)', async () => {
+    const { harness, router } = await setup('anonymous');
+
+    await harness.navigateByUrl('/creditos');
+
+    expect(router.url).toBe('/creditos');
+    expect(document.querySelector('app-admin-shell')).toBeNull();
+    expect(harness.routeNativeElement?.tagName).toBe('APP-CREDITS-PAGE');
+    expect(harness.routeNativeElement?.querySelector('a[href="/login"]')?.textContent).toBe('Volver a iniciar sesión');
+  });
+
+  it('con sesión, /creditos también se ve y vuelve al admin', async () => {
+    const { harness, router } = await setup('authenticated');
+
+    await harness.navigateByUrl('/creditos');
+
+    expect(router.url).toBe('/creditos');
+    expect(harness.routeNativeElement?.querySelector('a[href="/posts"]')?.textContent).toBe('Volver al admin');
   });
 });
