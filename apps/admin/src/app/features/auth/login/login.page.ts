@@ -8,7 +8,7 @@ import {
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { HlmButtonImports } from '@spartan-ng/helm/button';
 import { HlmCardImports } from '@spartan-ng/helm/card';
 import { HlmFieldImports } from '@spartan-ng/helm/field';
@@ -17,7 +17,6 @@ import { finalize } from 'rxjs';
 
 import { problemMessage } from '../../../core/http/problem-messages';
 import { AppBackdrop } from '../../../core/layout/app-backdrop';
-import { BackgroundCredit } from '../../../core/layout/background-credit';
 import { BackgroundService } from '../../../core/theme/background.service';
 import { safeReturnUrl } from '../../../core/session/return-url';
 import { SessionService } from '../../../core/session/session.service';
@@ -35,7 +34,7 @@ import { SessionService } from '../../../core/session/session.service';
     HlmFieldImports,
     HlmInputImports,
     AppBackdrop,
-    BackgroundCredit,
+    RouterLink,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'flex min-h-dvh items-center justify-center p-4' },
@@ -79,7 +78,12 @@ import { SessionService } from '../../../core/session/session.service';
       </form>
 
       <div hlmCardFooter>
-        <app-background-credit class="login-muted" [background]="backgrounds.loginBackground" />
+        <!-- Un solo link a la atribución de todos los fondos (CC BY-SA 3.0, BLOG-130). -->
+        <a
+          routerLink="/creditos"
+          class="login-muted focus-visible:ring-ring/50 rounded-sm text-xs underline underline-offset-2 outline-none focus-visible:ring-3"
+          >Créditos<span class="sr-only"> de los fondos de pantalla</span></a
+        >
       </div>
     </section>
   `,

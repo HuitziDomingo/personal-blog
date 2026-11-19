@@ -18,4 +18,4 @@ Los nombres en español son traducciones del nombre del archivo; el título orig
 
 **Cambios:** recorte centrado (1920 × 1200 apaisado, 900 × 1600 vertical y 160 × 120 para la miniatura del selector), escalado y conversión a AVIF (fondos) y webp (miniaturas) con `apps/admin/scripts/build-backgrounds.mjs`. Estas imágenes derivadas se distribuyen con la misma licencia, CC BY-SA 3.0. La licencia no se extiende al código del admin.
 
-**Atribución en el admin:** CC BY-SA pide citar título, autor, fuente y licencia donde se usa la obra. El admin lo muestra bajo el selector de fondo del menú y al pie de la tarjeta del login (`core/layout/background-credit.ts`).
+**Atribución en el admin:** CC BY-SA pide citar título, autor, fuente y licencia donde se usa la obra. El admin lo muestra en la página pública **Créditos** (`/creditos`, `features/credits/credits.page.ts`), que se genera desde `BACKGROUND_INFO`. El login y el menú enlazan a ella con un link «Créditos» (BLOG-130).
