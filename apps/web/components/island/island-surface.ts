@@ -1,4 +1,4 @@
-import { type Object3D, Raycaster, Vector3 } from 'three';
+import { type Camera, type Object3D, Raycaster, type Vector2, Vector3 } from 'three';
 
 /**
  * Distancia desde `origin` hasta la superficie más exterior del modelo en la
@@ -34,5 +34,23 @@ export function createSurfaceProbe(root: Object3D, radius: number): SurfaceProbe
     raycaster.far = reach;
     const [hit] = raycaster.intersectObject(root, true);
     return hit ? reach - hit.distance : 0;
+  };
+}
+
+/**
+ * Punto del modelo bajo el puntero, con `ndc` en coordenadas normalizadas del
+ * canvas (−1 a 1, y hacia arriba), o `undefined` si el puntero no está sobre la isla.
+ */
+export type PointPicker = (ndc: Vector2) => Vector3 | undefined;
+
+/** Picker del zoom hacia el puntero: raycast desde la cámara. */
+export function createPointPicker(root: Object3D, camera: Camera): PointPicker {
+  const raycaster = new Raycaster();
+  return (ndc) => {
+    // La cámara pudo moverse desde el último render (gestos, teclas).
+    camera.updateMatrixWorld();
+    raycaster.setFromCamera(ndc, camera);
+    const [hit] = raycaster.intersectObject(root, true);
+    return hit?.point.clone();
   };
 }

@@ -1,13 +1,14 @@
-import { type PerspectiveCamera, Quaternion, Vector3 } from 'three';
+import { type PerspectiveCamera, Quaternion, Vector2, Vector3 } from 'three';
 import { TrackballControls } from 'three/addons/controls/TrackballControls.js';
 
-import type { SurfaceProbe } from './island-surface';
+import type { PointPicker, SurfaceProbe } from './island-surface';
 import { createWheelGate } from './island-wheel-gate';
+import { zoomToward } from './island-zoom';
 
 // Constantes con nombre para ajustarlas mirando las capturas (BLOG-123).
 
-/** Zoom hacia fuera: hasta 9 veces la distancia del encuadre inicial (la isla, completa y pequeña). */
-export const MAX_DISTANCE_FACTOR = 9;
+/** Zoom hacia fuera: la cámara, hasta 6 veces la distancia del encuadre inicial al centro de la isla. */
+export const MAX_DISTANCE_FACTOR = 6;
 /**
  * Zoom hacia dentro: la cámara se queda a este margen (en radios de la isla)
  * de la superficie más exterior del modelo en su dirección…
@@ -17,8 +18,13 @@ export const SURFACE_MARGIN_FACTOR = 0.2;
 export const MIN_DISTANCE_FLOOR_FACTOR = 0.25;
 /** Plano cercano de la cámara (en radios de la isla): menor que el margen, para no recortar de cerca. */
 export const NEAR_FACTOR = 0.01;
-/** Velocidad de la rueda y del pellizco (TrackballControls trae 1.2): cada paso de rueda avanza bastante. */
-export const ZOOM_SPEED = 4;
+/**
+ * Velocidad de la rueda: logaritmo del factor de zoom por píxel de `deltaY`.
+ * Un paso de rueda (100 px) acerca un 26 % y aleja un 35 %.
+ */
+export const ZOOM_SPEED = 0.003;
+/** Suavizado de la rueda: el zoom pendiente se aplica con esta constante de tiempo (s). */
+export const ZOOM_SMOOTHING = 0.08;
 /** Velocidad del arrastre (TrackballControls trae 1): media anchura del canvas ≈ 170°. */
 export const ROTATE_SPEED = 3;
 /** Velocidad del arrastre con el botón derecho (TrackballControls trae 0.3). */
@@ -39,6 +45,8 @@ const WORLD_UP = new Vector3(0, 1, 0);
 /** Un código de tecla que no existe: desactiva las teclas A, S y D de TrackballControls. */
 const NO_KEY = 'IslandNoKey';
 const ARROWS: readonly string[] = ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'];
+/** Píxeles por unidad de `deltaY` según `deltaMode`: píxeles, líneas y páginas. */
+const WHEEL_PIXELS = [1, 33, 800] as const;
 
 /** Curva de frenado de la entrada: sale con velocidad 3 y llega con velocidad 0. */
 export function easeOutCubic(u: number): number {
@@ -91,12 +99,12 @@ export function minCameraDistance(surface: number, { minDistance, margin }: Isla
 export interface IslandFrame {
   /** Distancia de la cámara en el encuadre inicial. */
   distance: number;
-  /** Cuánto puede alejarse el target del centro (al mover con el botón derecho). */
-  targetRadius: number;
-  /** Radio de la esfera que envuelve la isla. */
+  /** Radio de la esfera que envuelve la isla; el target no sale de ella. */
   modelRadius: number;
   /** Superficie del modelo en cada dirección (`createSurfaceProbe`). */
   surface: SurfaceProbe;
+  /** Punto del modelo bajo el puntero (`createPointPicker`), para el zoom hacia el puntero. */
+  pick: PointPicker;
 }
 
 export interface IslandControls {
@@ -181,8 +189,10 @@ interface TrackballInertia {
  * - Teclado, con el canvas enfocado: flechas para girar, Mayúsculas + flechas
  *   para mover y R para restablecer.
  * - Doble clic: restablece la vista.
- * - Zoom: hasta `MAX_DISTANCE_FACTOR` veces el encuadre; de cerca, hasta la
- *   superficie del modelo en la dirección de la cámara (`SurfaceProbe`).
+ * - Zoom hacia el punto de la isla bajo el puntero (o el centro de los dos
+ *   dedos), con `zoomToward`: hasta `MAX_DISTANCE_FACTOR` veces el encuadre
+ *   y, de cerca, hasta la superficie del modelo en la dirección de la cámara
+ *   (`SurfaceProbe`). TrackballControls no hace zoom.
  * - Entrada (`introAngle`) y giro automático lento, hechos a mano: se detienen
  *   en cuanto el usuario interactúa y solo vuelven con `reset`.
  */
@@ -195,18 +205,21 @@ export function createIslandControls(
   // de TrackballControls y pueden quedarse con los toques y la rueda.
   const controls = new TrackballControls(camera);
   controls.rotateSpeed = ROTATE_SPEED;
-  controls.zoomSpeed = ZOOM_SPEED;
   controls.panSpeed = PAN_SPEED;
+  // El zoom es de este módulo (hacia el puntero); con `noPan` en false,
+  // TrackballControls sigue aplicando sus topes de distancia al mover.
+  controls.noZoom = true;
   // TrackballControls escucha A, S y D en `window` (en toda la página) para
   // cambiar de modo; con un código que no existe, nunca hacen nada.
   controls.keys = [NO_KEY, NO_KEY, NO_KEY];
 
   const target = controls.target;
   let range: IslandRange = islandRange(1, 1);
-  let targetRadius = 0;
-  // Distancia al target a partir de la cual no hay superficie que comprobar.
-  let surfaceReach = 0;
+  let modelRadius = 0;
   let surface: SurfaceProbe = () => 0;
+  let pick: PointPicker = () => undefined;
+  // Zoom de la rueda que falta por aplicar (logaritmo del factor) y su punto de anclaje.
+  let pendingZoom: { log: number; anchor: Vector3 | undefined } | undefined;
   const home = { position: new Vector3(), up: new Vector3(0, 1, 0), target: new Vector3() };
   let autoRotate = !reducedMotion.matches;
   // Entrada: instante de inicio (el primer `update`) y posición de partida.
@@ -226,6 +239,23 @@ export function createIslandControls(
   const stopMotion = () => {
     autoRotate = false;
     intro = undefined;
+  };
+
+  const minDistanceAt = (at: Vector3, direction: Vector3) => minCameraDistance(surface(at, direction), range);
+  const ndc = new Vector2();
+  /** Punto de la isla bajo una posición del puntero (coordenadas del viewport). */
+  const pickAt = (clientX: number, clientY: number) => {
+    const box = canvas.getBoundingClientRect();
+    if (box.width === 0 || box.height === 0) {
+      return undefined;
+    }
+    ndc.set(((clientX - box.left) / box.width) * 2 - 1, -((clientY - box.top) / box.height) * 2 + 1);
+    return pick(ndc);
+  };
+  /** Zoom hacia `anchor` (o el target), con los topes de la isla. */
+  const zoom = (anchor: Vector3 | undefined, factor: number) => {
+    zoomToward(camera.position, target, anchor, factor, { minDistanceAt, maxDistance: range.maxDistance });
+    camera.lookAt(target);
   };
 
   /** Gira la cámara (posición y vertical) alrededor del target. */
@@ -248,13 +278,6 @@ export function createIslandControls(
     }
   };
 
-  /** Acerca (factor < 1) o aleja la cámara, dentro del piso y del máximo. */
-  const dolly = (factor: number) => {
-    eye.subVectors(camera.position, target);
-    const length = Math.min(Math.max(eye.length() * factor, range.minDistance), range.maxDistance);
-    camera.position.addVectors(target, eye.setLength(length));
-  };
-
   /** Mueve cámara y target juntos, en el plano de la pantalla. */
   const pan = (x: number, y: number) => {
     const distance = camera.position.distanceTo(target);
@@ -267,22 +290,26 @@ export function createIslandControls(
     camera.lookAt(target);
   };
 
-  /** Topes: el target, cerca del centro; la cámara, fuera del modelo y no más lejos del máximo. */
+  /**
+   * Topes: el target, dentro de la esfera de la isla; la cámara, fuera del
+   * modelo y a no más del máximo del centro.
+   */
   const clamp = () => {
-    if (target.length() > targetRadius) {
-      side.copy(target).setLength(targetRadius).sub(target);
+    if (target.length() > modelRadius) {
+      side.copy(target).setLength(modelRadius).sub(target);
       target.add(side);
       camera.position.add(side);
     }
     eye.subVectors(camera.position, target);
     const length = eye.length();
     // La sonda (un raycast) solo hace falta dentro de la esfera que envuelve
-    // la isla: fuera de ella no hay superficie más lejos.
+    // la isla (desde el target): fuera de ella no hay superficie más lejos.
     const min =
-      length < surfaceReach + range.margin
-        ? minCameraDistance(surface(target, axis.copy(eye).normalize()), range)
+      length < modelRadius + target.length() + range.margin
+        ? minDistanceAt(target, axis.copy(eye).normalize())
         : range.minDistance;
-    const clamped = Math.min(Math.max(length, min), range.maxDistance);
+    // El máximo se mide desde el centro: con el target movido, desde él queda algo menos.
+    const clamped = Math.min(Math.max(length, min), Math.max(range.maxDistance - target.length(), min));
     if (clamped !== length) {
       camera.position.addVectors(target, eye.setLength(clamped));
       camera.lookAt(target);
@@ -299,6 +326,7 @@ export function createIslandControls(
     (controls as unknown as TrackballInertia)._lastAngle = 0;
     touches.clear();
     pinch = undefined;
+    pendingZoom = undefined;
     target.copy(home.target);
     camera.position.copy(home.position);
     camera.up.copy(home.up);
@@ -310,11 +338,16 @@ export function createIslandControls(
 
   const gate = createWheelGate(canvas, () => undefined);
   const onWheel = (event: WheelEvent) => {
-    // Sin el gate activo, TrackballControls ni se entera y la página se
-    // desplaza (no hay `preventDefault`).
+    // Sin el gate activo no hay `preventDefault`: la página se desplaza.
     if (!gate.active) {
-      event.stopImmediatePropagation();
+      return;
     }
+    event.preventDefault();
+    stopMotion();
+    const pixels = event.deltaY * (WHEEL_PIXELS[event.deltaMode] ?? 1);
+    // Hacia dentro, hacia el punto bajo el puntero; hacia fuera, `zoomToward` usa el target.
+    const anchor = pixels < 0 ? pickAt(event.clientX, event.clientY) : undefined;
+    pendingZoom = { log: (pendingZoom?.log ?? 0) + pixels * ZOOM_SPEED, anchor };
   };
 
   // --- Toques: dos dedos giran y pellizcan ---------------------------------------
@@ -357,8 +390,10 @@ export function createIslandControls(
       const x = (next.x - pinch.x) / half;
       const y = (pinch.y - next.y) / half;
       drag(x, y, Math.hypot(x, y) * ROTATE_SPEED);
-      if (next.spread > 0) {
-        dolly(pinch.spread / next.spread);
+      if (next.spread > 0 && next.spread !== pinch.spread) {
+        // Hacia el punto de la isla entre los dos dedos.
+        const factor = pinch.spread / next.spread;
+        zoom(factor < 1 ? pickAt(next.x, next.y) : undefined, factor);
       }
     }
     pinch = next;
@@ -391,12 +426,15 @@ export function createIslandControls(
       // Mover la vista a la derecha deja la isla a la izquierda: va al revés que la flecha.
       pan(-x * KEY_PAN_STEP, -y * KEY_PAN_STEP);
     } else {
-      drag(x, y, KEY_ROTATE_ANGLE);
+      // ↑ sube la cámara (la isla, vista desde arriba): al revés que arrastrar hacia arriba.
+      drag(x, -y, KEY_ROTATE_ANGLE);
     }
   };
 
   const onStart = () => {
     stopMotion();
+    // Un arrastre cambia la vista: el zoom pendiente ya no va hacia el mismo punto.
+    pendingZoom = undefined;
     canvas.style.cursor = 'grabbing';
   };
   const onEnd = () => {
@@ -429,9 +467,9 @@ export function createIslandControls(
   return {
     frame: (framing) => {
       range = islandRange(framing.distance, framing.modelRadius);
-      targetRadius = framing.targetRadius;
+      modelRadius = framing.modelRadius;
       surface = framing.surface;
-      surfaceReach = framing.modelRadius + framing.targetRadius;
+      pick = framing.pick;
       controls.minDistance = range.minDistance;
       controls.maxDistance = range.maxDistance;
       target.set(0, 0, 0);
@@ -463,6 +501,15 @@ export function createIslandControls(
         turn(WORLD_UP, -AUTO_ROTATE_SPEED * (elapsed - INTRO_DURATION));
       } else if (autoRotate) {
         turn(WORLD_UP, -AUTO_ROTATE_SPEED * delta);
+      }
+      if (pendingZoom) {
+        // Una fracción de lo pendiente en cada cuadro, según el tiempo: suave y sin depender del frame rate.
+        const step = Math.abs(pendingZoom.log) < 1e-4 ? pendingZoom.log : pendingZoom.log * (1 - Math.exp(-delta / ZOOM_SMOOTHING));
+        zoom(pendingZoom.anchor, Math.exp(step));
+        pendingZoom.log -= step;
+        if (pendingZoom.log === 0) {
+          pendingZoom = undefined;
+        }
       }
       controls.update();
       clamp();

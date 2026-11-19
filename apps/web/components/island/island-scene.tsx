@@ -20,7 +20,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
 import { createIslandControls, islandRange } from './island-controls';
 import { REDUCED_MOTION_QUERY } from './island-loading';
-import { createSurfaceProbe } from './island-surface';
+import { createPointPicker, createSurfaceProbe } from './island-surface';
 
 /** Modelo armado con scripts/build-island-model.mjs: fortaleza flotante (Quaternius, CC0). */
 export const ISLAND_MODEL_URL = '/models/isla/isla.gltf';
@@ -240,10 +240,9 @@ export default function IslandScene({ text, visible, onReady, onError }: IslandS
         camera.updateProjectionMatrix();
         controls.frame({
           distance,
-          // El target puede alejarse del centro hasta media altura de la isla.
-          targetRadius: box.getSize(new Vector3()).y / 2,
           modelRadius,
           surface: createSurfaceProbe(pivot, modelRadius),
+          pick: createPointPicker(pivot, camera),
         });
         canvas.tabIndex = 0;
 
