@@ -15,6 +15,7 @@ import {
   islandRange,
   KEY_ROTATE_ANGLE,
   MAX_DISTANCE_FACTOR,
+  PAN_SPEED,
   minCameraDistance,
   SURFACE_MARGIN_FACTOR,
 } from './island-controls';
@@ -748,6 +749,16 @@ describe('createIslandControls: zoom y topes', () => {
     }
     run(300);
     expect(camera.position.length()).toBeCloseTo(RANGE.minDistance, 6);
+  });
+
+  it('el pan del botón derecho va a la mitad que antes (BLOG-128): mismo arrastre, mitad de recorrido', () => {
+    expect(PAN_SPEED).toBe(0.3);
+    const start = camera.position.clone();
+    drag([200, 150], [240, 150], { button: 2 });
+    run(300);
+    // TrackballControls: desplazamiento en pantalla (40/400) × distancia × panSpeed, y la inercia
+    // (dynamicDampingFactor 0.2) lo reparte en varios cuadros hasta sumar 1/0.2 veces eso.
+    expect(camera.position.distanceTo(start)).toBeCloseTo(((40 / 400) * DISTANCE * PAN_SPEED) / 0.2, 2);
   });
 
   it('el pan no tiene límite: la isla puede salir del cuadro, y R la devuelve', () => {
