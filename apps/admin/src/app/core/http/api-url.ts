@@ -9,6 +9,9 @@ export const API_PATHS = {
   improveWriting: '/api/v1/admin/assistant/improve-writing',
   suggestMetadata: '/api/v1/admin/assistant/suggest-metadata',
   suggestCover: '/api/v1/admin/assistant/suggest-cover',
+  improveWithContext: '/api/v1/admin/assistant/improve-with-context',
+  ragStatus: '/api/v1/admin/rag/status',
+  ragReindex: '/api/v1/admin/rag/reindex',
 } as const;
 
 /**

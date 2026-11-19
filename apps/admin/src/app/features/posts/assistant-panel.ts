@@ -13,21 +13,29 @@ import {
   viewChild,
   viewChildren,
 } from '@angular/core';
-import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
+import { RouterLink } from '@angular/router';
 import { NgIcon, provideIcons } from '@ng-icons/core';
-import { lucideCircleAlert } from '@ng-icons/lucide';
+import { lucideCircleAlert, lucideExternalLink } from '@ng-icons/lucide';
 import { renderMarkdown } from '@personal-blog/markdown';
 import { HlmButtonImports } from '@spartan-ng/helm/button';
 import { map, Observable, Subscription } from 'rxjs';
 
-import { AssistantError, CoverIdea, MetadataSuggestion, WritingAssistant } from '../../core/assistant/writing-assistant';
+import {
+  AssistantError,
+  ContextSuggestion,
+  CoverIdea,
+  MetadataSuggestion,
+  WritingAssistant,
+} from '../../core/assistant/writing-assistant';
 
-export type AssistantAction = 'improve' | 'metadata' | 'cover';
+export type AssistantAction = 'improve' | 'metadata' | 'cover' | 'context';
 
 type Suggestion =
   | { action: 'improve'; content: string }
   | { action: 'metadata'; metadata: MetadataSuggestion }
-  | { action: 'cover'; cover: CoverIdea };
+  | { action: 'cover'; cover: CoverIdea }
+  | { action: 'context'; context: ContextSuggestion };
 
 type PanelState =
   | { kind: 'idle' }
@@ -35,12 +43,13 @@ type PanelState =
   | { kind: 'error'; action: AssistantAction; message: string }
   | { kind: 'ready'; suggestion: Suggestion };
 
-const ACTIONS: AssistantAction[] = ['improve', 'metadata', 'cover'];
+const ACTIONS: AssistantAction[] = ['improve', 'metadata', 'cover', 'context'];
 
 const ACTION_LABELS: Record<AssistantAction, string> = {
   improve: 'Mejorar redacción',
   metadata: 'Sugerir título, extracto y tags',
   cover: 'Idea de imagen de portada',
+  context: 'Mejorar con mi contexto',
 };
 
 /**
@@ -50,8 +59,8 @@ const ACTION_LABELS: Record<AssistantAction, string> = {
  */
 @Component({
   selector: 'app-assistant-panel',
-  imports: [HlmButtonImports, NgIcon],
-  providers: [provideIcons({ lucideCircleAlert })],
+  imports: [HlmButtonImports, NgIcon, RouterLink],
+  providers: [provideIcons({ lucideCircleAlert, lucideExternalLink })],
   styleUrl: './assistant-panel.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -62,7 +71,7 @@ const ACTION_LABELS: Record<AssistantAction, string> = {
       </div>
 
       <div class="flex flex-wrap gap-2">
-        @for (action of actions; track action) {
+        @for (action of actions(); track action) {
           <button
             #actionButton
             hlmBtn
@@ -148,11 +157,73 @@ const ACTION_LABELS: Record<AssistantAction, string> = {
                 <p><span class="assistant-muted">Texto alternativo:</span> {{ suggestion.cover.altText }}</p>
                 <p class="assistant-muted">Es solo una idea: el post todavía no tiene campo de portada.</p>
               }
+              @case ('context') {
+                @let context = suggestion.context;
+                <h3 id="suggestion-title" class="font-medium">Sugerencias con tu contexto</h3>
+                <!-- Sanitizado con la allowlist de @personal-blog/markdown, como la vista previa del editor. -->
+                <div class="markdown-body" data-testid="context-suggestion" [innerHTML]="contextHtml()"></div>
+
+                @if (context.internalLinks.length > 0) {
+                  <section aria-labelledby="context-links-title" class="flex flex-col gap-1">
+                    <h4 id="context-links-title" class="font-medium">Links internos sugeridos</h4>
+                    <ul class="flex list-disc flex-col gap-1 ps-5" data-testid="context-links">
+                      @for (link of context.internalLinks; track link.postId) {
+                        <li><span class="font-medium">«{{ link.title }}»</span>: {{ link.reason }}</li>
+                      }
+                    </ul>
+                  </section>
+                }
+
+                @if (context.contradictions.length > 0) {
+                  <section aria-labelledby="context-contradictions-title" class="flex flex-col gap-1">
+                    <h4 id="context-contradictions-title" class="font-medium">Posibles contradicciones</h4>
+                    <ul class="flex list-disc flex-col gap-1 ps-5" data-testid="context-contradictions">
+                      @for (contradiction of context.contradictions; track $index) {
+                        <li><span class="font-medium">«{{ contradiction.title }}»</span>: {{ contradiction.note }}</li>
+                      }
+                    </ul>
+                  </section>
+                }
+
+                <section aria-labelledby="context-posts-title" class="flex flex-col gap-1">
+                  <h4 id="context-posts-title" class="font-medium">Posts usados como contexto</h4>
+                  @if (context.posts.length === 0) {
+                    <p class="assistant-muted" data-testid="context-empty">
+                      Ningún post publicado se parece lo suficiente al borrador: la sugerencia no usa contexto.
+                    </p>
+                  } @else {
+                    <ul class="flex flex-col gap-1" data-testid="context-posts">
+                      @for (post of context.posts; track post.postId) {
+                        <li>
+                          <!-- En otra pestaña: el borrador abierto no se pierde. -->
+                          <a
+                            [routerLink]="['/posts', post.postId]"
+                            target="_blank"
+                            rel="noopener"
+                            class="focus-visible:ring-ring/50 inline-flex items-center gap-1 rounded-sm underline underline-offset-2 outline-none focus-visible:ring-3"
+                            >{{ post.title }}<ng-icon name="lucideExternalLink" size="0.875rem" aria-hidden="true" /><span
+                              class="sr-only"
+                            >
+                              (se abre en otra pestaña)</span
+                            ></a
+                          >
+                          @if (post.sections.length > 0) {
+                            <span class="assistant-muted"> · {{ post.sections.join(', ') }}</span>
+                          }
+                        </li>
+                      }
+                    </ul>
+                  }
+                </section>
+                <p class="assistant-muted">Son sugerencias: nada cambia en el borrador.</p>
+              }
             }
             <div class="flex gap-2">
-              <button hlmBtn size="sm" type="button" [disabled]="disabled()" (click)="apply(suggestion)">
-                {{ suggestion.action === 'cover' ? 'Copiar' : 'Aplicar' }}
-              </button>
+              @if (suggestion.action !== 'context') {
+                <button hlmBtn size="sm" type="button" [disabled]="disabled()" (click)="apply(suggestion)">
+                  {{ suggestion.action === 'cover' ? 'Copiar' : 'Aplicar' }}
+                </button>
+              }
               <button hlmBtn variant="ghost" size="sm" type="button" [disabled]="disabled()" (click)="discard()">Descartar</button>
             </div>
           </article>
@@ -168,6 +239,8 @@ export class AssistantPanel {
 
   readonly title = input('');
   readonly content = input('');
+  /** El post que se edita, o null si es nuevo: sus fragmentos no son contexto. */
+  readonly postId = input<string | null>(null);
   /** Mientras el editor guarda, nada del panel cambia el formulario. */
   readonly disabled = input(false);
 
@@ -176,8 +249,18 @@ export class AssistantPanel {
   /** El autor aplicó título, extracto y tags. */
   readonly applyMetadata = output<MetadataSuggestion>();
 
-  /** Sin idea de portada si la implementación no la ofrece (ADR-021, punto 1). */
-  protected readonly actions = ACTIONS.filter((action) => action !== 'cover' || this.assistant.suggestsCover);
+  /** Si la API tiene el RAG encendido (ADR-027). Apagado hasta saberlo. */
+  private readonly contextAvailable = toSignal(this.assistant.contextAvailable(), { initialValue: false });
+  /**
+   * Sin idea de portada si la implementación no la ofrece (ADR-021, punto 1),
+   * y sin «mejorar con mi contexto» si el RAG está apagado.
+   */
+  protected readonly actions = computed(() =>
+    ACTIONS.filter(
+      (action) =>
+        (action !== 'cover' || this.assistant.suggestsCover) && (action !== 'context' || this.contextAvailable()),
+    ),
+  );
   protected readonly notice = this.assistant.notice;
   protected readonly labels = ACTION_LABELS;
   protected readonly state = signal<PanelState>({ kind: 'idle' });
@@ -187,6 +270,10 @@ export class AssistantPanel {
   protected readonly suggestionHtml = computed(() => {
     const suggestion = this.currentSuggestion();
     return suggestion?.action === 'improve' ? renderMarkdown(suggestion.content) : '';
+  });
+  protected readonly contextHtml = computed(() => {
+    const suggestion = this.currentSuggestion();
+    return suggestion?.action === 'context' ? renderMarkdown(suggestion.context.suggestion) : '';
   });
   /** Contenido anterior a la última redacción aplicada, para deshacerla. */
   private readonly undoContent = signal<string | null>(null);
@@ -221,7 +308,11 @@ export class AssistantPanel {
         ? this.assistant.improveWriting(draft).pipe(map((content) => ({ action: 'improve' as const, content })))
         : action === 'metadata'
           ? this.assistant.suggestMetadata(draft).pipe(map((metadata) => ({ action: 'metadata' as const, metadata })))
-          : this.assistant.suggestCover(draft).pipe(map((cover) => ({ action: 'cover' as const, cover })));
+          : action === 'cover'
+            ? this.assistant.suggestCover(draft).pipe(map((cover) => ({ action: 'cover' as const, cover })))
+            : this.assistant
+                .improveWithContext({ ...draft, postId: this.postId() })
+                .pipe(map((context) => ({ action: 'context' as const, context })));
 
     this.pending = suggestion$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: (suggestion) => {
@@ -272,6 +363,9 @@ export class AssistantPanel {
           // sigue en pantalla y se puede seleccionar.
           this.announcement.set('No se pudo copiar: selecciona el texto y cópialo a mano.');
         }
+        return;
+      case 'context':
+        // Solo se lee: no hay nada que aplicar.
         return;
     }
   }

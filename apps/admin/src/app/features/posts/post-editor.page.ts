@@ -192,6 +192,7 @@ const SLUG_CONFLICTS: Record<string, string> = {
           <app-assistant-panel
             [title]="form.controls.title.value"
             [content]="form.controls.content.value"
+            [postId]="isNew() ? null : id()"
             [disabled]="saving()"
             (applyContent)="setContent($event)"
             (applyMetadata)="applyMetadata($event)"

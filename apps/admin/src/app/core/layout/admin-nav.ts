@@ -8,6 +8,7 @@ import {
   lucideMonitor,
   lucideMoon,
   lucidePalette,
+  lucideSettings,
   lucideSquarePen,
   lucideSun,
   lucideUser,
@@ -39,6 +40,7 @@ import { BackgroundPicker } from './background-picker';
       lucideMonitor,
       lucideMoon,
       lucidePalette,
+      lucideSettings,
       lucideSquarePen,
       lucideSun,
       lucideUser,
@@ -157,6 +159,7 @@ export class AdminNav {
     { path: '/posts', label: 'Posts', icon: 'lucideFileText' },
     { path: '/posts/new', label: 'Nuevo post', icon: 'lucideSquarePen' },
     { path: '/comments', label: 'Comentarios', icon: 'lucideMessageSquare' },
+    { path: '/settings', label: 'Ajustes', icon: 'lucideSettings' },
   ] as const;
 
   private readonly pending = inject(PendingComments);

@@ -11,6 +11,8 @@ const API = 'http://api.test';
 const IMPROVE = `${API}/api/v1/admin/assistant/improve-writing`;
 const METADATA = `${API}/api/v1/admin/assistant/suggest-metadata`;
 const COVER = `${API}/api/v1/admin/assistant/suggest-cover`;
+const CONTEXT = `${API}/api/v1/admin/assistant/improve-with-context`;
+const RAG_STATUS = `${API}/api/v1/admin/rag/status`;
 const draft: DraftInput = { title: 'Hola', content: '# Hola\n\nUn borrador.' };
 
 function setup() {
@@ -151,5 +153,82 @@ describe('HttpWritingAssistant', () => {
     const error = (await failure(assistant.suggestCover({ title: 'Hola', content: ' ' }))) as AssistantError;
     expect(error.message).toContain('Escribe algo de contenido');
     httpMock.expectNone(COVER);
+  });
+
+  describe('mejorar con mi contexto (ADR-027)', () => {
+    it('está disponible si el estado del RAG dice enabled', async () => {
+      const { assistant, httpMock } = setup();
+
+      const enabled = firstValueFrom(assistant.contextAvailable());
+      httpMock.expectOne({ method: 'GET', url: RAG_STATUS }).flush({ enabled: true, model: 'm', publishedPosts: 1, indexedPosts: 1, pendingPosts: 0, chunks: 2 });
+      expect(await enabled).toBe(true);
+
+      const disabled = firstValueFrom(assistant.contextAvailable());
+      httpMock.expectOne(RAG_STATUS).flush({ enabled: false, model: '', publishedPosts: 0, indexedPosts: 0, pendingPosts: 0, chunks: 0 });
+      expect(await disabled).toBe(false);
+    });
+
+    it('no está disponible si el estado falla', async () => {
+      const { assistant, httpMock } = setup();
+
+      const available = firstValueFrom(assistant.contextAvailable());
+      httpMock.expectOne(RAG_STATUS).flush({ title: 'x' }, { status: 500, statusText: 'Error' });
+
+      expect(await available).toBe(false);
+    });
+
+    it('envía título, contenido y el id del post, y agrupa el contexto por post', async () => {
+      const { assistant, httpMock } = setup();
+
+      const result = firstValueFrom(assistant.improveWithContext({ ...draft, postId: 'p9' }));
+      const request = httpMock.expectOne({ method: 'POST', url: CONTEXT });
+      expect(request.request.body).toEqual({ title: 'Hola', content: '# Hola\n\nUn borrador.', postId: 'p9' });
+      request.flush({
+        suggestion: '- Enlaza el post.',
+        internalLinks: [{ slug: 'uno', reason: 'En la intro.' }],
+        contradictions: [{ slug: 'dos', note: 'Dice lo contrario.' }],
+        context: [
+          { postId: 'p1', slug: 'uno', title: 'Uno', section: 'A', score: 0.9 },
+          { postId: 'p2', slug: 'dos', title: 'Dos', section: '', score: 0.8 },
+          { postId: 'p1', slug: 'uno', title: 'Uno', section: 'B', score: 0.7 },
+          { postId: 'p1', slug: 'uno', title: 'Uno', section: 'A', score: 0.6 },
+        ],
+      });
+
+      expect(await result).toEqual({
+        suggestion: '- Enlaza el post.',
+        internalLinks: [{ postId: 'p1', title: 'Uno', reason: 'En la intro.' }],
+        contradictions: [{ postId: 'p2', title: 'Dos', note: 'Dice lo contrario.' }],
+        posts: [
+          { postId: 'p1', slug: 'uno', title: 'Uno', sections: ['A', 'B'] },
+          { postId: 'p2', slug: 'dos', title: 'Dos', sections: [] },
+        ],
+      });
+    });
+
+    it('un post nuevo no envía postId', () => {
+      const { assistant, httpMock } = setup();
+
+      assistant.improveWithContext({ ...draft, postId: null }).subscribe();
+
+      expect(httpMock.expectOne(CONTEXT).request.body).toEqual({ title: 'Hola', content: '# Hola\n\nUn borrador.' });
+    });
+
+    it('no envía un borrador vacío', async () => {
+      const { assistant } = setup();
+
+      const error = await failure(assistant.improveWithContext({ title: '', content: '  ', postId: null }));
+
+      expect(error).toBeInstanceOf(AssistantError);
+    });
+
+    it('traduce el RAG apagado', async () => {
+      const { assistant, httpMock } = setup();
+
+      const error = failure(assistant.improveWithContext({ ...draft, postId: null }));
+      httpMock.expectOne(CONTEXT).flush({ title: 'Service Unavailable', status: 503, detail: 'rag is disabled' }, { status: 503, statusText: 'Service Unavailable' });
+
+      expect(((await error) as AssistantError).message).toBe('El contexto de tus posts está desactivado en la API (RAG_ENABLED=false).');
+    });
   });
 });

@@ -1,8 +1,17 @@
 import { Component, signal } from '@angular/core';
 import { fireEvent, render, screen, waitFor } from '@testing-library/angular';
-import { Observable, Subject, throwError } from 'rxjs';
+import { provideRouter } from '@angular/router';
+import { BehaviorSubject, Observable, Subject, throwError } from 'rxjs';
 
-import { AssistantError, CoverIdea, DraftInput, MetadataSuggestion, WritingAssistant } from '../../core/assistant/writing-assistant';
+import {
+  AssistantError,
+  ContextDraftInput,
+  ContextSuggestion,
+  CoverIdea,
+  DraftInput,
+  MetadataSuggestion,
+  WritingAssistant,
+} from '../../core/assistant/writing-assistant';
 import { AssistantPanel } from './assistant-panel';
 
 /** Doble del puerto: cada petición responde cuando el test decide. */
@@ -13,6 +22,10 @@ class ControlledAssistant implements WritingAssistant {
   improve = new Subject<string>();
   metadata = new Subject<MetadataSuggestion>();
   cover = new Subject<CoverIdea>();
+  context = new Subject<ContextSuggestion>();
+  /** Lo que responde el estado del RAG; false hasta que el test lo cambie. */
+  readonly ragEnabled = new BehaviorSubject(false);
+  readonly contextDrafts: ContextDraftInput[] = [];
   failWith: unknown = null;
 
   improveWriting(draft: DraftInput): Observable<string> {
@@ -27,6 +40,15 @@ class ControlledAssistant implements WritingAssistant {
     return this.track(draft, this.cover);
   }
 
+  contextAvailable(): Observable<boolean> {
+    return this.ragEnabled.asObservable();
+  }
+
+  improveWithContext(draft: ContextDraftInput): Observable<ContextSuggestion> {
+    this.contextDrafts.push(draft);
+    return this.track(draft, this.context);
+  }
+
   private track<T>(draft: DraftInput, subject: Subject<T>): Observable<T> {
     this.drafts.push(draft);
     return this.failWith === null ? subject.asObservable() : throwError(() => this.failWith);
@@ -39,6 +61,7 @@ class ControlledAssistant implements WritingAssistant {
   template: `<app-assistant-panel
     title="Hola"
     [content]="content()"
+    [postId]="postId()"
     [disabled]="saving()"
     (applyContent)="content.set($event)"
     (applyMetadata)="metadata = $event"
@@ -47,11 +70,12 @@ class ControlledAssistant implements WritingAssistant {
 class Host {
   readonly content = signal('# Hola');
   readonly saving = signal(false);
+  readonly postId = signal<string | null>('post-9');
   metadata: MetadataSuggestion | null = null;
 }
 
 async function renderPanel(assistant = new ControlledAssistant()) {
-  const result = await render(Host, { providers: [{ provide: WritingAssistant, useValue: assistant }] });
+  const result = await render(Host, { providers: [provideRouter([]), { provide: WritingAssistant, useValue: assistant }] });
 
   return { ...result, assistant, host: result.fixture.componentInstance };
 }
@@ -255,5 +279,89 @@ describe('AssistantPanel', () => {
 
     expect(screen.getByRole('alert').textContent).toContain('El asistente no respondió.');
     expect(screen.getByRole('alert').textContent).not.toContain('stack interno');
+  });
+
+  describe('mejorar con mi contexto (ADR-027)', () => {
+    const suggestion: ContextSuggestion = {
+      suggestion: '- Resume la sección de herramientas.<script>alert(1)</script>',
+      internalLinks: [{ postId: 'p1', title: 'Orquestar agentes', reason: 'En la introducción.' }],
+      contradictions: [{ postId: 'p2', title: 'Workflows primero', note: 'Allí recomiendas un workflow fijo.' }],
+      posts: [
+        { postId: 'p1', slug: 'orquestar-agentes', title: 'Orquestar agentes', sections: ['Herramientas', 'Límites'] },
+        { postId: 'p2', slug: 'workflows-primero', title: 'Workflows primero', sections: [] },
+      ],
+    };
+
+    it('no ofrece el botón mientras el RAG está apagado', async () => {
+      const { assistant, fixture } = await renderPanel();
+
+      expect(screen.queryByRole('button', { name: 'Mejorar con mi contexto' })).toBeNull();
+
+      assistant.ragEnabled.next(true);
+      fixture.detectChanges();
+
+      expect(screen.getByRole('button', { name: 'Mejorar con mi contexto' })).toBeTruthy();
+    });
+
+    it('envía el id del post y muestra la sugerencia con los posts usados', async () => {
+      const assistant = new ControlledAssistant();
+      assistant.ragEnabled.next(true);
+      const { fixture } = await renderPanel(assistant);
+
+      await fireEvent.click(screen.getByRole('button', { name: 'Mejorar con mi contexto' }));
+      expect(status().textContent).toContain('Pensando: Mejorar con mi contexto');
+      expect(assistant.contextDrafts).toEqual([{ title: 'Hola', content: '# Hola', postId: 'post-9' }]);
+
+      assistant.context.next(suggestion);
+      fixture.detectChanges();
+
+      const card = await screen.findByRole('article', { name: 'Sugerencias con tu contexto' });
+      await waitFor(() => expect(document.activeElement).toBe(card));
+
+      // Sanitizado como cualquier post: el <script> no llega al DOM.
+      const rendered = screen.getByTestId('context-suggestion');
+      expect(rendered.querySelector('script')).toBeNull();
+      expect(rendered.textContent).toContain('Resume la sección de herramientas.');
+
+      expect(screen.getByTestId('context-links').textContent).toContain('«Orquestar agentes»: En la introducción.');
+      expect(screen.getByTestId('context-contradictions').textContent).toContain('Allí recomiendas un workflow fijo.');
+
+      const link = screen.getByRole('link', { name: /Orquestar agentes/ });
+      expect(link.getAttribute('href')).toBe('/posts/p1');
+      expect(link.getAttribute('target')).toBe('_blank');
+      expect(link.getAttribute('rel')).toBe('noopener');
+      expect(link.textContent).toContain('(se abre en otra pestaña)');
+      expect(screen.getByTestId('context-posts').textContent).toContain('Herramientas, Límites');
+
+      // Solo se lee: no hay nada que aplicar.
+      expect(screen.queryByRole('button', { name: 'Aplicar' })).toBeNull();
+      await fireEvent.click(screen.getByRole('button', { name: 'Descartar' }));
+      expect(screen.queryByRole('article')).toBeNull();
+      expect(status().textContent).toContain('Sugerencia descartada.');
+    });
+
+    it('dice cuando ningún post se usó como contexto', async () => {
+      const assistant = new ControlledAssistant();
+      assistant.ragEnabled.next(true);
+      const { fixture } = await renderPanel(assistant);
+
+      await fireEvent.click(screen.getByRole('button', { name: 'Mejorar con mi contexto' }));
+      assistant.context.next({ suggestion: 'Algo.', internalLinks: [], contradictions: [], posts: [] });
+      fixture.detectChanges();
+
+      expect((await screen.findByTestId('context-empty')).textContent).toContain('la sugerencia no usa contexto');
+      expect(screen.queryByTestId('context-links')).toBeNull();
+    });
+
+    it('muestra el error del asistente', async () => {
+      const assistant = new ControlledAssistant();
+      assistant.ragEnabled.next(true);
+      assistant.failWith = new AssistantError('El contexto de tus posts está desactivado en la API (RAG_ENABLED=false).');
+      await renderPanel(assistant);
+
+      await fireEvent.click(screen.getByRole('button', { name: 'Mejorar con mi contexto' }));
+
+      expect((await screen.findByRole('alert')).textContent).toContain('RAG_ENABLED=false');
+    });
   });
 });
