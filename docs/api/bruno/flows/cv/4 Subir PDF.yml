@@ -1,0 +1,43 @@
+info:
+  name: 4 Subir PDF
+  type: http
+  seq: 4
+
+http:
+  method: POST
+  url: "{{baseUrl}}/api/v1/admin/cv/es"
+  headers:
+    - name: Content-Type
+      value: application/pdf
+  body:
+    type: text
+    data: "%PDF-1.7\n% {{cvMarker}}\n%%EOF\n"
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "201"
+  scripts:
+    - type: before-request
+      code: |-
+        // Bytes distintos en cada corrida: la clave depende del contenido.
+        bru.setVar("cvMarker", "Bruno " + Date.now());
+    - type: tests
+      code: |-
+        test("is the new current version, with a name chosen by the API", function () {
+          expect(res.body.language).to.equal("es");
+          expect(res.body.current).to.equal(true);
+          expect(res.body.url).to.match(/\/cv\/es\/[0-9a-f]{24}\.pdf$/);
+        });
+    - type: after-response
+      code: |-
+        bru.setVar("cvId", res.body.id);
+        bru.setVar("cvUrl", res.body.url);
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: true

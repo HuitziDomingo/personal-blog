@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/getkin/kin-openapi/openapi3"
@@ -16,6 +17,21 @@ import (
 
 	"github.com/HuitziDomingo/personal-blog/services/api/internal/handler/gen"
 )
+
+// mediaPathPrefix es donde se sirven los archivos guardados en disco.
+const mediaPathPrefix = "/media/"
+
+// registerBody registra, una sola vez, los tipos de cuerpo que el validador
+// del contrato no conoce. El registro de kin-openapi es global.
+var registerBody sync.Once
+
+// registerBodyDecoders hace que el validador acepte el PDF del CV como un
+// archivo, sin interpretarlo: la firma la comprueba el dominio.
+func registerBodyDecoders() {
+	registerBody.Do(func() {
+		openapi3filter.RegisterBodyDecoder("application/pdf", openapi3filter.FileBodyDecoder)
+	})
+}
 
 // Pinger comprueba que una dependencia externa está disponible.
 type Pinger interface {
@@ -39,6 +55,11 @@ type RouterConfig struct {
 	// Comments implementa los comentarios; es obligatorio, aunque estén
 	// desactivados (ADR-022).
 	Comments Comments
+	// CVs implementa el CV en PDF (ADR-028); es obligatorio.
+	CVs CVs
+	// Media sirve los archivos guardados en disco en desarrollo, bajo
+	// /media/. Nil en producción, donde los sirve el almacenamiento.
+	Media http.Handler
 	// AssistantTimeout es el timeout de una llamada al proveedor. Las rutas
 	// del asistente alargan el WriteTimeout del servidor a lo que haga falta.
 	AssistantTimeout time.Duration
@@ -76,6 +97,12 @@ func NewRouter(pinger Pinger, spec *openapi3.T, cfg RouterConfig) (*gin.Engine, 
 	if cfg.Comments == nil {
 		return nil, errors.New("router needs comments")
 	}
+
+	if cfg.CVs == nil {
+		return nil, errors.New("router needs cvs")
+	}
+
+	registerBodyDecoders()
 
 	if err := cfg.RateLimits.validate(); err != nil {
 		return nil, fmt.Errorf("router rate limits: %w", err)
@@ -117,6 +144,10 @@ func NewRouter(pinger Pinger, spec *openapi3.T, cfg RouterConfig) (*gin.Engine, 
 	router.GET("/health", health)
 	router.GET("/ready", ready(newReadiness(pinger, time.Now)))
 
+	if cfg.Media != nil {
+		router.GET(mediaPathPrefix+"*file", gin.WrapH(http.StripPrefix(mediaPathPrefix, cfg.Media)))
+	}
+
 	validator := ginmiddleware.OapiRequestValidatorWithOptions(spec, &ginmiddleware.Options{
 		ErrorHandler:      validationError,
 		MultiErrorHandler: describeViolations,
@@ -125,7 +156,7 @@ func NewRouter(pinger Pinger, spec *openapi3.T, cfg RouterConfig) (*gin.Engine, 
 			AuthenticationFunc: authenticateRequest,
 		},
 	})
-	handlers := gen.NewStrictHandlerWithOptions(server{sessions: cfg.Sessions, posts: cfg.Posts, assistant: cfg.Assistant, comments: cfg.Comments}, nil, gen.StrictGinServerOptions{
+	handlers := gen.NewStrictHandlerWithOptions(server{sessions: cfg.Sessions, posts: cfg.Posts, assistant: cfg.Assistant, comments: cfg.Comments, cvs: cfg.CVs}, nil, gen.StrictGinServerOptions{
 		RequestErrorHandlerFunc:  requestError,
 		HandlerErrorFunc:         handlerError,
 		ResponseErrorHandlerFunc: responseError,

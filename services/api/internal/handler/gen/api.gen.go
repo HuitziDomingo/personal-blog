@@ -10,6 +10,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"path"
@@ -22,6 +23,24 @@ import (
 	"github.com/oapi-codegen/runtime"
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
+
+// Defines values for CVLanguage.
+const (
+	En CVLanguage = "en"
+	Es CVLanguage = "es"
+)
+
+// Valid indicates whether the value is a known member of the CVLanguage enum.
+func (e CVLanguage) Valid() bool {
+	switch e {
+	case En:
+		return true
+	case Es:
+		return true
+	default:
+		return false
+	}
+}
 
 // Defines values for CommentReceiptStatus.
 const (
@@ -161,6 +180,37 @@ type AuthorReply struct {
 	Content string `json:"content"`
 }
 
+// CVFile PDF vigente de un idioma.
+type CVFile struct {
+	// Size Tamaño en bytes.
+	Size       int64     `json:"size"`
+	UploadedAt time.Time `json:"uploadedAt"`
+
+	// Url URL pública del PDF, en el dominio del almacenamiento.
+	Url string `json:"url"`
+}
+
+// CVLanguage Idioma del CV.
+type CVLanguage string
+
+// CVVersion Una versión subida del CV.
+type CVVersion struct {
+	// Current Si es la versión vigente de su idioma.
+	Current bool   `json:"current"`
+	Id      string `json:"id"`
+
+	// Language Idioma del CV.
+	Language   CVLanguage `json:"language"`
+	Size       int64      `json:"size"`
+	UploadedAt time.Time  `json:"uploadedAt"`
+	Url        string     `json:"url"`
+}
+
+// CVVersionList defines model for CVVersionList.
+type CVVersionList struct {
+	Items []CVVersion `json:"items"`
+}
+
 // Comment Comentario completo, para el admin.
 type Comment struct {
 	ByAuthor bool `json:"byAuthor"`
@@ -229,6 +279,15 @@ type CoverSuggestion struct {
 
 	// Subject Tema de la imagen, en inglés, para la plantilla cerrada del generador de imágenes. Solo letras, marcas diacríticas, dígitos, el espacio y `, . ; : ' ( ) -`.
 	Subject string `json:"subject"`
+}
+
+// CurrentCVs PDF vigente por idioma; un idioma sin PDF vigente no aparece.
+type CurrentCVs struct {
+	// En PDF vigente de un idioma.
+	En *CVFile `json:"en,omitempty"`
+
+	// Es PDF vigente de un idioma.
+	Es *CVFile `json:"es,omitempty"`
 }
 
 // ImprovedWriting defines model for ImprovedWriting.
@@ -397,6 +456,12 @@ type User struct {
 // UserRole defines model for UserRole.
 type UserRole string
 
+// CVLanguagePath Idioma del CV.
+type CVLanguagePath = CVLanguage
+
+// CVVersionId defines model for CVVersionId.
+type CVVersionId = string
+
 // CommentId defines model for CommentId.
 type CommentId = string
 
@@ -417,6 +482,9 @@ type BadRequest = Problem
 
 // Conflict Detalle de un error según RFC 9457.
 type Conflict = Problem
+
+// FileStorageUnavailable Detalle de un error según RFC 9457.
+type FileStorageUnavailable = Problem
 
 // Forbidden Detalle de un error según RFC 9457.
 type Forbidden = Problem
@@ -537,6 +605,15 @@ type ServerInterface interface {
 	// ReplyToComment Responde a un comentario como autor.
 	// (POST /api/v1/admin/comments/{id}/replies)
 	ReplyToComment(c *gin.Context, id CommentId)
+	// ListCVVersions Lista las versiones del CV.
+	// (GET /api/v1/admin/cv)
+	ListCVVersions(c *gin.Context)
+	// SetCurrentCV Marca una versión del CV como la vigente.
+	// (POST /api/v1/admin/cv/versions/{id}/current)
+	SetCurrentCV(c *gin.Context, id CVVersionId)
+	// UploadCV Sube una versión del CV en PDF.
+	// (POST /api/v1/admin/cv/{language})
+	UploadCV(c *gin.Context, language CVLanguagePath)
 	// ListPosts Lista los posts en cualquier estado.
 	// (GET /api/v1/admin/posts)
 	ListPosts(c *gin.Context, params ListPostsParams)
@@ -564,6 +641,9 @@ type ServerInterface interface {
 	// RefreshSession Rota el token de refresco y emite cookies nuevas.
 	// (POST /api/v1/auth/refresh)
 	RefreshSession(c *gin.Context)
+	// GetCurrentCV Devuelve el CV en PDF vigente de cada idioma.
+	// (GET /api/v1/cv)
+	GetCurrentCV(c *gin.Context)
 	// ListPublishedPosts Lista los posts publicados.
 	// (GET /api/v1/posts)
 	ListPublishedPosts(c *gin.Context, params ListPublishedPostsParams)
@@ -769,6 +849,69 @@ func (siw *ServerInterfaceWrapper) ReplyToComment(c *gin.Context) {
 	siw.Handler.ReplyToComment(c, id)
 }
 
+// ListCVVersions operation middleware
+func (siw *ServerInterfaceWrapper) ListCVVersions(c *gin.Context) {
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.ListCVVersions(c)
+}
+
+// SetCurrentCV operation middleware
+func (siw *ServerInterfaceWrapper) SetCurrentCV(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id CVVersionId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.SetCurrentCV(c, id)
+}
+
+// UploadCV operation middleware
+func (siw *ServerInterfaceWrapper) UploadCV(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "language" -------------
+	var language CVLanguagePath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "language", c.Param("language"), &language, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter language: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.UploadCV(c, language)
+}
+
 // ListPosts operation middleware
 func (siw *ServerInterfaceWrapper) ListPosts(c *gin.Context) {
 
@@ -960,6 +1103,19 @@ func (siw *ServerInterfaceWrapper) RefreshSession(c *gin.Context) {
 	siw.Handler.RefreshSession(c)
 }
 
+// GetCurrentCV operation middleware
+func (siw *ServerInterfaceWrapper) GetCurrentCV(c *gin.Context) {
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.GetCurrentCV(c)
+}
+
 // ListPublishedPosts operation middleware
 func (siw *ServerInterfaceWrapper) ListPublishedPosts(c *gin.Context) {
 
@@ -1145,6 +1301,10 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	router.POST(options.BaseURL+"/api/v1/admin/comments/:id/reject", wrapper.RejectComment)
 	router.POST(options.BaseURL+"/api/v1/admin/comments/:id/replies", wrapper.ReplyToComment)
 	router.POST(options.BaseURL+"/api/v1/admin/comments/:id/analyze", wrapper.AnalyzeComment)
+	router.GET(options.BaseURL+"/api/v1/cv", wrapper.GetCurrentCV)
+	router.GET(options.BaseURL+"/api/v1/admin/cv", wrapper.ListCVVersions)
+	router.POST(options.BaseURL+"/api/v1/admin/cv/:language", wrapper.UploadCV)
+	router.POST(options.BaseURL+"/api/v1/admin/cv/versions/:id/current", wrapper.SetCurrentCV)
 }
 
 type AssistantUnavailableApplicationProblemPlusJSONResponse Problem
@@ -1152,6 +1312,8 @@ type AssistantUnavailableApplicationProblemPlusJSONResponse Problem
 type BadRequestApplicationProblemPlusJSONResponse Problem
 
 type ConflictApplicationProblemPlusJSONResponse Problem
+
+type FileStorageUnavailableApplicationProblemPlusJSONResponse Problem
 
 type ForbiddenApplicationProblemPlusJSONResponse Problem
 
@@ -2167,6 +2329,340 @@ func (response ReplyToCommentdefaultApplicationProblemPlusJSONResponse) VisitRep
 	return err
 }
 
+type ListCVVersionsRequestObject struct {
+}
+
+type ListCVVersionsResponseObject interface {
+	VisitListCVVersionsResponse(w http.ResponseWriter) error
+}
+
+type ListCVVersions200JSONResponse CVVersionList
+
+func (response ListCVVersions200JSONResponse) VisitListCVVersionsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListCVVersions401ApplicationProblemPlusJSONResponse struct {
+	UnauthorizedApplicationProblemPlusJSONResponse
+}
+
+func (response ListCVVersions401ApplicationProblemPlusJSONResponse) VisitListCVVersionsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListCVVersions403ApplicationProblemPlusJSONResponse struct {
+	ForbiddenApplicationProblemPlusJSONResponse
+}
+
+func (response ListCVVersions403ApplicationProblemPlusJSONResponse) VisitListCVVersionsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListCVVersions429ApplicationProblemPlusJSONResponse struct {
+	TooManyRequestsApplicationProblemPlusJSONResponse
+}
+
+func (response ListCVVersions429ApplicationProblemPlusJSONResponse) VisitListCVVersionsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	if response.Headers.RetryAfter != nil {
+		w.Header().Set("Retry-After", fmt.Sprint(*response.Headers.RetryAfter))
+	}
+	w.WriteHeader(429)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListCVVersionsdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response ListCVVersionsdefaultApplicationProblemPlusJSONResponse) VisitListCVVersionsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetCurrentCVRequestObject struct {
+	Id CVVersionId `json:"id"`
+}
+
+type SetCurrentCVResponseObject interface {
+	VisitSetCurrentCVResponse(w http.ResponseWriter) error
+}
+
+type SetCurrentCV200JSONResponse CVVersion
+
+func (response SetCurrentCV200JSONResponse) VisitSetCurrentCVResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetCurrentCV401ApplicationProblemPlusJSONResponse struct {
+	UnauthorizedApplicationProblemPlusJSONResponse
+}
+
+func (response SetCurrentCV401ApplicationProblemPlusJSONResponse) VisitSetCurrentCVResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetCurrentCV403ApplicationProblemPlusJSONResponse struct {
+	ForbiddenApplicationProblemPlusJSONResponse
+}
+
+func (response SetCurrentCV403ApplicationProblemPlusJSONResponse) VisitSetCurrentCVResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetCurrentCV404ApplicationProblemPlusJSONResponse struct {
+	NotFoundApplicationProblemPlusJSONResponse
+}
+
+func (response SetCurrentCV404ApplicationProblemPlusJSONResponse) VisitSetCurrentCVResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetCurrentCV429ApplicationProblemPlusJSONResponse struct {
+	TooManyRequestsApplicationProblemPlusJSONResponse
+}
+
+func (response SetCurrentCV429ApplicationProblemPlusJSONResponse) VisitSetCurrentCVResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	if response.Headers.RetryAfter != nil {
+		w.Header().Set("Retry-After", fmt.Sprint(*response.Headers.RetryAfter))
+	}
+	w.WriteHeader(429)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetCurrentCVdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response SetCurrentCVdefaultApplicationProblemPlusJSONResponse) VisitSetCurrentCVResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UploadCVRequestObject struct {
+	Language CVLanguagePath `json:"language"`
+	Body     io.Reader
+}
+
+type UploadCVResponseObject interface {
+	VisitUploadCVResponse(w http.ResponseWriter) error
+}
+
+type UploadCV201JSONResponse CVVersion
+
+func (response UploadCV201JSONResponse) VisitUploadCVResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UploadCV400ApplicationProblemPlusJSONResponse struct {
+	BadRequestApplicationProblemPlusJSONResponse
+}
+
+func (response UploadCV400ApplicationProblemPlusJSONResponse) VisitUploadCVResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UploadCV401ApplicationProblemPlusJSONResponse struct {
+	UnauthorizedApplicationProblemPlusJSONResponse
+}
+
+func (response UploadCV401ApplicationProblemPlusJSONResponse) VisitUploadCVResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UploadCV403ApplicationProblemPlusJSONResponse struct {
+	ForbiddenApplicationProblemPlusJSONResponse
+}
+
+func (response UploadCV403ApplicationProblemPlusJSONResponse) VisitUploadCVResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UploadCV413ApplicationProblemPlusJSONResponse struct {
+	PayloadTooLargeApplicationProblemPlusJSONResponse
+}
+
+func (response UploadCV413ApplicationProblemPlusJSONResponse) VisitUploadCVResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(413)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UploadCV429ApplicationProblemPlusJSONResponse struct {
+	TooManyRequestsApplicationProblemPlusJSONResponse
+}
+
+func (response UploadCV429ApplicationProblemPlusJSONResponse) VisitUploadCVResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	if response.Headers.RetryAfter != nil {
+		w.Header().Set("Retry-After", fmt.Sprint(*response.Headers.RetryAfter))
+	}
+	w.WriteHeader(429)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UploadCV503ApplicationProblemPlusJSONResponse struct {
+	FileStorageUnavailableApplicationProblemPlusJSONResponse
+}
+
+func (response UploadCV503ApplicationProblemPlusJSONResponse) VisitUploadCVResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(503)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UploadCVdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response UploadCVdefaultApplicationProblemPlusJSONResponse) VisitUploadCVResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type ListPostsRequestObject struct {
 	Params ListPostsParams
 }
@@ -3143,6 +3639,63 @@ func (response RefreshSessiondefaultApplicationProblemPlusJSONResponse) VisitRef
 	return err
 }
 
+type GetCurrentCVRequestObject struct {
+}
+
+type GetCurrentCVResponseObject interface {
+	VisitGetCurrentCVResponse(w http.ResponseWriter) error
+}
+
+type GetCurrentCV200JSONResponse CurrentCVs
+
+func (response GetCurrentCV200JSONResponse) VisitGetCurrentCVResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetCurrentCV429ApplicationProblemPlusJSONResponse struct {
+	TooManyRequestsApplicationProblemPlusJSONResponse
+}
+
+func (response GetCurrentCV429ApplicationProblemPlusJSONResponse) VisitGetCurrentCVResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	if response.Headers.RetryAfter != nil {
+		w.Header().Set("Retry-After", fmt.Sprint(*response.Headers.RetryAfter))
+	}
+	w.WriteHeader(429)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetCurrentCVdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response GetCurrentCVdefaultApplicationProblemPlusJSONResponse) VisitGetCurrentCVResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type ListPublishedPostsRequestObject struct {
 	Params ListPublishedPostsParams
 }
@@ -3547,6 +4100,15 @@ type StrictServerInterface interface {
 	// ReplyToComment Responde a un comentario como autor.
 	// (POST /api/v1/admin/comments/{id}/replies)
 	ReplyToComment(ctx context.Context, request ReplyToCommentRequestObject) (ReplyToCommentResponseObject, error)
+	// ListCVVersions Lista las versiones del CV.
+	// (GET /api/v1/admin/cv)
+	ListCVVersions(ctx context.Context, request ListCVVersionsRequestObject) (ListCVVersionsResponseObject, error)
+	// SetCurrentCV Marca una versión del CV como la vigente.
+	// (POST /api/v1/admin/cv/versions/{id}/current)
+	SetCurrentCV(ctx context.Context, request SetCurrentCVRequestObject) (SetCurrentCVResponseObject, error)
+	// UploadCV Sube una versión del CV en PDF.
+	// (POST /api/v1/admin/cv/{language})
+	UploadCV(ctx context.Context, request UploadCVRequestObject) (UploadCVResponseObject, error)
 	// ListPosts Lista los posts en cualquier estado.
 	// (GET /api/v1/admin/posts)
 	ListPosts(ctx context.Context, request ListPostsRequestObject) (ListPostsResponseObject, error)
@@ -3574,6 +4136,9 @@ type StrictServerInterface interface {
 	// RefreshSession Rota el token de refresco y emite cookies nuevas.
 	// (POST /api/v1/auth/refresh)
 	RefreshSession(ctx context.Context, request RefreshSessionRequestObject) (RefreshSessionResponseObject, error)
+	// GetCurrentCV Devuelve el CV en PDF vigente de cada idioma.
+	// (GET /api/v1/cv)
+	GetCurrentCV(ctx context.Context, request GetCurrentCVRequestObject) (GetCurrentCVResponseObject, error)
 	// ListPublishedPosts Lista los posts publicados.
 	// (GET /api/v1/posts)
 	ListPublishedPosts(ctx context.Context, request ListPublishedPostsRequestObject) (ListPublishedPostsResponseObject, error)
@@ -3919,6 +4484,84 @@ func (sh *strictHandler) ReplyToComment(ctx *gin.Context, id CommentId) {
 	}
 }
 
+// ListCVVersions operation middleware
+func (sh *strictHandler) ListCVVersions(ctx *gin.Context) {
+	var request ListCVVersionsRequestObject
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.ListCVVersions(ctx, request.(ListCVVersionsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListCVVersions")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		sh.options.HandlerErrorFunc(ctx, err)
+	} else if validResponse, ok := response.(ListCVVersionsResponseObject); ok {
+		if err := validResponse.VisitListCVVersionsResponse(ctx.Writer); err != nil {
+			sh.options.ResponseErrorHandlerFunc(ctx, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(ctx, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// SetCurrentCV operation middleware
+func (sh *strictHandler) SetCurrentCV(ctx *gin.Context, id CVVersionId) {
+	var request SetCurrentCVRequestObject
+
+	request.Id = id
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.SetCurrentCV(ctx, request.(SetCurrentCVRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "SetCurrentCV")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		sh.options.HandlerErrorFunc(ctx, err)
+	} else if validResponse, ok := response.(SetCurrentCVResponseObject); ok {
+		if err := validResponse.VisitSetCurrentCVResponse(ctx.Writer); err != nil {
+			sh.options.ResponseErrorHandlerFunc(ctx, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(ctx, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// UploadCV operation middleware
+func (sh *strictHandler) UploadCV(ctx *gin.Context, language CVLanguagePath) {
+	var request UploadCVRequestObject
+
+	request.Language = language
+
+	request.Body = ctx.Request.Body
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.UploadCV(ctx, request.(UploadCVRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UploadCV")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		sh.options.HandlerErrorFunc(ctx, err)
+	} else if validResponse, ok := response.(UploadCVResponseObject); ok {
+		if err := validResponse.VisitUploadCVResponse(ctx.Writer); err != nil {
+			sh.options.ResponseErrorHandlerFunc(ctx, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(ctx, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // ListPosts operation middleware
 func (sh *strictHandler) ListPosts(ctx *gin.Context, params ListPostsParams) {
 	var request ListPostsRequestObject
@@ -4197,6 +4840,30 @@ func (sh *strictHandler) RefreshSession(ctx *gin.Context) {
 	}
 }
 
+// GetCurrentCV operation middleware
+func (sh *strictHandler) GetCurrentCV(ctx *gin.Context) {
+	var request GetCurrentCVRequestObject
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.GetCurrentCV(ctx, request.(GetCurrentCVRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetCurrentCV")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		sh.options.HandlerErrorFunc(ctx, err)
+	} else if validResponse, ok := response.(GetCurrentCVResponseObject); ok {
+		if err := validResponse.VisitGetCurrentCVResponse(ctx.Writer); err != nil {
+			sh.options.ResponseErrorHandlerFunc(ctx, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(ctx, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // ListPublishedPosts operation middleware
 func (sh *strictHandler) ListPublishedPosts(ctx *gin.Context, params ListPublishedPostsParams) {
 	var request ListPublishedPostsRequestObject
@@ -4325,102 +4992,116 @@ func (sh *strictHandler) SubmitComment(ctx *gin.Context, slug Slug) {
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
-	"lNQdfBdPLv5vAA==",
+	"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",
+	"CzY+/3Eshb3y0dmYuWLTDq9XCZmXTy7/fwA=",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

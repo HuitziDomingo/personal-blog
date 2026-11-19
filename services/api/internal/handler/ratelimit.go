@@ -61,6 +61,9 @@ type RateLimits struct {
 	// Comments es por IP, solo para enviar comentarios y además de Global o
 	// User (ADR-022).
 	Comments WindowLimit
+	// CVUploads es por usuario (o por IP sin sesión), solo para subir el CV y
+	// además de Global o User (ADR-028, punto 4).
+	CVUploads WindowLimit
 }
 
 // accessVerifier valida un access token con las reglas de ADR-011 y devuelve
@@ -169,6 +172,7 @@ type rateLimiter struct {
 	users      *keyedLimiter
 	assistant  *keyedLimiter
 	comments   *keyedLimiter
+	cvUploads  *keyedLimiter
 	verify     accessVerifier
 }
 
@@ -184,8 +188,10 @@ func (limits RateLimits) validate() error {
 		}
 	}
 
-	if limits.Comments.Max <= 0 || limits.Comments.Window <= 0 {
-		return fmt.Errorf("comments rate limit must be positive: %+v", limits.Comments)
+	for name, limit := range map[string]WindowLimit{"comments": limits.Comments, "cv uploads": limits.CVUploads} {
+		if limit.Max <= 0 || limit.Window <= 0 {
+			return fmt.Errorf("%s rate limit must be positive: %+v", name, limit)
+		}
 	}
 
 	return nil
@@ -200,6 +206,7 @@ func newRateLimiter(limits RateLimits, verify accessVerifier, now func() time.Ti
 		users:      newKeyedLimiter(limits.User, now),
 		assistant:  newKeyedLimiter(limits.Assistant, now),
 		comments:   newWindowLimiter(limits.Comments, now),
+		cvUploads:  newWindowLimiter(limits.CVUploads, now),
 		verify:     verify,
 	}
 }
@@ -248,6 +255,18 @@ func (r *rateLimiter) handle(c *gin.Context) {
 	}
 
 	if c.Request.Method != http.MethodPost {
+		return
+	}
+
+	// Cada subida lee hasta 2 MB: sin sesión también gasta el bucket, por
+	// IP, aunque después el validador responda 401.
+	if isCVUpload(c.Request.Method, path) {
+		if authenticated {
+			admit(c, r.cvUploads, "user:"+userID)
+		} else {
+			admit(c, r.cvUploads, "ip:"+ip)
+		}
+
 		return
 	}
 

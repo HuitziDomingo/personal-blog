@@ -1,0 +1,28 @@
+info:
+  name: 2 Lectura publica
+  type: http
+  seq: 2
+
+http:
+  method: GET
+  url: "{{baseUrl}}/api/v1/cv"
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "200"
+  scripts:
+    - type: tests
+      code: |-
+        test("is public and never exposes the storage key", function () {
+          expect(res.body).to.be.an("object");
+          expect(JSON.stringify(res.body)).to.not.include("\"key\"");
+        });
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: true

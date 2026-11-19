@@ -75,6 +75,10 @@ type Config struct {
 
 	Comments Comments
 
+	// Files es el almacenamiento de archivos y el límite de subidas del CV
+	// (ADR-028).
+	Files Files
+
 	// Opcionales: solo se usan para crear el administrador inicial.
 	InitialAdminEmail    string
 	InitialAdminPassword string
@@ -143,6 +147,11 @@ func Load() (Config, error) {
 		return Config{}, err
 	}
 
+	files, err := loadFiles()
+	if err != nil {
+		return Config{}, err
+	}
+
 	var limits [len(rateLimitSpecs)]RateLimit
 	for i, spec := range rateLimitSpecs {
 		if limits[i], err = loadRateLimit(spec); err != nil {
@@ -160,6 +169,7 @@ func Load() (Config, error) {
 		AssistantRateLimit:   limits[5],
 		Assistant:            assistant,
 		Comments:             comments,
+		Files:                files,
 		Port:                 port,
 		MongoURI:             mongoURI,
 		MongoDBName:          mongoDBName,

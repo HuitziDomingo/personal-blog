@@ -1,0 +1,10 @@
+info:
+  name: cv
+  type: folder
+
+request:
+  auth: inherit
+
+docs:
+  content: Lectura pública del CV en PDF vigente de cada idioma (ADR-028).
+  type: text/markdown
