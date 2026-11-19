@@ -138,6 +138,12 @@ function touchMove(fingers: number): Event {
   return event;
 }
 
+/** Hacia dónde mira la cámara, alrededor de la vertical (no cambia con pan ni zoom). */
+function viewAzimuth(): number {
+  const direction = camera.getWorldDirection(new Vector3());
+  return Math.atan2(-direction.x, -direction.z);
+}
+
 /** Ángulo de la cámara alrededor de la vertical, en radianes. */
 function azimuth(): number {
   return Math.atan2(camera.position.x, camera.position.z);
@@ -286,11 +292,11 @@ describe('createIslandControls: táctil', () => {
     expect(controls.autoRotating).toBe(true);
   });
 
-  it('dos dedos paran el giro, giran al arrastrar y acercan al separarse', () => {
+  it('dos dedos cortan la entrada pero no el giro, giran al arrastrar y acercan al separarse', () => {
     setup(false);
     pointer('pointerdown', canvas, { pointerType: 'touch', pointerId: 1, x: 150, y: 150 });
     pointer('pointerdown', canvas, { pointerType: 'touch', pointerId: 2, x: 250, y: 150 });
-    expect(controls.autoRotating).toBe(false);
+    expect(controls.autoRotating).toBe(true);
     expect(controls.introPlaying).toBe(false);
 
     const before = azimuth();
@@ -325,31 +331,81 @@ describe('createIslandControls: giro automático', () => {
     expect(controls.autoRotating).toBe(false);
   });
 
-  it('se detiene al arrastrar y no se reanuda al soltar; la inercia se apaga', () => {
-    setup(false);
-    drag([200, 150], [260, 150]);
-    expect(controls.autoRotating).toBe(false);
-    run(300);
-    const stopped = camera.position.clone();
-    run();
-    expect(camera.position.distanceTo(stopped)).toBeLessThan(1e-9);
-  });
-
-  it('se detiene con la rueda, una vez activa', () => {
-    setup(false);
-    run(100);
-    enableWheel();
-    // El clic con el botón central ya cuenta como interacción.
-    expect(controls.autoRotating).toBe(false);
-  });
-
-  it('se detiene con las flechas, no con Tab ni Escape', () => {
-    setup(false);
-    key('Tab');
-    key('Escape');
+  it('sigue al arrastrar: el giro del usuario se suma al automático, sin tirones', () => {
+    // La misma secuencia con y sin giro automático: la diferencia es ω·t.
+    const finalDirection = (reducedMotion: boolean) => {
+      setup(reducedMotion);
+      run(200);
+      clock = 10_000;
+      run(1);
+      const start = viewAzimuth();
+      const steps: number[] = [];
+      let previous = camera.position.clone();
+      pointer('pointerdown', canvas, { x: 150, y: 150 });
+      for (let step = 1; step <= 30; step++) {
+        pointer('pointermove', document, { x: 150 + step * 2, y: 150 });
+        run(1);
+        steps.push(camera.position.angleTo(previous));
+        previous = camera.position.clone();
+      }
+      pointer('pointerup', document, { x: 210, y: 150 });
+      return { turned: viewAzimuth() - start, steps };
+    };
+    const still = finalDirection(true);
+    const turning = finalDirection(false);
     expect(controls.autoRotating).toBe(true);
+    // 30 cuadros a 60 fps de giro automático de diferencia, en sentido negativo.
+    expect(turning.turned - still.turned).toBeCloseTo((-AUTO_ROTATE_SPEED * 30) / 60, 4);
+    // Sin tirones: con un arrastre constante, cada paso es casi igual al anterior.
+    for (let index = 3; index < turning.steps.length; index++) {
+      expect(Math.abs((turning.steps[index] ?? 0) - (turning.steps[index - 1] ?? 0))).toBeLessThan(2e-3);
+    }
+  });
+
+  it('tras soltar, la inercia se apaga y queda solo el giro automático', () => {
+    setup(false);
+    run(200);
+    drag([200, 150], [260, 150]);
+    run(300);
+    const before = viewAzimuth();
+    run(60);
+    expect(viewAzimuth() - before).toBeCloseTo(-AUTO_ROTATE_SPEED, 4);
+  });
+
+  it('sigue con la rueda y el zoom hacia el puntero', () => {
+    setup(false, () => 0, pickSphere);
+    run(200);
+    enableWheel();
+    const before = viewAzimuth();
+    for (let index = 0; index < 4; index++) {
+      wheel(-100, 215, 140);
+      run(15);
+    }
+    expect(controls.autoRotating).toBe(true);
+    // El zoom no gira la mirada: lo que giró es el giro automático, 1 s.
+    expect(viewAzimuth() - before).toBeCloseTo(-AUTO_ROTATE_SPEED, 6);
+  });
+
+  it('sigue con el pan del botón derecho y con Mayúsculas + flechas', () => {
+    setup(false);
+    run(200);
+    const before = viewAzimuth();
+    drag([100, 150], [300, 150], { button: 2, steps: 30 });
+    key('ArrowLeft', { shiftKey: true });
+    run(30);
+    expect(controls.autoRotating).toBe(true);
+    // 60 cuadros en total: 1 s de giro automático; el pan no gira la mirada.
+    expect(viewAzimuth() - before).toBeCloseTo(-AUTO_ROTATE_SPEED, 6);
+  });
+
+  it('sigue con las flechas', () => {
+    setup(false);
     key('ArrowRight');
-    expect(controls.autoRotating).toBe(false);
+    expect(controls.autoRotating).toBe(true);
+    run(200);
+    const before = viewAzimuth();
+    run(60);
+    expect(viewAzimuth() - before).toBeCloseTo(-AUTO_ROTATE_SPEED, 4);
   });
 
   it('si reduced-motion se activa en caliente, el giro se para y no vuelve', () => {
@@ -408,16 +464,19 @@ describe('createIslandControls: restablecer con doble clic y R', () => {
     expect(camera.position.distanceTo(start)).toBeGreaterThan(0);
   });
 
-  it('el doble clic vuelve al encuadre inicial y reanuda el giro', () => {
+  it('el doble clic vuelve al encuadre inicial y el giro sigue desde ahí', () => {
     setup(false);
     const start = camera.position.clone();
     run(120);
     moveAway();
-    expect(controls.autoRotating).toBe(false);
+    expect(controls.autoRotating).toBe(true);
 
     canvas.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
     expect(camera.position.distanceTo(start)).toBeLessThan(1e-9);
     expect(controls.autoRotating).toBe(true);
+    const homeAzimuth = azimuth();
+    run(60);
+    expect(azimuth() - homeAzimuth).toBeCloseTo(-AUTO_ROTATE_SPEED, 4);
   });
 
   it('dispose quita todo: ni doble clic, ni R, ni rueda, ni táctil', () => {
@@ -536,18 +595,19 @@ describe('createIslandControls: animación de entrada', () => {
     expect(camera.position.y).toBeCloseTo(new Vector3(0, 4, 9).setLength(DISTANCE).y, 9);
   });
 
-  it('si el usuario la toca, se detiene ahí sin saltar', () => {
+  it('si el usuario la toca, la entrada se corta ahí sin saltar y sigue el giro automático', () => {
     setup(false);
     run(1);
     run(30);
     expect(controls.introPlaying).toBe(true);
-    const at = camera.position.clone();
+    const at = azimuth();
     pointer('pointerdown', canvas);
     pointer('pointerup', document);
     expect(controls.introPlaying).toBe(false);
-    expect(controls.autoRotating).toBe(false);
-    run(10);
-    expect(camera.position.distanceTo(at)).toBeLessThan(1e-9);
+    expect(controls.autoRotating).toBe(true);
+    run(1);
+    // Un cuadro después: solo lo del giro automático, sin salto de posición.
+    expect(azimuth() - at).toBeCloseTo(-AUTO_ROTATE_SPEED / 60, 6);
   });
 
   it('se corta con las flechas', () => {

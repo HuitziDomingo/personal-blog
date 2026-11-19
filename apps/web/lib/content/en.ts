@@ -156,7 +156,7 @@ export const en: SiteContent = {
         alt: 'Floating rock island with a stone fortress of battlemented towers and a red dome on the grass, surrounded by clouds',
         label: 'Interactive 3D island',
         instructions:
-          'When it loads, the island spins twice quickly, slows down and then turns slowly until you move it. With a mouse, drag to rotate it in any direction, over the top and underneath too, right-drag to pan and, after clicking, use the wheel to zoom in towards the pointer or zoom out. With a keyboard, arrow keys to rotate and Shift plus arrow keys to pan. On a touch screen, drag with two fingers to rotate and pinch to zoom. Double-click or press R to reset the view.',
+          'When it loads, the island spins ten times quickly, slows down and then keeps turning slowly, even while you move it. With a mouse, drag to rotate it in any direction, over the top and underneath too, right-drag to pan and, after clicking, use the wheel to zoom in towards the pointer or zoom out. With a keyboard, arrow keys to rotate and Shift plus arrow keys to pan. On a touch screen, drag with two fingers to rotate and pinch to zoom. Double-click or press R to reset the view.',
       },
       about: 'About me',
       bio: 'Experience',
