@@ -76,6 +76,8 @@ export interface SiteContent {
          * lo anuncian al enfocar el canvas (BLOG-120).
          */
         instructions: string;
+        /** Texto del spinner mientras carga el modelo (sr-only, `role="status"`; BLOG-126). */
+        loading: string;
       };
       about: string;
       bio: string;

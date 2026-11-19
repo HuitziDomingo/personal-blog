@@ -24,8 +24,6 @@ import { REDUCED_MOTION_QUERY } from './island-loading';
 import { currentIslandModel } from './island-model';
 import { createPointPicker, createSurfaceProbe } from './island-surface';
 
-/** Fundido de la imagen fija a la escena, en ms: la entrada arranca al terminar. */
-const FADE_MS = 600;
 /** Giro inicial: la isla empieza vista de 3/4, como la imagen fija. */
 const START_ANGLE = Math.PI / 4;
 const FOV = 30;
@@ -111,33 +109,14 @@ export default function IslandScene({ text, visible, onReady, onError }: IslandS
     callbacks.current = { onReady, onError };
   });
   const controlsRef = useRef<IslandControls>(undefined);
-  const fadeRef = useRef<HTMLDivElement>(null);
 
-  // La entrada arranca cuando la isla ya se ve entera: al terminar el fundido
-  // (o, si `transitionend` no llega, al tiempo que dura), no al montar ni al cargar.
+  // La entrada arranca cuando la isla ya se ve: el spinner desaparece y la
+  // escena se muestra de golpe (sin fundido), así que basta con que sea visible.
+  // El siguiente cuadro es el primero de la entrada.
   useEffect(() => {
-    const element = fadeRef.current;
-    if (!visible || !element) {
-      return;
+    if (visible) {
+      controlsRef.current?.play();
     }
-    let played = false;
-    const play = () => {
-      if (!played) {
-        played = true;
-        controlsRef.current?.play();
-      }
-    };
-    const onTransitionEnd = (event: TransitionEvent) => {
-      if (event.target === element && event.propertyName === 'opacity') {
-        play();
-      }
-    };
-    element.addEventListener('transitionend', onTransitionEnd);
-    const timer = window.setTimeout(play, FADE_MS + 100);
-    return () => {
-      element.removeEventListener('transitionend', onTransitionEnd);
-      window.clearTimeout(timer);
-    };
   }, [visible]);
 
   useEffect(() => {
@@ -328,11 +307,9 @@ export default function IslandScene({ text, visible, onReady, onError }: IslandS
 
   return (
     <Box
-      ref={fadeRef}
       position="absolute"
       inset="0"
       opacity={visible ? 1 : 0}
-      transition={`opacity ${String(FADE_MS)}ms ease`}
       // Invisible mientras carga: los clics llegan a la imagen, no a un canvas oculto.
       pointerEvents={visible ? 'auto' : 'none'}
     >
