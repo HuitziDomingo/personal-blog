@@ -27,8 +27,12 @@ export const ZOOM_SPEED = 0.003;
 export const ZOOM_SMOOTHING = 0.08;
 /** Velocidad del arrastre (TrackballControls trae 1): media anchura del canvas ≈ 170°. */
 export const ROTATE_SPEED = 3;
-/** Velocidad del arrastre con el botón derecho (TrackballControls trae 0.3). */
-export const PAN_SPEED = 0.6;
+/**
+ * Velocidad del pan con el botón derecho (TrackballControls trae 0.3). BLOG-128:
+ * la mitad de los 0.6 de antes. Solo el ratón: dos dedos giran y hacen zoom, no
+ * mueven, y Mayúsculas + flechas usan `KEY_PAN_STEP`.
+ */
+export const PAN_SPEED = 0.3;
 /** Giro automático: segundos por vuelta (BLOG-126: 80 s, un 25 % más rápido que los 100 s de antes). */
 export const AUTO_ROTATE_PERIOD = 80;
 /** Giro automático en radianes por segundo; la entrada termina a esta misma velocidad. */
