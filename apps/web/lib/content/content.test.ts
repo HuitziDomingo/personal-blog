@@ -74,6 +74,12 @@ describe('diccionarios', () => {
     }
   });
 
+  it('describen la isla medieval en los dos idiomas (BLOG-129)', () => {
+    expect(es.ui.home.island.alt).toMatch(/pueblo medieval/);
+    expect(en.ui.home.island.alt).toMatch(/medieval village/);
+    expect(es.ui.home.island.alt).not.toBe(en.ui.home.island.alt);
+  });
+
   it('traducen el aviso de carga de la isla (BLOG-126)', () => {
     expect(es.ui.home.island.loading).toBe('Cargando isla 3D');
     expect(en.ui.home.island.loading).toBe('Loading 3D island');

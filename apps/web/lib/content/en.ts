@@ -153,11 +153,11 @@ export const en: SiteContent = {
     home: {
       photoAlt: 'Photo of Huitzitzili Domingo León Nieves',
       island: {
-        alt: 'Floating rock island with a stone fortress of battlemented towers and a red dome on the grass, surrounded by clouds',
+        alt: 'Floating island of hexagons with a medieval village: a stone castle with red roofs, a church, houses, a windmill and a forest, on hanging rocks among clouds',
         label: 'Interactive 3D island',
         loading: 'Loading 3D island',
         instructions:
-          'When it loads, the island spins ten times quickly, slows down and then keeps turning slowly; it pauses while you drag it and picks up again when you let go. With a mouse, drag to rotate it in any direction, over the top and underneath too, right-drag to pan and, after clicking, use the wheel to zoom in towards the pointer or zoom out. With a keyboard, arrow keys to rotate and Shift plus arrow keys to pan. On a touch screen, drag with two fingers to rotate and pinch to zoom. Double-click or press R to reset the view.',
+          'When it loads, the island spins ten times quickly, slows down and then keeps turning slowly; it pauses while you drag it and picks up again when you let go. With a mouse, drag sideways to turn it and up or down to tilt it, all the way over, right-drag to pan and, after clicking, use the wheel to zoom in towards the pointer or zoom out. With a keyboard, arrow keys to rotate and Shift plus arrow keys to pan. On a touch screen, drag with two fingers to rotate and pinch to zoom. Double-click or press R to reset the view.',
       },
       about: 'About me',
       bio: 'Experience',

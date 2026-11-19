@@ -1,69 +1,8 @@
-import { HONGO } from './island-model-hongo';
-
-/** Un modelo de la isla del hero. */
-export interface IslandModel {
-  id: string;
-  /** `.gltf` con el `.bin` y las texturas aparte (sin URLs `blob:`, por la CSP). */
-  url: string;
-  /** Animación que se repite en bucle, si el modelo trae una. */
-  idleClip?: string;
-}
-
-/** Fortaleza flotante con nubes (BLOG-119). */
-export const FORTRESS: IslandModel = { id: 'fortaleza', url: '/models/isla/isla.gltf' };
-
 /**
- * La isla de la portada. En evaluación (BLOG-126): el Rey Hongo; la fortaleza
- * se ve con `?isla=fortaleza` en desarrollo y previews.
+ * La isla del hero (BLOG-129): pueblo medieval con castillo sobre hexágonos
+ * flotantes, armado con `scripts/build-island-model.mjs` a partir del KayKit
+ * Medieval Hexagon Pack (Kay Lousberg, CC0). Es un `.gltf` con el `.bin` y la
+ * textura aparte: un GLB con texturas dentro haría que GLTFLoader las cargara
+ * desde URLs `blob:`, que la CSP no permite.
  */
-export const DEFAULT_MODEL: IslandModel = HONGO;
-
-/**
- * Modelos para comparar con `?isla=<id>` (BLOG-123). Se quitan borrando su
- * entrada aquí, su archivo y su carpeta en `public/models/`.
- */
-const PREVIEW_MODELS: Readonly<Record<string, IslandModel>> = { [FORTRESS.id]: FORTRESS, [HONGO.id]: HONGO };
-
-/** Lo que se mira del entorno: Next.js sustituye las variables al compilar. */
-export interface ModelEnv {
-  NODE_ENV?: string | undefined;
-  NEXT_PUBLIC_VERCEL_ENV?: string | undefined;
-  NEXT_PUBLIC_ISLAND_MODELS?: string | undefined;
-}
-
-/**
- * `?isla=` funciona en desarrollo (`make web-dev`), en los previews de Vercel
- * y en un build local hecho con `NEXT_PUBLIC_ISLAND_MODELS=1`. En la
- * producción de Vercel, nunca, aunque esa variable estuviera puesta.
- */
-export function previewModelsEnabled(env: ModelEnv): boolean {
-  if (env.NEXT_PUBLIC_VERCEL_ENV === 'production') {
-    return false;
-  }
-  return env.NODE_ENV === 'development' || env.NEXT_PUBLIC_VERCEL_ENV === 'preview' || env.NEXT_PUBLIC_ISLAND_MODELS === '1';
-}
-
-/** El modelo que pide la URL (`search`, con su `?`), o el de la portada. */
-export function islandModelFor(search: string, enabled: boolean): IslandModel {
-  if (!enabled) {
-    return DEFAULT_MODEL;
-  }
-  const id = new URLSearchParams(search).get('isla');
-  return (id !== null && Object.hasOwn(PREVIEW_MODELS, id) ? PREVIEW_MODELS[id] : undefined) ?? DEFAULT_MODEL;
-}
-
-/**
- * El modelo de esta página. Se llama en el cliente, dentro de un efecto: lee
- * `window.location` en lugar de `useSearchParams`, que haría dinámica la portada.
- */
-export function currentIslandModel(): IslandModel {
-  return islandModelFor(
-    window.location.search,
-    // Escritas así, literales, para que Next.js las sustituya en el bundle.
-    previewModelsEnabled({
-      NODE_ENV: process.env.NODE_ENV,
-      NEXT_PUBLIC_VERCEL_ENV: process.env.NEXT_PUBLIC_VERCEL_ENV,
-      NEXT_PUBLIC_ISLAND_MODELS: process.env.NEXT_PUBLIC_ISLAND_MODELS,
-    }),
-  );
-}
+export const ISLAND_MODEL_URL = '/models/isla/isla.gltf';
