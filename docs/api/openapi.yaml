@@ -22,6 +22,12 @@ tags:
     description: >-
       Asistente de escritura con IA (ADR-021). Sus respuestas son sugerencias:
       la API no guarda nada.
+  - name: cv
+    description: Lectura pública del CV en PDF vigente de cada idioma (ADR-028).
+  - name: admin-cv
+    description: >-
+      Subida y versiones del CV en PDF (ADR-028). El PDF es público: no debe
+      incluir el teléfono ni datos privados.
 
 paths:
   /api/v1/auth/login:
@@ -683,6 +689,128 @@ paths:
         default:
           $ref: "#/components/responses/UnexpectedError"
 
+  /api/v1/cv:
+    get:
+      tags: [cv]
+      operationId: getCurrentCV
+      summary: Devuelve el CV en PDF vigente de cada idioma.
+      description: >-
+        Un idioma sin PDF vigente no aparece en la respuesta. El PDF se sirve
+        desde el dominio del almacenamiento, nunca desde el de la web ni el del
+        admin (ADR-028, punto 6).
+      security: []
+      responses:
+        "200":
+          description: PDF vigente por idioma.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CurrentCVs"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        default:
+          $ref: "#/components/responses/UnexpectedError"
+
+  /api/v1/admin/cv:
+    get:
+      tags: [admin-cv]
+      operationId: listCVVersions
+      summary: Lista las versiones del CV.
+      description: >-
+        Versiones de los dos idiomas, de la más reciente a la más antigua, hasta
+        200.
+      security:
+        - accessCookie: []
+      responses:
+        "200":
+          description: Versiones del CV.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CVVersionList"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        default:
+          $ref: "#/components/responses/UnexpectedError"
+
+  /api/v1/admin/cv/{language}:
+    parameters:
+      - $ref: "#/components/parameters/CVLanguagePath"
+    post:
+      tags: [admin-cv]
+      operationId: uploadCV
+      summary: Sube una versión del CV en PDF.
+      description: >-
+        El cuerpo es el PDF tal cual, de 2 MB como máximo. La API comprueba que
+        empiece con la firma %PDF- (no se fía de la extensión ni del tipo que
+        declara el cliente), genera el nombre del archivo y deja la versión
+        nueva como la vigente de su idioma. Tiene su propio límite de
+        peticiones.
+      security:
+        - accessCookie: []
+      requestBody:
+        required: true
+        content:
+          application/pdf:
+            schema:
+              type: string
+              format: binary
+      responses:
+        "201":
+          description: Versión guardada, ya vigente.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CVVersion"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "413":
+          $ref: "#/components/responses/PayloadTooLarge"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "503":
+          $ref: "#/components/responses/FileStorageUnavailable"
+        default:
+          $ref: "#/components/responses/UnexpectedError"
+
+  /api/v1/admin/cv/versions/{id}/current:
+    parameters:
+      - $ref: "#/components/parameters/CVVersionId"
+    post:
+      tags: [admin-cv]
+      operationId: setCurrentCV
+      summary: Marca una versión del CV como la vigente.
+      description: >-
+        La versión pasa a ser la vigente de su idioma y la anterior deja de
+        serlo. Marcar la vigente no cambia nada.
+      security:
+        - accessCookie: []
+      responses:
+        "200":
+          description: Versión vigente.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CVVersion"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        default:
+          $ref: "#/components/responses/UnexpectedError"
+
 components:
   securitySchemes:
     accessCookie:
@@ -717,6 +845,22 @@ components:
       in: path
       required: true
       description: Identificador del comentario.
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 24
+    CVLanguagePath:
+      name: language
+      in: path
+      required: true
+      description: Idioma del CV.
+      schema:
+        $ref: "#/components/schemas/CVLanguage"
+    CVVersionId:
+      name: id
+      in: path
+      required: true
+      description: Identificador de la versión del CV.
       schema:
         type: string
         minLength: 1
@@ -823,6 +967,15 @@ components:
         application/problem+json:
           schema:
             $ref: "#/components/schemas/Problem"
+    FileStorageUnavailable:
+      description: >-
+        No hay almacenamiento de archivos configurado
+        (`detail`: "file storage is not configured") o falló al guardar
+        (`detail`: "file storage is unavailable").
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
     UnexpectedError:
       description: Error inesperado.
       content:
@@ -831,6 +984,63 @@ components:
             $ref: "#/components/schemas/Problem"
 
   schemas:
+    CVLanguage:
+      type: string
+      description: Idioma del CV.
+      enum: [es, en]
+    CVFile:
+      type: object
+      description: PDF vigente de un idioma.
+      required: [url, size, uploadedAt]
+      properties:
+        url:
+          type: string
+          format: uri
+          description: URL pública del PDF, en el dominio del almacenamiento.
+        size:
+          type: integer
+          format: int64
+          description: Tamaño en bytes.
+        uploadedAt:
+          type: string
+          format: date-time
+    CurrentCVs:
+      type: object
+      description: PDF vigente por idioma; un idioma sin PDF vigente no aparece.
+      properties:
+        es:
+          $ref: "#/components/schemas/CVFile"
+        en:
+          $ref: "#/components/schemas/CVFile"
+    CVVersion:
+      type: object
+      description: Una versión subida del CV.
+      required: [id, language, url, size, uploadedAt, current]
+      properties:
+        id:
+          type: string
+        language:
+          $ref: "#/components/schemas/CVLanguage"
+        url:
+          type: string
+          format: uri
+        size:
+          type: integer
+          format: int64
+        uploadedAt:
+          type: string
+          format: date-time
+        current:
+          type: boolean
+          description: Si es la versión vigente de su idioma.
+    CVVersionList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/CVVersion"
     Problem:
       type: object
       description: Detalle de un error según RFC 9457.

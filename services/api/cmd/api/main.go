@@ -15,6 +15,8 @@ import (
 
 	"github.com/HuitziDomingo/personal-blog/services/api/internal/assistant/gemini"
 	"github.com/HuitziDomingo/personal-blog/services/api/internal/config"
+	"github.com/HuitziDomingo/personal-blog/services/api/internal/domain"
+	"github.com/HuitziDomingo/personal-blog/services/api/internal/files/localdisk"
 	"github.com/HuitziDomingo/personal-blog/services/api/internal/handler"
 	"github.com/HuitziDomingo/personal-blog/services/api/internal/logging"
 	"github.com/HuitziDomingo/personal-blog/services/api/internal/repository/mongodb"
@@ -107,6 +109,12 @@ func run(logger *slog.Logger) error {
 		slog.Info("comments enabled", "llm_moderation", moderation != nil)
 	}
 
+	files, media, closeFiles, err := newFileStore(cfg.Files)
+	if err != nil {
+		return errors.Join(err, client.Disconnect(ctx))
+	}
+	defer closeFiles()
+
 	routerConfig := handler.RouterConfig{
 		AllowedOrigins:   cfg.AllowedOrigins,
 		MaxBodyBytes:     cfg.MaxBodyBytes,
@@ -115,6 +123,8 @@ func run(logger *slog.Logger) error {
 		Posts:            posts,
 		Assistant:        assistant,
 		Comments:         service.NewCommentService(mongodb.NewCommentRepository(client), posts, moderation, cfg.Comments.Enabled, time.Now),
+		CVs:              service.NewCVService(mongodb.NewCVRepository(client), files, time.Now),
+		Media:            media,
 		AssistantTimeout: cfg.Assistant.Timeout,
 		Logger:           logger,
 		JSONLogs:         cfg.LogFormat == config.LogFormatJSON,
@@ -126,6 +136,7 @@ func run(logger *slog.Logger) error {
 			User:      handler.RateLimit(cfg.UserRateLimit),
 			Assistant: handler.RateLimit(cfg.AssistantRateLimit),
 			Comments:  handler.WindowLimit{Max: cfg.Comments.RateLimitMax, Window: cfg.Comments.RateLimitWindow},
+			CVUploads: handler.WindowLimit{Max: cfg.Files.CVUploadsMax, Window: cfg.Files.CVUploadsWindow},
 		},
 	}
 
@@ -208,6 +219,30 @@ func newAssistant(ctx context.Context, cfg config.Assistant, logger *slog.Logger
 	)
 
 	return assistant, nil
+}
+
+// newFileStore arma el almacenamiento de archivos (ADR-028, punto 5). Sin
+// FILES_STORE devuelve nil: subir el CV responde 503. Con local, también el
+// handler que sirve el directorio en /media/.
+func newFileStore(cfg config.Files) (domain.FileStore, http.Handler, func(), error) {
+	if cfg.Store != config.FilesStoreLocal {
+		return nil, nil, func() {}, nil
+	}
+
+	store, err := localdisk.New(cfg.LocalDir, cfg.LocalBaseURL)
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("create local file store: %w", err)
+	}
+
+	slog.Info("local file store enabled", "dir", cfg.LocalDir, "base_url", cfg.LocalBaseURL)
+
+	closeStore := func() {
+		if err := store.Close(); err != nil {
+			slog.Warn("close local file store failed", "error", err)
+		}
+	}
+
+	return store, store.Handler(), closeStore, nil
 }
 
 // newModeration arma el clasificador de comentarios sobre Gemini, con el mismo

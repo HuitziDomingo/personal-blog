@@ -121,6 +121,16 @@ func handlerError(c *gin.Context, err error) {
 		// El service ya dejó el log con el resultado; el error no lleva el
 		// borrador ni la key, pero tampoco hace falta repetirlo.
 		writeProblem(c, http.StatusServiceUnavailable, detailAssistantUnavailable)
+	case errors.Is(err, domain.ErrInvalidCVFile):
+		writeProblem(c, http.StatusBadRequest, detailInvalidCVFile)
+	case errors.Is(err, domain.ErrCVTooLarge):
+		writeProblem(c, http.StatusRequestEntityTooLarge, detailCVTooLarge)
+	case errors.Is(err, domain.ErrFileStorageDisabled):
+		writeProblem(c, http.StatusServiceUnavailable, detailFileStorageDisabled)
+	case errors.Is(err, domain.ErrFileStorageUnavailable):
+		// El error del almacén queda en el log; al cliente, solo el motivo.
+		slog.ErrorContext(c.Request.Context(), "file storage failed", "error", err)
+		writeProblem(c, http.StatusServiceUnavailable, detailFileStorageUnavailable)
 	case errors.Is(err, domain.ErrInvalidInput):
 		// El validador del contrato ya rechazó casi todo; aquí llegan las reglas
 		// del service, como un título sin caracteres para el slug.

@@ -1,0 +1,15 @@
+info:
+  name: cv
+  type: folder
+
+request:
+  auth: inherit
+
+docs:
+  content: |-
+    CV en PDF (ADR-028): la lectura pública, un archivo que no es PDF, la
+    subida de un PDF, el listado de versiones, marcar la vigente y la lectura
+    pública con la URL nueva. Necesita FILES_STORE=local (como en
+    .env.example): sin almacenamiento, la subida responde 503. Pide adminEmail
+    y adminPassword, variables secretas del environment local.
+  type: text/markdown

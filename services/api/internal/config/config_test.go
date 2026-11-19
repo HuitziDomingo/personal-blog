@@ -28,6 +28,11 @@ func setRequiredEnv(t *testing.T) {
 	t.Setenv("COMMENTS_MODERATION_MODEL", "")
 	t.Setenv("COMMENTS_MODERATION_TIMEOUT_SECONDS", "")
 	t.Setenv("COMMENTS_MODERATION_MAX_OUTPUT_TOKENS", "")
+	t.Setenv("FILES_STORE", "")
+	t.Setenv("FILES_LOCAL_DIR", "")
+	t.Setenv("FILES_LOCAL_BASE_URL", "")
+	t.Setenv("RATE_LIMIT_CV_UPLOADS_MAX", "")
+	t.Setenv("RATE_LIMIT_CV_UPLOADS_WINDOW_MINUTES", "")
 }
 
 const testJWTSecret = "0123456789abcdef0123456789abcdef"

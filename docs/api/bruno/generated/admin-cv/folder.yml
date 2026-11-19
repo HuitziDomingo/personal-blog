@@ -1,0 +1,10 @@
+info:
+  name: admin-cv
+  type: folder
+
+request:
+  auth: inherit
+
+docs:
+  content: "Subida y versiones del CV en PDF (ADR-028). El PDF es público: no debe incluir el teléfono ni datos privados."
+  type: text/markdown

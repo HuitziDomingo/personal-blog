@@ -351,10 +351,137 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/cv": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Devuelve el CV en PDF vigente de cada idioma.
+         * @description Un idioma sin PDF vigente no aparece en la respuesta. El PDF se sirve desde el dominio del almacenamiento, nunca desde el de la web ni el del admin (ADR-028, punto 6).
+         */
+        get: operations["getCurrentCV"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/cv": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Lista las versiones del CV.
+         * @description Versiones de los dos idiomas, de la más reciente a la más antigua, hasta 200.
+         */
+        get: operations["listCVVersions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/cv/{language}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Idioma del CV. */
+                language: components["parameters"]["CVLanguagePath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Sube una versión del CV en PDF.
+         * @description El cuerpo es el PDF tal cual, de 2 MB como máximo. La API comprueba que empiece con la firma %PDF- (no se fía de la extensión ni del tipo que declara el cliente), genera el nombre del archivo y deja la versión nueva como la vigente de su idioma. Tiene su propio límite de peticiones.
+         */
+        post: operations["uploadCV"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/cv/versions/{id}/current": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identificador de la versión del CV. */
+                id: components["parameters"]["CVVersionId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Marca una versión del CV como la vigente.
+         * @description La versión pasa a ser la vigente de su idioma y la anterior deja de serlo. Marcar la vigente no cambia nada.
+         */
+        post: operations["setCurrentCV"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /**
+         * @description Idioma del CV.
+         * @enum {string}
+         */
+        CVLanguage: "es" | "en";
+        /** @description PDF vigente de un idioma. */
+        CVFile: {
+            /**
+             * Format: uri
+             * @description URL pública del PDF, en el dominio del almacenamiento.
+             */
+            url: string;
+            /**
+             * Format: int64
+             * @description Tamaño en bytes.
+             */
+            size: number;
+            /** Format: date-time */
+            uploadedAt: string;
+        };
+        /** @description PDF vigente por idioma; un idioma sin PDF vigente no aparece. */
+        CurrentCVs: {
+            es?: components["schemas"]["CVFile"];
+            en?: components["schemas"]["CVFile"];
+        };
+        /** @description Una versión subida del CV. */
+        CVVersion: {
+            id: string;
+            language: components["schemas"]["CVLanguage"];
+            /** Format: uri */
+            url: string;
+            /** Format: int64 */
+            size: number;
+            /** Format: date-time */
+            uploadedAt: string;
+            /** @description Si es la versión vigente de su idioma. */
+            current: boolean;
+        };
+        CVVersionList: {
+            items: components["schemas"]["CVVersion"][];
+        };
         /** @description Detalle de un error según RFC 9457. */
         Problem: {
             /**
@@ -659,6 +786,15 @@ export interface components {
                 "application/problem+json": components["schemas"]["Problem"];
             };
         };
+        /** @description No hay almacenamiento de archivos configurado (`detail`: "file storage is not configured") o falló al guardar (`detail`: "file storage is unavailable"). */
+        FileStorageUnavailable: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["Problem"];
+            };
+        };
         /** @description Error inesperado. */
         UnexpectedError: {
             headers: {
@@ -674,6 +810,10 @@ export interface components {
         Slug: components["schemas"]["Slug"];
         /** @description Identificador del comentario. */
         CommentId: string;
+        /** @description Idioma del CV. */
+        CVLanguagePath: components["schemas"]["CVLanguage"];
+        /** @description Identificador de la versión del CV. */
+        CVVersionId: string;
         /** @description Filtra por etiqueta. Se compara en minúsculas y con los espacios colapsados. */
         Tag: string;
         /** @description Tamaño de la página. */
@@ -1306,6 +1446,114 @@ export interface operations {
             404: components["responses"]["NotFound"];
             429: components["responses"]["TooManyRequests"];
             503: components["responses"]["ModerationUnavailable"];
+            default: components["responses"]["UnexpectedError"];
+        };
+    };
+    getCurrentCV: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description PDF vigente por idioma. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CurrentCVs"];
+                };
+            };
+            429: components["responses"]["TooManyRequests"];
+            default: components["responses"]["UnexpectedError"];
+        };
+    };
+    listCVVersions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Versiones del CV. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CVVersionList"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["TooManyRequests"];
+            default: components["responses"]["UnexpectedError"];
+        };
+    };
+    uploadCV: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Idioma del CV. */
+                language: components["parameters"]["CVLanguagePath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/pdf": string;
+            };
+        };
+        responses: {
+            /** @description Versión guardada, ya vigente. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CVVersion"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            413: components["responses"]["PayloadTooLarge"];
+            429: components["responses"]["TooManyRequests"];
+            503: components["responses"]["FileStorageUnavailable"];
+            default: components["responses"]["UnexpectedError"];
+        };
+    };
+    setCurrentCV: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identificador de la versión del CV. */
+                id: components["parameters"]["CVVersionId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Versión vigente. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CVVersion"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["TooManyRequests"];
             default: components["responses"]["UnexpectedError"];
         };
     };

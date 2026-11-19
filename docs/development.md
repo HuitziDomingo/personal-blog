@@ -163,6 +163,9 @@ npx @modelcontextprotocol/inspector@2.13.0 \
 | `COMMENTS_MODERATION_MODEL` | No | `gemini-3.6-flash` | Modelo del clasificador. No cae a `GEMINI_MODEL`: el del asistente puede ser lento para el timeout de 10 s. Usa el nivel de razonamiento del asistente |
 | `COMMENTS_MODERATION_MAX_OUTPUT_TOKENS` | No | `512` | Límite de salida del clasificador, razonamiento incluido. Propio, separado de `ASSISTANT_MAX_OUTPUT_TOKENS`. Entero positivo; otro valor detiene la API |
 | `COMMENTS_MODERATION_TIMEOUT_SECONDS` | No | `10` | Timeout de cada análisis. Si vence, el comentario se guarda sin análisis |
+| `FILES_STORE` | No | Vacía | Almacenamiento de archivos (ADR-028, punto 5): vacía, sin almacén, y subir el CV responde 503 `file storage is not configured`; `local` guarda en un directorio que la API sirve en `/media/`, solo para desarrollo. `gcs` llega con BLOG-112 y por ahora detiene la API, igual que otro valor |
+| `FILES_LOCAL_DIR` / `FILES_LOCAL_BASE_URL` | Con `FILES_STORE=local` | | Directorio (relativo a `services/api`) y URL desde la que se sirve, por ejemplo `tmp/files` y `http://localhost:8080/media`. La URL debe ser `http` o `https` |
+| `RATE_LIMIT_CV_UPLOADS_MAX` / `RATE_LIMIT_CV_UPLOADS_WINDOW_MINUTES` | No | `10` / `60` | Límite extra de subidas del CV, por usuario (por IP sin sesión), además del de usuario (ADR-028, punto 4). Token bucket: 10 seguidas y después una cada 6 min |
 | `ASSISTANT_ENABLED` | No | `false` | `true` enciende el asistente de escritura (ADR-021). Con `false`, sus operaciones responden 503 `writing assistant is disabled` y nada llega a Gemini. Otro valor detiene la API |
 | `GEMINI_API_KEY` | Con el asistente encendido | | API key de Gemini, de un proyecto de Google sin facturación. Con `ASSISTANT_ENABLED=true` y sin key, la API no arranca. Nunca aparece en logs ni en errores |
 | `GEMINI_MODEL` | Con el asistente encendido | | Modelo de Gemini, uno incluido en el plan gratuito. Con `ASSISTANT_ENABLED=true` y sin modelo, la API no arranca |
@@ -189,6 +192,7 @@ La API arranca con cualquier configuración válida, pero algunas la dejan inút
 | `TRUSTED_PROXIES is empty in release mode` | Detrás de Cloud Run todos los clientes comparten la IP del proxy, y con ella el rate limit |
 | `GIN_MODE=debug with LOG_FORMAT=json` | Gin mezcla su salida de debug en texto con el JSON |
 | `GEMINI_API_KEY is set but ASSISTANT_ENABLED is not true` | El asistente sigue apagado y responde 503: la key no se usa |
+| `FILES_STORE=local in release mode` | La API sirve los archivos subidos desde su propio origen, en `/media/`; en producción los sirve el bucket |
 
 ### Local frente a producción
 
@@ -205,6 +209,7 @@ La API arranca con cualquier configuración válida, pero algunas la dejan inút
 | `ASSISTANT_ENABLED`, `GEMINI_API_KEY` y `GEMINI_MODEL` | Apagado; para probarlo, una key propia en `.env` | La key desde Secret Manager, de un proyecto de Google sin facturación y separado del de la API (ADR-021) |
 | `COMMENTS_ENABLED` | `false`; `true` para probar los comentarios | `true` en la API y en la web a la vez (BLOG-093). `ALLOWED_ORIGINS` debe incluir el origen de la web, porque el navegador envía los comentarios directo a la API |
 | `COMMENTS_MODERATION_ENABLED`, `COMMENTS_MODERATION_MODEL` y `COMMENTS_MODERATION_MAX_OUTPUT_TOKENS` | Apagada; para probarla, la misma key del asistente, con `gemini-3.6-flash` y 512 | Encendida con `gemini-3.6-flash` y 512, la key desde Secret Manager |
+| `FILES_STORE`, `FILES_LOCAL_DIR` y `FILES_LOCAL_BASE_URL` | `local`, `tmp/files` y `http://localhost:8080/media` | `gcs` con el bucket, cuando exista su adaptador (BLOG-112) |
 
 Los valores de producción son los previstos; el despliegue está pendiente (BLOG-054 y BLOG-022).
 
@@ -580,6 +585,7 @@ La colección está en `docs/api/bruno/`, en formato OpenCollection (YAML):
   - `flows/posts/` recorre el ciclo de vida de un post: login, crear borrador, editar, publicar, verlo en la API pública, intentar cambiar el slug ya publicado (409), archivar y comprobar que ya no aparece. Cada corrida crea un post nuevo con la hora en el título, que queda archivado en tu base.
   - `flows/sesion/` recorre login, `/me`, refresh, logout y `/me` sin sesión.
   - `flows/comentarios/` publica un post y recorre los comentarios: enviar uno, el campo trampa, que no aparezca sin aprobar, la cola de moderación con el título del post, pedir el análisis (503 con la moderación apagada), rechazar, aprobar, responder como autor, la lectura pública sin datos de moderación y el rechazo de una respuesta de segundo nivel; al final archiva el post. Con `COMMENTS_ENABLED=false`, el valor por defecto, el envío responde 404 y el flujo salta al final. Envía 3 comentarios, el límite por IP por defecto: para repetirlo antes de 10 minutos, sube `COMMENTS_RATE_LIMIT_MAX` o reinicia la API.
+  - `flows/cv/` recorre el CV en PDF (ADR-028): la lectura pública, un archivo que no es PDF (400), la subida de un PDF con bytes distintos en cada corrida, el listado de versiones, marcar la vigente y la lectura pública con la URL nueva. Necesita `FILES_STORE=local`; sin almacén, la subida responde 503. Cada corrida deja una versión nueva en tu base y un archivo en `FILES_LOCAL_DIR`.
   - `flows/asistente/` comprueba el asistente apagado (`ASSISTANT_ENABLED=false`, el valor por defecto): las tres operaciones responden 503 y un borrador de más de 50 000 caracteres responde 400. Con el asistente encendido falla a propósito, para no gastar la cuota de Gemini.
 - `environments/local.yml`: `baseUrl` apunta a `http://localhost:8080`. `adminEmail` y `adminPassword` son variables secretas sin valor.
 
@@ -685,6 +691,19 @@ Las tres reciben `{ "title", "content" }`: hasta 200 y 50 000 caracteres. Solo e
   - el proveedor falló, venció el timeout o se agotó la cuota: `writing assistant is unavailable, try again later`;
   - el modelo respondió algo que no cumple las reglas: `writing assistant returned an invalid suggestion, try again`.
 - **Tests:** nunca llaman a Gemini. El adaptador se prueba contra `httptest` con las respuestas de `internal/assistant/gemini/testdata/`. Para probarlo a mano, pon tu key y un modelo en `.env`, `ASSISTANT_ENABLED=true`, y usa las peticiones de `docs/api/bruno/generated/admin-assistant/` después del login.
+
+## CV en PDF
+
+ADR-028. El autor sube su CV en PDF desde el admin, uno vigente por idioma, y la web muestra el botón de descarga solo si hay uno.
+
+- **Pública:** `GET /api/v1/cv` devuelve `{ "es"?: {url, size, uploadedAt}, "en"?: … }`; un idioma sin PDF vigente no aparece.
+- **Admin:**
+  - `POST /api/v1/admin/cv/{language}` (`es` o `en`) recibe el PDF tal cual, con `Content-Type: application/pdf`, y responde 201 con la versión, ya vigente. La API comprueba la firma `%PDF-` en los bytes (400 `file must be a PDF` si no está), acepta hasta 2 MiB aunque `MAX_BODY_BYTES` sea menor (413 si se pasa) y genera el nombre: `cv/<idioma>/<hash>.pdf`, con los primeros 24 caracteres del SHA-256 del archivo. El nombre del archivo subido no se usa.
+  - `GET /api/v1/admin/cv` lista las versiones de los dos idiomas, de la más reciente a la más antigua (hasta 200).
+  - `POST /api/v1/admin/cv/versions/{id}/current` marca una versión como la vigente de su idioma.
+- **Almacenamiento:** el puerto `domain.FileStore` (`Put` devuelve la URL pública). Con `FILES_STORE=local`, `internal/files/localdisk` guarda en `FILES_LOCAL_DIR` y la API sirve las claves exactas bajo `/media/` con `Content-Type: application/pdf`, `Content-Disposition: attachment`, `X-Content-Type-Options: nosniff` y `Content-Security-Policy: default-src 'none'; sandbox`. Es el origen de la API (`localhost:8080`), nunca el de la web ni el del admin. El adaptador de GCS para producción llega con BLOG-112.
+- **Metadatos:** colección `cv_versions` (idioma, clave, URL, tamaño, fecha y si es la vigente). Un índice único parcial sobre `language` con `current: true` impide dos vigentes del mismo idioma. Marcar la vigente son dos escrituras sin transacción: si la API cae entre las dos, el idioma queda sin vigente y la web no muestra el botón hasta que la marques de nuevo.
+- **Probar en local:** `FILES_STORE=local` con los valores de `.env.example`, `make api-run` y `make api-flows` (o solo el flujo `flows/cv/`).
 
 ## Comentarios
 

@@ -1,0 +1,88 @@
+info:
+  name: Devuelve el CV en PDF vigente de cada idioma
+  type: http
+  seq: 1
+  tags:
+    - cv
+
+http:
+  method: GET
+  url: "{{baseUrl}}/api/v1/cv"
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: true
+
+examples:
+  - name: 200 Response
+    description: PDF vigente por idioma.
+    request:
+      url: "{{baseUrl}}/api/v1/cv"
+      method: GET
+    response:
+      status: 200
+      statusText: OK
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "es": {
+              "url": "",
+              "size": 0,
+              "uploadedAt": ""
+            },
+            "en": {
+              "url": "",
+              "size": 0,
+              "uploadedAt": ""
+            }
+          }
+  - name: 429 Response
+    description: Se superó el límite de peticiones de la IP, o el de logins fallidos del email.
+    request:
+      url: "{{baseUrl}}/api/v1/cv"
+      method: GET
+    response:
+      status: 429
+      statusText: Too Many Requests
+      headers:
+        - name: Content-Type
+          value: application/problem+json
+      body:
+        type: json
+        data: |-
+          {
+            "type": "",
+            "title": "",
+            "status": 0,
+            "detail": "",
+            "instance": ""
+          }
+  - name: default Response
+    description: Error inesperado.
+    request:
+      url: "{{baseUrl}}/api/v1/cv"
+      method: GET
+    response:
+      headers:
+        - name: Content-Type
+          value: application/problem+json
+      body:
+        type: json
+        data: |-
+          {
+            "type": "",
+            "title": "",
+            "status": 0,
+            "detail": "",
+            "instance": ""
+          }
+
+docs: Un idioma sin PDF vigente no aparece en la respuesta. El PDF se sirve desde el dominio del almacenamiento, nunca desde el de la web ni el del admin (ADR-028, punto 6).
