@@ -4,6 +4,7 @@ import { Box } from '@chakra-ui/react';
 import { useEffect, useId, useRef } from 'react';
 import {
   AmbientLight,
+  AnimationMixer,
   Box3,
   DirectionalLight,
   Group,
@@ -18,12 +19,13 @@ import {
 } from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
-import { createIslandControls, islandRange } from './island-controls';
+import { createIslandControls, type IslandControls, islandRange } from './island-controls';
 import { REDUCED_MOTION_QUERY } from './island-loading';
-import { createSurfaceProbe } from './island-surface';
+import { currentIslandModel } from './island-model';
+import { createPointPicker, createSurfaceProbe } from './island-surface';
 
-/** Modelo armado con scripts/build-island-model.mjs: fortaleza flotante (Quaternius, CC0). */
-export const ISLAND_MODEL_URL = '/models/isla/isla.gltf';
+/** Fundido de la imagen fija a la escena, en ms: la entrada arranca al terminar. */
+const FADE_MS = 600;
 /** Giro inicial: la isla empieza vista de 3/4, como la imagen fija. */
 const START_ANGLE = Math.PI / 4;
 const FOV = 30;
@@ -108,6 +110,35 @@ export default function IslandScene({ text, visible, onReady, onError }: IslandS
   useEffect(() => {
     callbacks.current = { onReady, onError };
   });
+  const controlsRef = useRef<IslandControls>(undefined);
+  const fadeRef = useRef<HTMLDivElement>(null);
+
+  // La entrada arranca cuando la isla ya se ve entera: al terminar el fundido
+  // (o, si `transitionend` no llega, al tiempo que dura), no al montar ni al cargar.
+  useEffect(() => {
+    const element = fadeRef.current;
+    if (!visible || !element) {
+      return;
+    }
+    let played = false;
+    const play = () => {
+      if (!played) {
+        played = true;
+        controlsRef.current?.play();
+      }
+    };
+    const onTransitionEnd = (event: TransitionEvent) => {
+      if (event.target === element && event.propertyName === 'opacity') {
+        play();
+      }
+    };
+    element.addEventListener('transitionend', onTransitionEnd);
+    const timer = window.setTimeout(play, FADE_MS + 100);
+    return () => {
+      element.removeEventListener('transitionend', onTransitionEnd);
+      window.clearTimeout(timer);
+    };
+  }, [visible]);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -148,9 +179,13 @@ export default function IslandScene({ text, visible, onReady, onError }: IslandS
     pivot.rotation.y = START_ANGLE;
     scene.add(pivot);
     let model: Object3D | undefined;
+    // La fortaleza, o el modelo de prueba de `?isla=` (solo en desarrollo y previews).
+    const islandModel = currentIslandModel();
+    let mixer: AnimationMixer | undefined;
     const controls = createIslandControls(camera, canvas, {
       reducedMotion: window.matchMedia(REDUCED_MOTION_QUERY),
     });
+    controlsRef.current = controls;
 
     const resize = () => {
       const { clientWidth, clientHeight } = container;
@@ -163,10 +198,15 @@ export default function IslandScene({ text, visible, onReady, onError }: IslandS
     };
     resize();
 
+    let lastFrame: number | undefined;
     const frame = () => {
+      const now = performance.now();
       // Entrada, giro automático, inercia y topes: los controles mueven la
       // cámara en cada cuadro, según el reloj (no según cuántos cuadros hubo).
-      controls.update(performance.now());
+      controls.update(now);
+      // La animación del modelo, si trae una; con tope de 0.1 s tras una pausa.
+      mixer?.update(lastFrame === undefined ? 0 : Math.min((now - lastFrame) / 1000, 0.1));
+      lastFrame = now;
       renderer.render(scene, camera);
     };
 
@@ -174,6 +214,9 @@ export default function IslandScene({ text, visible, onReady, onError }: IslandS
     let onScreen = true;
     const updateLoop = () => {
       const running = model !== undefined && onScreen && !document.hidden && !disposed;
+      if (!running) {
+        lastFrame = undefined;
+      }
       renderer.setAnimationLoop(running ? frame : null);
     };
     const observer = new IntersectionObserver((entries) => {
@@ -192,7 +235,7 @@ export default function IslandScene({ text, visible, onReady, onError }: IslandS
     canvas.addEventListener('webglcontextlost', onContextLost);
 
     new GLTFLoader().load(
-      ISLAND_MODEL_URL,
+      islandModel.url,
       (gltf) => {
         if (disposed) {
           disposeObject(gltf.scene);
@@ -240,12 +283,16 @@ export default function IslandScene({ text, visible, onReady, onError }: IslandS
         camera.updateProjectionMatrix();
         controls.frame({
           distance,
-          // El target puede alejarse del centro hasta media altura de la isla.
-          targetRadius: box.getSize(new Vector3()).y / 2,
           modelRadius,
           surface: createSurfaceProbe(pivot, modelRadius),
+          pick: createPointPicker(pivot, camera),
         });
         canvas.tabIndex = 0;
+        const clip = gltf.animations.find((animation) => animation.name === islandModel.idleClip);
+        if (clip) {
+          mixer = new AnimationMixer(root);
+          mixer.clipAction(clip).play();
+        }
 
         frame();
         updateLoop();
@@ -262,7 +309,9 @@ export default function IslandScene({ text, visible, onReady, onError }: IslandS
     return () => {
       disposed = true;
       renderer.setAnimationLoop(null);
+      mixer?.stopAllAction();
       controls.dispose();
+      controlsRef.current = undefined;
       observer.disconnect();
       resizeObserver.disconnect();
       document.removeEventListener('visibilitychange', updateLoop);
@@ -279,10 +328,11 @@ export default function IslandScene({ text, visible, onReady, onError }: IslandS
 
   return (
     <Box
+      ref={fadeRef}
       position="absolute"
       inset="0"
       opacity={visible ? 1 : 0}
-      transition="opacity 0.6s ease"
+      transition={`opacity ${String(FADE_MS)}ms ease`}
       // Invisible mientras carga: los clics llegan a la imagen, no a un canvas oculto.
       pointerEvents={visible ? 'auto' : 'none'}
     >
