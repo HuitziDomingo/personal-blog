@@ -3,6 +3,7 @@ import { PerspectiveCamera, Raycaster, Sphere, Vector2, Vector3 } from 'three';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
+  AUTO_ROTATE_RAMP,
   AUTO_ROTATE_SPEED,
   createIslandControls,
   easeOutCirc,
@@ -10,6 +11,7 @@ import {
   INTRO_TURNS,
   introAngle,
   type IslandControls,
+  rampAngle,
   islandRange,
   KEY_ROTATE_ANGLE,
   MAX_DISTANCE_FACTOR,
@@ -331,9 +333,9 @@ describe('createIslandControls: giro automático', () => {
     expect(controls.autoRotating).toBe(false);
   });
 
-  it('sigue al arrastrar: el giro del usuario se suma al automático, sin tirones', () => {
-    // La misma secuencia con y sin giro automático: la diferencia es ω·t.
-    const finalDirection = (reducedMotion: boolean) => {
+  it('se pausa mientras arrastras: el giro es solo el del usuario, sin tirones', () => {
+    // La misma secuencia con y sin giro automático gira lo mismo: durante el arrastre no hay giro automático.
+    const dragTurn = (reducedMotion: boolean) => {
       setup(reducedMotion);
       run(200);
       clock = 10_000;
@@ -348,18 +350,50 @@ describe('createIslandControls: giro automático', () => {
         steps.push(camera.position.angleTo(previous));
         previous = camera.position.clone();
       }
-      pointer('pointerup', document, { x: 210, y: 150 });
       return { turned: viewAzimuth() - start, steps };
     };
-    const still = finalDirection(true);
-    const turning = finalDirection(false);
-    expect(controls.autoRotating).toBe(true);
-    // 30 cuadros a 60 fps de giro automático de diferencia, en sentido negativo.
-    expect(turning.turned - still.turned).toBeCloseTo((-AUTO_ROTATE_SPEED * 30) / 60, 4);
-    // Sin tirones: con un arrastre constante, cada paso es casi igual al anterior.
+    const still = dragTurn(true);
+    const turning = dragTurn(false);
+    pointer('pointerup', document, { x: 210, y: 150 });
+    expect(turning.turned).toBeCloseTo(still.turned, 9);
     for (let index = 3; index < turning.steps.length; index++) {
       expect(Math.abs((turning.steps[index] ?? 0) - (turning.steps[index - 1] ?? 0))).toBeLessThan(2e-3);
     }
+  });
+
+  it('con el botón pulsado y quieto, el giro automático está en 0', () => {
+    setup(false);
+    run(200);
+    pointer('pointerdown', canvas, { x: 150, y: 150 });
+    const before = camera.position.clone();
+    run(60);
+    expect(camera.position.distanceTo(before)).toBe(0);
+    pointer('pointerup', document, { x: 150, y: 150 });
+  });
+
+  it('al soltar, vuelve con la rampa: velocidad continua desde 0 y normal a los 0.5 s', () => {
+    setup(false);
+    run(200);
+    pointer('pointerdown', canvas, { x: 150, y: 150 });
+    run(30);
+    pointer('pointerup', document, { x: 150, y: 150 });
+    const dt = 1000 / 600;
+    const speeds: number[] = [];
+    let previous = azimuth();
+    for (let index = 0; index < 600; index++) {
+      run(1, dt);
+      const now = azimuth();
+      speeds.push(-(now - previous) / (dt / 1000));
+      previous = now;
+    }
+    // Arranca casi en 0 y no salta entre cuadros.
+    expect(speeds[0]).toBeLessThan(AUTO_ROTATE_SPEED * 0.01);
+    for (let index = 1; index < speeds.length; index++) {
+      expect(Math.abs((speeds[index] ?? 0) - (speeds[index - 1] ?? 0))).toBeLessThan(AUTO_ROTATE_SPEED * 0.01);
+    }
+    // A los 0.5 s (300 cuadros a 600 fps) ya va a la velocidad normal.
+    expect(speeds[300]).toBeCloseTo(AUTO_ROTATE_SPEED, 6);
+    expect(speeds.at(-1)).toBeCloseTo(AUTO_ROTATE_SPEED, 6);
   });
 
   it('tras soltar, la inercia se apaga y queda solo el giro automático', () => {
@@ -386,16 +420,44 @@ describe('createIslandControls: giro automático', () => {
     expect(viewAzimuth() - before).toBeCloseTo(-AUTO_ROTATE_SPEED, 6);
   });
 
-  it('sigue con el pan del botón derecho y con Mayúsculas + flechas', () => {
+  it('el pan del botón derecho también pausa; Mayúsculas + flechas no', () => {
     setup(false);
     run(200);
     const before = viewAzimuth();
-    drag([100, 150], [300, 150], { button: 2, steps: 30 });
+    pointer('pointerdown', canvas, { button: 2, x: 100, y: 150 });
+    for (let step = 1; step <= 30; step++) {
+      pointer('pointermove', document, { button: 2, x: 100 + step * 5, y: 150 });
+      run(1);
+    }
+    // Ni el pan ni el giro automático (pausado) giran la mirada.
+    expect(viewAzimuth()).toBeCloseTo(before, 12);
+    pointer('pointerup', document, { button: 2, x: 250, y: 150 });
+    run(60);
+
+    const afterRamp = viewAzimuth();
     key('ArrowLeft', { shiftKey: true });
-    run(30);
-    expect(controls.autoRotating).toBe(true);
-    // 60 cuadros en total: 1 s de giro automático; el pan no gira la mirada.
+    run(60);
+    expect(viewAzimuth() - afterRamp).toBeCloseTo(-AUTO_ROTATE_SPEED, 6);
+  });
+
+  it('dos dedos: arrastrar el centro pausa; pellizcar con el centro quieto no', () => {
+    setup(false);
+    run(200);
+    pointer('pointerdown', canvas, { pointerType: 'touch', pointerId: 1, x: 180, y: 150 });
+    pointer('pointerdown', canvas, { pointerType: 'touch', pointerId: 2, x: 220, y: 150 });
+    // Pellizco simétrico: el centro no se mueve.
+    pointer('pointermove', canvas, { pointerType: 'touch', pointerId: 1, x: 170, y: 150 });
+    pointer('pointermove', canvas, { pointerType: 'touch', pointerId: 2, x: 230, y: 150 });
+    let before = viewAzimuth();
+    run(60);
     expect(viewAzimuth() - before).toBeCloseTo(-AUTO_ROTATE_SPEED, 6);
+
+    // Arrastre: el centro se mueve 40 px.
+    pointer('pointermove', canvas, { pointerType: 'touch', pointerId: 1, x: 210, y: 150 });
+    pointer('pointermove', canvas, { pointerType: 'touch', pointerId: 2, x: 270, y: 150 });
+    before = viewAzimuth();
+    run(60);
+    expect(viewAzimuth()).toBeCloseTo(before, 12);
   });
 
   it('sigue con las flechas', () => {
@@ -490,6 +552,30 @@ describe('createIslandControls: restablecer con doble clic y R', () => {
     pointer('pointerdown', canvas);
     expect(wheel().defaultPrevented).toBe(false);
     expect(touchMove(2).defaultPrevented).toBe(false);
+  });
+});
+
+describe('rampAngle', () => {
+  const R = AUTO_ROTATE_RAMP;
+  const speed = (t: number, h = 1e-6) => (rampAngle(t + h) - rampAngle(t)) / h;
+
+  it('dura 0.5 s y sube la velocidad de 0 a ω sin saltos ni bajadas', () => {
+    expect(R).toBe(0.5);
+    expect(rampAngle(0)).toBe(0);
+    expect(speed(0)).toBeCloseTo(0, 4);
+    let previous = 0;
+    for (let step = 1; step <= 50; step++) {
+      const current = speed((step / 50) * R - 1e-5);
+      expect(current).toBeGreaterThanOrEqual(previous);
+      previous = current;
+    }
+    expect(speed(R)).toBeCloseTo(AUTO_ROTATE_SPEED, 4);
+    expect(speed(R - 1e-4)).toBeCloseTo(AUTO_ROTATE_SPEED, 4);
+  });
+
+  it('después de la rampa sigue a ω, con la mitad de la rampa de retraso', () => {
+    expect(rampAngle(R)).toBeCloseTo((AUTO_ROTATE_SPEED * R) / 2, 12);
+    expect(rampAngle(R + 2) - rampAngle(R)).toBeCloseTo(AUTO_ROTATE_SPEED * 2, 12);
   });
 });
 
@@ -595,7 +681,7 @@ describe('createIslandControls: animación de entrada', () => {
     expect(camera.position.y).toBeCloseTo(new Vector3(0, 4, 9).setLength(DISTANCE).y, 9);
   });
 
-  it('si el usuario la toca, la entrada se corta ahí sin saltar y sigue el giro automático', () => {
+  it('si el usuario la toca, la entrada se corta ahí sin saltar y el giro vuelve con la rampa', () => {
     setup(false);
     run(1);
     run(30);
@@ -606,8 +692,8 @@ describe('createIslandControls: animación de entrada', () => {
     expect(controls.introPlaying).toBe(false);
     expect(controls.autoRotating).toBe(true);
     run(1);
-    // Un cuadro después: solo lo del giro automático, sin salto de posición.
-    expect(azimuth() - at).toBeCloseTo(-AUTO_ROTATE_SPEED / 60, 6);
+    // Un cuadro después: solo el principio de la rampa, sin salto de posición.
+    expect(azimuth() - at).toBeCloseTo(-rampAngle(1 / 60), 9);
   });
 
   it('se corta con las flechas', () => {

@@ -33,6 +33,8 @@ export const PAN_SPEED = 0.6;
 export const AUTO_ROTATE_PERIOD = 80;
 /** Giro automático en radianes por segundo; la entrada termina a esta misma velocidad. */
 export const AUTO_ROTATE_SPEED = (2 * Math.PI) / AUTO_ROTATE_PERIOD;
+/** Tras soltar un arrastre, segundos que tarda el giro automático en recuperar su velocidad (BLOG-127). */
+export const AUTO_ROTATE_RAMP = 0.5;
 /**
  * Animación de entrada, como el perro de la web anterior (`voxel-dog.js`):
  * 10 vueltas (20π) con `easeOutCirc` en 100 cuadros a 60 fps (1.67 s), aquí
@@ -51,8 +53,30 @@ const WORLD_UP = new Vector3(0, 1, 0);
 /** Un código de tecla que no existe: desactiva las teclas A, S y D de TrackballControls. */
 const NO_KEY = 'IslandNoKey';
 const ARROWS: readonly string[] = ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'];
+/** Píxeles que tiene que moverse el centro de dos dedos, desde que se apoyaron, para contar como arrastre. */
+const TOUCH_DRAG_THRESHOLD = 12;
 /** Píxeles por unidad de `deltaY` según `deltaMode`: píxeles, líneas y páginas. */
 const WHEEL_PIXELS = [1, 33, 800] as const;
+
+/**
+ * Ángulo (radianes) que gira el giro automático en los primeros `elapsed`
+ * segundos tras soltar un arrastre. La velocidad sube de 0 a ω con
+ * `smoothstep` en `AUTO_ROTATE_RAMP` segundos, así que es continua (sin tirón)
+ * y llega a ω con aceleración 0. Esta es su integral:
+ *
+ *   v(t) = ω·s(t/R),  s(x) = 3x² − 2x³
+ *   θ(t) = ω·R·(x³ − x⁴/2) mientras t < R,  y después ω·R/2 + ω·(t − R)
+ */
+export function rampAngle(elapsed: number): number {
+  if (elapsed <= 0) {
+    return 0;
+  }
+  if (elapsed >= AUTO_ROTATE_RAMP) {
+    return AUTO_ROTATE_SPEED * (AUTO_ROTATE_RAMP / 2 + elapsed - AUTO_ROTATE_RAMP);
+  }
+  const x = elapsed / AUTO_ROTATE_RAMP;
+  return AUTO_ROTATE_SPEED * AUTO_ROTATE_RAMP * (x ** 3 - x ** 4 / 2);
+}
 
 /** Curva de frenado del perro: sale disparada y llega a 1 con velocidad 0. */
 export function easeOutCirc(u: number): number {
@@ -202,9 +226,11 @@ interface TrackballInertia {
  *   y, de cerca, hasta la superficie del modelo en la dirección de la cámara
  *   (`SurfaceProbe`). TrackballControls no hace zoom.
  * - Entrada (`introAngle`), que se corta en cuanto el usuario interactúa, y
- *   giro automático lento, hecho a mano, que nunca se detiene: gira la cámara
- *   alrededor de la vertical que pasa por el target después de
- *   TrackballControls, así que el arrastre, el zoom y el pan se le suman.
+ *   giro automático lento, hecho a mano: gira la cámara alrededor de la
+ *   vertical que pasa por el target después de TrackballControls, así que el
+ *   zoom, las flechas y la inercia se le suman. Solo se pausa mientras el
+ *   usuario arrastra (girar, mover o dos dedos) y al soltar vuelve con una
+ *   rampa suave (`rampAngle`).
  */
 export function createIslandControls(
   camera: PerspectiveCamera,
@@ -235,11 +261,27 @@ export function createIslandControls(
   // Entrada: si ya se pidió `play`, su instante de inicio (el primer `update`
   // después) y la posición de partida.
   let intro: { playing: boolean; start: number | undefined; offset: Vector3 } | undefined;
+  // Arrastre en curso (botón izquierdo o derecho, o dos dedos moviéndose):
+  // pausa el giro automático. Al soltar, `ramp` cuenta los segundos de la rampa.
+  let dragging: 'mouse' | 'touch' | undefined;
+  let ramp: { elapsed: number } | undefined;
+  const pauseRotation = (by: 'mouse' | 'touch') => {
+    dragging = by;
+    ramp = undefined;
+  };
+  const resumeRotation = (by: 'mouse' | 'touch') => {
+    if (dragging === by) {
+      dragging = undefined;
+      ramp = { elapsed: 0 };
+    }
+  };
   let last: number | undefined;
 
   // Toques activos sobre el canvas y el último centro y separación de los dos primeros.
   const touches = new Map<number, { x: number; y: number }>();
   let pinch: { x: number; y: number; spread: number } | undefined;
+  // Centro y separación de los dos dedos al apoyarse: para distinguir arrastre de pellizco.
+  let gesture: { x: number; y: number; spread: number } | undefined;
 
   const eye = new Vector3();
   const axis = new Vector3();
@@ -332,6 +374,7 @@ export function createIslandControls(
     (controls as unknown as TrackballInertia)._lastAngle = 0;
     touches.clear();
     pinch = undefined;
+    gesture = undefined;
     pendingZoom = undefined;
     target.copy(home.target);
     camera.position.copy(home.position);
@@ -373,14 +416,19 @@ export function createIslandControls(
     // imágenes): TrackballControls mide el arrastre respecto a su caja.
     controls.handleResize();
     if (event.pointerType !== 'touch') {
+      // Girar (izquierdo) o mover (derecho) pausan el giro; el central solo activa la rueda.
+      if (event.button === 0 || event.button === 2) {
+        pauseRotation('mouse');
+      }
       return;
     }
     event.stopImmediatePropagation();
     touches.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    pinch = measure();
     if (touches.size === 2) {
       stopIntro();
+      gesture = pinch;
     }
-    pinch = measure();
   };
   const onPointerMove = (event: PointerEvent) => {
     if (event.pointerType !== 'touch' || !touches.has(event.pointerId)) {
@@ -394,6 +442,16 @@ export function createIslandControls(
       const half = Math.max(canvas.clientWidth, 1) / 2;
       const x = (next.x - pinch.x) / half;
       const y = (pinch.y - next.y) / half;
+      // Si el centro de los dos dedos se aleja de donde empezó, es un arrastre
+      // (giro): pausa. Un pellizco no pausa, como la rueda. Cada dedo llega en
+      // su propio evento, así que en un pellizco el centro se mueve como mucho
+      // la mitad de lo que cambia la separación: eso no cuenta como arrastre.
+      if (gesture) {
+        const moved = Math.hypot(next.x - gesture.x, next.y - gesture.y);
+        if (moved > TOUCH_DRAG_THRESHOLD && moved > 0.75 * Math.abs(next.spread - gesture.spread)) {
+          pauseRotation('touch');
+        }
+      }
       drag(x, y, Math.hypot(x, y) * ROTATE_SPEED);
       if (next.spread > 0 && next.spread !== pinch.spread) {
         // Hacia el punto de la isla entre los dos dedos.
@@ -410,6 +468,10 @@ export function createIslandControls(
     event.stopImmediatePropagation();
     touches.delete(event.pointerId);
     pinch = measure();
+    if (touches.size < 2) {
+      gesture = undefined;
+      resumeRotation('touch');
+    }
   };
 
   // --- Teclado ---------------------------------------------------------------------
@@ -444,6 +506,7 @@ export function createIslandControls(
   };
   const onEnd = () => {
     canvas.style.cursor = 'grab';
+    resumeRotation('mouse');
   };
   // Con reduced-motion en caliente la portada vuelve a la imagen fija; por si
   // la escena siguiera montada, aquí también se para todo.
@@ -500,6 +563,17 @@ export function createIslandControls(
       const delta = last === undefined ? 0 : Math.min((now - last) / 1000, MAX_FRAME_DELTA);
       last = now;
       let autoAngle = AUTO_ROTATE_SPEED * delta;
+      if (dragging) {
+        autoAngle = 0;
+      } else if (ramp) {
+        // Lo que gira la rampa en este cuadro: la diferencia de su integral.
+        const before = ramp.elapsed;
+        ramp.elapsed += delta;
+        autoAngle = rampAngle(ramp.elapsed) - rampAngle(before);
+        if (ramp.elapsed >= AUTO_ROTATE_RAMP) {
+          ramp = undefined;
+        }
+      }
       if (intro && !intro.playing) {
         // Lista, pero la isla todavía no se ve: la cámara espera en el encuadre.
         return;

@@ -152,7 +152,7 @@ export const es: SiteContent = {
         label: 'Isla 3D interactiva',
         loading: 'Cargando isla 3D',
         instructions:
-          'Al cargar, la isla da diez vueltas rápidas que frenan y luego sigue girando despacio, también mientras la mueves. Con el ratón, arrastra para girarla en cualquier dirección, también por encima y por debajo, arrastra con el botón derecho para moverla y, tras hacer clic, usa la rueda para acercarte al punto bajo el puntero o alejarte. Con el teclado, flechas para girar y Mayúsculas más flechas para mover. En pantalla táctil, arrastra con dos dedos para girar y pellízcala para acercar. Doble clic o la tecla R restablecen la vista.',
+          'Al cargar, la isla da diez vueltas rápidas que frenan y luego sigue girando despacio; mientras la arrastras se detiene y al soltarla retoma el giro. Con el ratón, arrastra para girarla en cualquier dirección, también por encima y por debajo, arrastra con el botón derecho para moverla y, tras hacer clic, usa la rueda para acercarte al punto bajo el puntero o alejarte. Con el teclado, flechas para girar y Mayúsculas más flechas para mover. En pantalla táctil, arrastra con dos dedos para girar y pellízcala para acercar. Doble clic o la tecla R restablecen la vista.',
       },
       about: 'Acerca de mí',
       bio: 'Trayectoria',
