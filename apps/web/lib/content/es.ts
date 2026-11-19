@@ -150,6 +150,7 @@ export const es: SiteContent = {
       island: {
         alt: 'Isla flotante de roca con una fortaleza de piedra de torres almenadas y cúpula roja sobre la hierba, rodeada de nubes',
         label: 'Isla 3D interactiva',
+        loading: 'Cargando isla 3D',
         instructions:
           'Al cargar, la isla da diez vueltas rápidas que frenan y luego sigue girando despacio, también mientras la mueves. Con el ratón, arrastra para girarla en cualquier dirección, también por encima y por debajo, arrastra con el botón derecho para moverla y, tras hacer clic, usa la rueda para acercarte al punto bajo el puntero o alejarte. Con el teclado, flechas para girar y Mayúsculas más flechas para mover. En pantalla táctil, arrastra con dos dedos para girar y pellízcala para acercar. Doble clic o la tecla R restablecen la vista.',
       },

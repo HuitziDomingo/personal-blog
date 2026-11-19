@@ -29,8 +29,10 @@ export const ZOOM_SMOOTHING = 0.08;
 export const ROTATE_SPEED = 3;
 /** Velocidad del arrastre con el botón derecho (TrackballControls trae 0.3). */
 export const PAN_SPEED = 0.6;
-/** Giro automático: una vuelta cada 100 s, en radianes por segundo. */
-export const AUTO_ROTATE_SPEED = (2 * Math.PI) / 100;
+/** Giro automático: segundos por vuelta (BLOG-126: 80 s, un 25 % más rápido que los 100 s de antes). */
+export const AUTO_ROTATE_PERIOD = 80;
+/** Giro automático en radianes por segundo; la entrada termina a esta misma velocidad. */
+export const AUTO_ROTATE_SPEED = (2 * Math.PI) / AUTO_ROTATE_PERIOD;
 /**
  * Animación de entrada, como el perro de la web anterior (`voxel-dog.js`):
  * 10 vueltas (20π) con `easeOutCirc` en 100 cuadros a 60 fps (1.67 s), aquí

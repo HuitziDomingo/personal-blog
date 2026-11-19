@@ -13,6 +13,9 @@ vi.mock('next/image', () => ({
   default: ({ src, alt, fetchPriority }: { src: { src: string }; alt: string; fetchPriority?: 'high' | 'low' | 'auto' }) => (
     <img src={src.src} alt={alt} fetchPriority={fetchPriority} />
   ),
+  getImageProps: ({ src, fetchPriority }: { src: { src: string }; fetchPriority?: 'high' | 'low' | 'auto' }) => ({
+    props: { src: src.src, fetchPriority },
+  }),
 }));
 
 /** La última escena montada: el test llama a sus callbacks en lugar de three.js. */
@@ -90,7 +93,7 @@ afterEach(() => {
 function renderHero() {
   return render(
     <ChakraProvider value={system}>
-      <IslandHero alt={ALT} controls={{ label: 'l', instructions: 'i' }} />
+      <IslandHero alt={ALT} controls={{ label: 'l', instructions: 'i', loading: 'Cargando isla 3D' }} />
     </ChakraProvider>,
   );
 }
@@ -106,6 +109,7 @@ describe('IslandHero: imagen fija', () => {
 
     expect(screen.getByRole('img', { name: ALT })).toBeTruthy();
     expect(phase(container)).toBe('static');
+    expect(screen.queryByRole('status')).toBeNull();
     expect(goIdle).toBeUndefined();
     expect(sceneMounts).not.toHaveBeenCalled();
   });
@@ -152,13 +156,21 @@ describe('IslandHero: imagen fija', () => {
 });
 
 describe('IslandHero: carga diferida', () => {
-  it('muestra la imagen y reserva el hueco mientras espera', () => {
+  it('muestra el spinner y reserva el hueco mientras espera', () => {
     const { container } = renderHero();
 
     expect(phase(container)).toBe('waiting');
-    // Es el elemento del LCP: se pide con prioridad alta.
-    expect(screen.getByRole('img', { name: ALT }).getAttribute('fetchpriority')).toBe('high');
+    expect(screen.getByRole('status').textContent).toBe('Cargando isla 3D');
     expect(sceneMounts).not.toHaveBeenCalled();
+  });
+
+  it('la imagen fija va en un <picture> que, sin reduced-motion, pide un GIF vacío', () => {
+    const { container } = renderHero();
+    const source = container.querySelector('picture source');
+    expect(source?.getAttribute('media')).toBe('(prefers-reduced-motion: no-preference)');
+    expect(source?.getAttribute('srcset')).toMatch(/^data:image\/gif;base64,/);
+    // Con reduced-motion es el elemento del LCP: prioridad alta.
+    expect(screen.getByRole('img', { name: ALT }).getAttribute('fetchpriority')).toBe('high');
   });
 
   it('pide la escena solo cuando el navegador queda libre y la isla está en pantalla', () => {
@@ -174,12 +186,15 @@ describe('IslandHero: carga diferida', () => {
     });
     expect(phase(container)).toBe('loading');
     expect(screen.getByTestId('scene').getAttribute('data-visible')).toBe('false');
+    expect(screen.getByRole('status')).toBeTruthy();
 
     act(() => {
       scene?.onReady();
     });
     expect(phase(container)).toBe('ready');
     expect(screen.getByTestId('scene').getAttribute('data-visible')).toBe('true');
+    // El spinner desaparece en cuanto el modelo está listo.
+    expect(screen.queryByRole('status')).toBeNull();
     // La imagen sigue en el DOM con su alt, que describe también la escena.
     expect(screen.getByRole('img', { name: ALT })).toBeTruthy();
   });

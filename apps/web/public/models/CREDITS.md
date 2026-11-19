@@ -13,9 +13,9 @@ Fortaleza flotante con nubes, compuesta en la investigación de BLOG-107 y usada
   - [Cloud](https://poly.pizza/m/KdFNOVn1Gf), tres copias
 - **Cambios:** composición de las piezas y optimización con `scripts/build-island-model.mjs` (`prune` y `dedup` de glTF Transform), en `.gltf` con el `.bin` y la textura aparte.
 
-## Isla de prueba con el Rey Hongo (`isla-hongo/`)
+## Isla del Rey Hongo (`isla-hongo/`)
 
-Isla 3 de la investigación de BLOG-107 (bosque de fantasía), con la animación Idle del Rey Hongo. Solo se carga con `?isla=hongo` en desarrollo y en los previews de Vercel (BLOG-123), para compararla con la fortaleza. Es el mismo modelo que tuvo la portada en BLOG-107 (#122).
+Isla 3 de la investigación de BLOG-107 (bosque de fantasía), con la animación Idle del Rey Hongo. Desde BLOG-126 es el modelo de la portada mientras León elige entre ella y la fortaleza (que se ve con `?isla=fortaleza` en desarrollo y previews). Es el mismo modelo que tuvo la portada en BLOG-107 (#122).
 
 - **Autor:** [Quaternius](https://quaternius.com/). Cada pieza aparece en Poly Pizza como «Free 3D Model By Quaternius».
 - **Licencia:** [CC0 1.0 Universal (dominio público)](https://creativecommons.org/publicdomain/zero/1.0/). Cada página de Poly Pizza dice «Public Domain (CC0)» y `"Licence":"CC0 1.0"` (comprobado el 2026-11-18). No exige atribución.

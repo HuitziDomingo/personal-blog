@@ -67,11 +67,16 @@ describe('diccionarios', () => {
   it('describen la isla en los dos idiomas, sin crédito en la página (BLOG-120)', () => {
     for (const content of [es, en]) {
       const island: Record<string, string> = content.ui.home.island;
-      expect(Object.keys(island), content.locale).toEqual(['alt', 'label', 'instructions']);
+      expect(Object.keys(island).sort(), content.locale).toEqual(['alt', 'instructions', 'label', 'loading']);
       for (const value of Object.values(island)) {
         expect(value, content.locale).not.toBe('');
       }
     }
+  });
+
+  it('traducen el aviso de carga de la isla (BLOG-126)', () => {
+    expect(es.ui.home.island.loading).toBe('Cargando isla 3D');
+    expect(en.ui.home.island.loading).toBe('Loading 3D island');
   });
 
   it('declaran el idioma de la página y el del selector', () => {

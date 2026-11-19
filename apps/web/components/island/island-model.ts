@@ -9,33 +9,47 @@ export interface IslandModel {
   idleClip?: string;
 }
 
-/** La isla de la portada: fortaleza flotante con nubes (BLOG-119). */
+/** Fortaleza flotante con nubes (BLOG-119). */
 export const FORTRESS: IslandModel = { id: 'fortaleza', url: '/models/isla/isla.gltf' };
 
 /**
- * Modelos para comparar con `?isla=<id>` (BLOG-123). Se quitan borrando su
- * entrada aquí, su archivo `island-model-<id>.ts` y su carpeta en `public/models/`.
+ * La isla de la portada. En evaluación (BLOG-126): el Rey Hongo; la fortaleza
+ * se ve con `?isla=fortaleza` en desarrollo y previews.
  */
-const PREVIEW_MODELS: Readonly<Record<string, IslandModel>> = { [HONGO.id]: HONGO };
+export const DEFAULT_MODEL: IslandModel = HONGO;
 
-/** Lo que se mira del entorno: Next.js sustituye las dos variables al compilar. */
+/**
+ * Modelos para comparar con `?isla=<id>` (BLOG-123). Se quitan borrando su
+ * entrada aquí, su archivo y su carpeta en `public/models/`.
+ */
+const PREVIEW_MODELS: Readonly<Record<string, IslandModel>> = { [FORTRESS.id]: FORTRESS, [HONGO.id]: HONGO };
+
+/** Lo que se mira del entorno: Next.js sustituye las variables al compilar. */
 export interface ModelEnv {
   NODE_ENV?: string | undefined;
   NEXT_PUBLIC_VERCEL_ENV?: string | undefined;
+  NEXT_PUBLIC_ISLAND_MODELS?: string | undefined;
 }
 
-/** `?isla=` solo funciona en desarrollo y en los previews de Vercel; en producción, nunca. */
+/**
+ * `?isla=` funciona en desarrollo (`make web-dev`), en los previews de Vercel
+ * y en un build local hecho con `NEXT_PUBLIC_ISLAND_MODELS=1`. En la
+ * producción de Vercel, nunca, aunque esa variable estuviera puesta.
+ */
 export function previewModelsEnabled(env: ModelEnv): boolean {
-  return env.NODE_ENV === 'development' || env.NEXT_PUBLIC_VERCEL_ENV === 'preview';
+  if (env.NEXT_PUBLIC_VERCEL_ENV === 'production') {
+    return false;
+  }
+  return env.NODE_ENV === 'development' || env.NEXT_PUBLIC_VERCEL_ENV === 'preview' || env.NEXT_PUBLIC_ISLAND_MODELS === '1';
 }
 
-/** El modelo que pide la URL (`search`, con su `?`), o la fortaleza. */
+/** El modelo que pide la URL (`search`, con su `?`), o el de la portada. */
 export function islandModelFor(search: string, enabled: boolean): IslandModel {
   if (!enabled) {
-    return FORTRESS;
+    return DEFAULT_MODEL;
   }
   const id = new URLSearchParams(search).get('isla');
-  return (id !== null && Object.hasOwn(PREVIEW_MODELS, id) ? PREVIEW_MODELS[id] : undefined) ?? FORTRESS;
+  return (id !== null && Object.hasOwn(PREVIEW_MODELS, id) ? PREVIEW_MODELS[id] : undefined) ?? DEFAULT_MODEL;
 }
 
 /**
@@ -46,6 +60,10 @@ export function currentIslandModel(): IslandModel {
   return islandModelFor(
     window.location.search,
     // Escritas así, literales, para que Next.js las sustituya en el bundle.
-    previewModelsEnabled({ NODE_ENV: process.env.NODE_ENV, NEXT_PUBLIC_VERCEL_ENV: process.env.NEXT_PUBLIC_VERCEL_ENV }),
+    previewModelsEnabled({
+      NODE_ENV: process.env.NODE_ENV,
+      NEXT_PUBLIC_VERCEL_ENV: process.env.NEXT_PUBLIC_VERCEL_ENV,
+      NEXT_PUBLIC_ISLAND_MODELS: process.env.NEXT_PUBLIC_ISLAND_MODELS,
+    }),
   );
 }
