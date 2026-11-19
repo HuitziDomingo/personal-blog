@@ -71,9 +71,10 @@ const DATE_FORMAT = new Intl.DateTimeFormat('es-MX', {
     <p role="status" class="text-sm empty:hidden">{{ notice() }}</p>
 
     <div class="grid gap-4 md:grid-cols-2">
+      <!-- min-w-0: el input de archivo no debe ensanchar la columna en móvil. -->
       @for (language of languages; track language) {
         @let current = currentOf(language);
-        <section class="flex flex-col gap-3 rounded-lg border p-4" [attr.aria-labelledby]="'cv-' + language + '-titulo'">
+        <section class="flex min-w-0 flex-col gap-3 rounded-lg border p-4" [attr.aria-labelledby]="'cv-' + language + '-titulo'">
           <h2 [id]="'cv-' + language + '-titulo'" class="text-lg font-semibold">{{ labels[language] }}</h2>
 
           @if (current) {
@@ -97,7 +98,7 @@ const DATE_FORMAT = new Intl.DateTimeFormat('es-MX', {
               #fileInput
               type="file"
               accept="application/pdf,.pdf"
-              class="file:bg-secondary file:text-secondary-foreground focus-visible:ring-ring/50 pointer-coarse:min-h-11 min-h-9 rounded-md border px-2 py-1.5 text-sm outline-none file:me-3 file:rounded file:border-0 file:px-2 file:py-1 focus-visible:ring-3"
+              class="file:bg-secondary file:text-secondary-foreground focus-visible:ring-ring/50 pointer-coarse:min-h-11 min-h-9 w-full min-w-0 rounded-md border px-2 py-1.5 text-sm outline-none file:me-3 file:rounded file:border-0 file:px-2 file:py-1 focus-visible:ring-3"
               [id]="'cv-' + language + '-archivo'"
               [attr.aria-describedby]="'cv-' + language + '-ayuda' + (problems()[language] ? ' cv-' + language + '-error' : '')"
               [attr.aria-invalid]="problems()[language] ? 'true' : null"
@@ -151,7 +152,7 @@ const DATE_FORMAT = new Intl.DateTimeFormat('es-MX', {
             <ul class="flex flex-col divide-y rounded-lg border" aria-labelledby="cv-versiones-titulo">
               @for (version of versions(); track version.id) {
                 <li class="flex flex-wrap items-center gap-x-4 gap-y-2 p-3">
-                  <div class="flex min-w-0 flex-1 flex-col">
+                  <div class="flex min-w-48 flex-1 flex-col">
                     <p class="text-sm font-medium">
                       {{ labels[version.language] }}
                       @if (version.current) {
