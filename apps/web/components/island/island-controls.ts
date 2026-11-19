@@ -124,11 +124,10 @@ export interface IslandControls {
   update: (now: number) => void;
   /**
    * Devuelve cámara (posición y vertical) y target al encuadre inicial, sin
-   * inercia, y reanuda el giro automático (salvo con reduced-motion). Lo
-   * disparan el doble clic y la tecla R.
+   * inercia. El giro automático sigue. Lo disparan el doble clic y la tecla R.
    */
   reset: () => void;
-  /** Si la cámara gira sola ahora mismo. */
+  /** Si la cámara gira sola: siempre, salvo con reduced-motion. */
   readonly autoRotating: boolean;
   /** Si la animación de entrada sigue en curso. */
   readonly introPlaying: boolean;
@@ -200,8 +199,10 @@ interface TrackballInertia {
  *   dedos), con `zoomToward`: hasta `MAX_DISTANCE_FACTOR` veces el encuadre
  *   y, de cerca, hasta la superficie del modelo en la dirección de la cámara
  *   (`SurfaceProbe`). TrackballControls no hace zoom.
- * - Entrada (`introAngle`) y giro automático lento, hechos a mano: se detienen
- *   en cuanto el usuario interactúa y solo vuelven con `reset`.
+ * - Entrada (`introAngle`), que se corta en cuanto el usuario interactúa, y
+ *   giro automático lento, hecho a mano, que nunca se detiene: gira la cámara
+ *   alrededor de la vertical que pasa por el target después de
+ *   TrackballControls, así que el arrastre, el zoom y el pan se le suman.
  */
 export function createIslandControls(
   camera: PerspectiveCamera,
@@ -244,8 +245,9 @@ export function createIslandControls(
   const up = new Vector3();
   const rotation = new Quaternion();
 
-  const stopMotion = () => {
-    autoRotate = false;
+  // Interactuar solo corta la entrada; el giro automático sigue de fondo
+  // (BLOG-125) y la rotación del usuario se le suma.
+  const stopIntro = () => {
     intro = undefined;
   };
 
@@ -333,7 +335,6 @@ export function createIslandControls(
     camera.position.copy(home.position);
     camera.up.copy(home.up);
     camera.lookAt(target);
-    autoRotate = !reducedMotion.matches;
   };
 
   // --- Rueda: solo después de un clic sobre la isla ----------------------------
@@ -345,7 +346,7 @@ export function createIslandControls(
       return;
     }
     event.preventDefault();
-    stopMotion();
+    stopIntro();
     const pixels = event.deltaY * (WHEEL_PIXELS[event.deltaMode] ?? 1);
     // Hacia dentro, hacia el punto bajo el puntero; hacia fuera, `zoomToward` usa el target.
     const anchor = pixels < 0 ? pickAt(event.clientX, event.clientY) : undefined;
@@ -375,7 +376,7 @@ export function createIslandControls(
     event.stopImmediatePropagation();
     touches.set(event.pointerId, { x: event.clientX, y: event.clientY });
     if (touches.size === 2) {
-      stopMotion();
+      stopIntro();
     }
     pinch = measure();
   };
@@ -421,7 +422,7 @@ export function createIslandControls(
       return;
     }
     event.preventDefault();
-    stopMotion();
+    stopIntro();
     const x = event.code === 'ArrowLeft' ? -1 : event.code === 'ArrowRight' ? 1 : 0;
     const y = event.code === 'ArrowUp' ? 1 : event.code === 'ArrowDown' ? -1 : 0;
     if (event.shiftKey) {
@@ -434,7 +435,7 @@ export function createIslandControls(
   };
 
   const onStart = () => {
-    stopMotion();
+    stopIntro();
     // Un arrastre cambia la vista: el zoom pendiente ya no va hacia el mismo punto.
     pendingZoom = undefined;
     canvas.style.cursor = 'grabbing';
@@ -442,9 +443,12 @@ export function createIslandControls(
   const onEnd = () => {
     canvas.style.cursor = 'grab';
   };
+  // Con reduced-motion en caliente la portada vuelve a la imagen fija; por si
+  // la escena siguiera montada, aquí también se para todo.
   const onMotionChange = (event: MediaQueryListEvent) => {
     if (event.matches) {
-      stopMotion();
+      autoRotate = false;
+      stopIntro();
     }
   };
 
@@ -493,6 +497,7 @@ export function createIslandControls(
     update: (now) => {
       const delta = last === undefined ? 0 : Math.min((now - last) / 1000, MAX_FRAME_DELTA);
       last = now;
+      let autoAngle = AUTO_ROTATE_SPEED * delta;
       if (intro && !intro.playing) {
         // Lista, pero la isla todavía no se ve: la cámara espera en el encuadre.
         return;
@@ -509,9 +514,7 @@ export function createIslandControls(
         }
         // Lo que pasó del final en este cuadro ya es giro automático: sin escalón.
         intro = undefined;
-        turn(WORLD_UP, -AUTO_ROTATE_SPEED * (elapsed - INTRO_DURATION));
-      } else if (autoRotate) {
-        turn(WORLD_UP, -AUTO_ROTATE_SPEED * delta);
+        autoAngle = AUTO_ROTATE_SPEED * (elapsed - INTRO_DURATION);
       }
       if (pendingZoom) {
         // Una fracción de lo pendiente en cada cuadro, según el tiempo: suave y sin depender del frame rate.
@@ -523,6 +526,13 @@ export function createIslandControls(
         }
       }
       controls.update();
+      // Después de TrackballControls: su arrastre, su inercia y el pan ya están
+      // aplicados, y el giro automático se suma. TrackballControls recalcula
+      // su vector cámara-target desde la posición en cada `update`, así que
+      // no lo deshace en el siguiente cuadro.
+      if (autoRotate) {
+        turn(WORLD_UP, -autoAngle);
+      }
       clamp();
     },
     reset,
