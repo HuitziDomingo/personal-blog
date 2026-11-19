@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { PerspectiveCamera, Vector3 } from 'three';
+import { PerspectiveCamera, Raycaster, Sphere, Vector2, Vector3 } from 'three';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
@@ -16,7 +16,7 @@ import {
   minCameraDistance,
   SURFACE_MARGIN_FACTOR,
 } from './island-controls';
-import type { SurfaceProbe } from './island-surface';
+import type { PointPicker, SurfaceProbe } from './island-surface';
 
 let canvas: HTMLCanvasElement;
 let camera: PerspectiveCamera;
@@ -41,18 +41,26 @@ function fakeMotionQuery(matches: boolean) {
 }
 let motion: ReturnType<typeof fakeMotionQuery>;
 
-/** Encuadre de los tests: cámara a 10, target hasta 1 del centro, isla de radio 3. */
+/** Encuadre de los tests: cámara a 10, isla de radio 3. */
 const DISTANCE = 10;
 const MODEL_RADIUS = 3;
 const RANGE = islandRange(DISTANCE, MODEL_RADIUS);
 
-function setup(reducedMotion: boolean, surface: SurfaceProbe = () => 0) {
+/** Picker de los tests: una esfera de radio 1 en el centro, con un raycast de verdad. */
+const sphereRaycaster = new Raycaster();
+const pickSphere: PointPicker = (ndc) => {
+  camera.updateMatrixWorld();
+  sphereRaycaster.setFromCamera(ndc, camera);
+  return sphereRaycaster.ray.intersectSphere(new Sphere(new Vector3(), 1), new Vector3()) ?? undefined;
+};
+
+function setup(reducedMotion: boolean, surface: SurfaceProbe = () => 0, pick: PointPicker = () => undefined) {
   controls.dispose();
   camera.position.set(0, 4, 9).setLength(DISTANCE);
   camera.up.set(0, 1, 0);
   motion = fakeMotionQuery(reducedMotion);
   controls = createIslandControls(camera, canvas, { reducedMotion: motion });
-  controls.frame({ distance: DISTANCE, targetRadius: 1, modelRadius: MODEL_RADIUS, surface });
+  controls.frame({ distance: DISTANCE, modelRadius: MODEL_RADIUS, surface, pick });
 }
 
 /** Avanza `frames` cuadros de `ms` milisegundos, como el bucle de render. */
@@ -102,8 +110,8 @@ function key(code: string, init: KeyboardEventInit = {}): KeyboardEvent {
   return event;
 }
 
-function wheel(deltaY = 100): WheelEvent {
-  const event = new WheelEvent('wheel', { deltaY, bubbles: true, cancelable: true });
+function wheel(deltaY = 100, x = 0, y = 0): WheelEvent {
+  const event = new WheelEvent('wheel', { deltaY, clientX: x, clientY: y, bubbles: true, cancelable: true });
   canvas.dispatchEvent(event);
   return event;
 }
@@ -176,6 +184,14 @@ describe('createIslandControls: giro libre (TrackballControls)', () => {
     const start = camera.position.clone();
     key('ArrowRight');
     expect(camera.position.angleTo(start)).toBeCloseTo(KEY_ROTATE_ANGLE, 6);
+
+    // ↑ sube la cámara (la isla, vista desde arriba) y ↓ la baja.
+    controls.reset();
+    key('ArrowUp');
+    expect(camera.position.y).toBeGreaterThan(start.y);
+    controls.reset();
+    key('ArrowDown');
+    expect(camera.position.y).toBeLessThan(start.y);
 
     controls.reset();
     // 12 × 15° = 180°: la cámara da media vuelta en vertical y pasa por el polo.
@@ -524,7 +540,7 @@ describe('createIslandControls: zoom y topes', () => {
       run(2);
     }
     run(300);
-    expect(MAX_DISTANCE_FACTOR).toBe(9);
+    expect(MAX_DISTANCE_FACTOR).toBe(6);
     expect(camera.position.length()).toBeCloseTo(DISTANCE * MAX_DISTANCE_FACTOR, 6);
   });
 
@@ -563,16 +579,16 @@ describe('createIslandControls: zoom y topes', () => {
     expect(camera.position.length()).toBeCloseTo(RANGE.minDistance, 6);
   });
 
-  it('el target no se aleja del centro más de lo permitido al mover', () => {
+  it('al mover, el target no sale de la esfera de la isla', () => {
     drag([0, 150], [400, 150], { button: 2 });
     drag([0, 150], [400, 150], { button: 2 });
     run(200);
-    // El target está en la línea de mirada; su distancia al centro es como mucho 1.
+    // El target está en la línea de mirada; su distancia al centro es como mucho el radio, 3.
     const direction = camera.getWorldDirection(new Vector3());
     const toCenter = new Vector3().sub(camera.position);
     const offLine = toCenter.clone().sub(direction.multiplyScalar(toCenter.dot(direction)));
-    expect(offLine.length()).toBeLessThanOrEqual(1 + 1e-6);
-    expect(offLine.length()).toBeGreaterThan(0.5);
+    expect(offLine.length()).toBeLessThanOrEqual(MODEL_RADIUS + 1e-6);
+    expect(offLine.length()).toBeGreaterThan(1);
   });
 });
 
@@ -587,5 +603,120 @@ describe('islandRange y minCameraDistance', () => {
     expect(minCameraDistance(2, RANGE)).toBeCloseTo(2 + RANGE.margin);
     expect(minCameraDistance(0, RANGE)).toBe(RANGE.minDistance);
     expect(minCameraDistance(0.01, RANGE)).toBe(RANGE.minDistance);
+  });
+});
+
+describe('createIslandControls: zoom hacia el puntero', () => {
+  /** Posición en pantalla (coordenadas normalizadas) de un punto del mundo. */
+  function onScreen(point: Vector3) {
+    camera.updateMatrixWorld();
+    const projected = point.clone().project(camera);
+    return [projected.x, projected.y];
+  }
+
+  it('con la rueda, el punto bajo el puntero se queda quieto en la pantalla', () => {
+    setup(true, () => 0, pickSphere);
+    enableWheel();
+    // A la derecha y arriba del centro, sobre la esfera.
+    const [x, y] = [215, 140];
+    const point = pickSphere(new Vector2((x / 400) * 2 - 1, -(y / 300) * 2 + 1));
+    expect(point).toBeDefined();
+    const before = onScreen(point as Vector3);
+    const distance = camera.position.distanceTo(point as Vector3);
+    for (let index = 0; index < 4; index++) {
+      wheel(-100, x, y);
+      run(30);
+    }
+    const after = onScreen(point as Vector3);
+    expect(after[0]).toBeCloseTo(before[0] ?? 0, 6);
+    expect(after[1]).toBeCloseTo(before[1] ?? 0, 6);
+    expect(camera.position.distanceTo(point as Vector3)).toBeLessThan(distance * 0.5);
+    // El target se fue hacia el punto.
+    expect(controls.autoRotating).toBe(false);
+  });
+
+  it('con el puntero fuera de la isla, se acerca al centro como siempre', () => {
+    setup(true, () => 0, pickSphere);
+    enableWheel();
+    const direction = camera.position.clone().normalize();
+    wheel(-100, 2, 2);
+    run(60);
+    // Mismo eje: la cámara solo se acercó al target, que sigue en el centro.
+    expect(camera.position.clone().normalize().distanceTo(direction)).toBeLessThan(1e-9);
+    expect(camera.position.length()).toBeLessThan(DISTANCE);
+  });
+
+  it('con dos dedos, el punto entre ellos se queda quieto', () => {
+    setup(true, () => 0, pickSphere);
+    const point = pickSphere(new Vector2(0.1, 0.05)) as Vector3;
+    // (220, 142.5) en el canvas de 400 × 300 es (0.1, 0.05).
+    pointer('pointerdown', canvas, { pointerType: 'touch', pointerId: 1, x: 210, y: 142.5 });
+    pointer('pointerdown', canvas, { pointerType: 'touch', pointerId: 2, x: 230, y: 142.5 });
+    const before = onScreen(point);
+    pointer('pointermove', canvas, { pointerType: 'touch', pointerId: 1, x: 200, y: 142.5 });
+    pointer('pointermove', canvas, { pointerType: 'touch', pointerId: 2, x: 240, y: 142.5 });
+    const after = onScreen(point);
+    // Cada dedo llega en su propio evento: entre los dos, el centro se movió un
+    // poco y hubo algo de giro. El punto apenas se mueve (menos de 1 px de 400).
+    expect(after[0]).toBeCloseTo(before[0] ?? 0, 2);
+    expect(after[1]).toBeCloseTo(before[1] ?? 0, 2);
+    expect(camera.position.length()).toBeLessThan(DISTANCE);
+  });
+
+  it('se para en la superficie: la cámara no atraviesa el modelo', () => {
+    // La superficie, a 1.5 del target en cualquier dirección; la sonda apunta el target que recibe.
+    const lastTarget = new Vector3();
+    setup(
+      true,
+      (at) => {
+        lastTarget.copy(at);
+        return 1.5;
+      },
+      pickSphere,
+    );
+    enableWheel();
+    for (let index = 0; index < 40; index++) {
+      wheel(-100, 205, 145);
+      run(10);
+    }
+    run(120);
+    const reached = camera.position.clone();
+    expect(camera.position.distanceTo(lastTarget)).toBeCloseTo(1.5 + MODEL_RADIUS * SURFACE_MARGIN_FACTOR, 6);
+    // En el tope, más rueda ya no mueve nada (ni la cámara ni la vista).
+    for (let index = 0; index < 10; index++) {
+      wheel(-100, 205, 145);
+      run(10);
+    }
+    expect(camera.position.distanceTo(reached)).toBeLessThan(1e-6);
+  });
+
+  it('al alejarse, el target vuelve al centro: en el máximo, la isla está en medio', () => {
+    setup(true, () => 0, pickSphere);
+    enableWheel();
+    for (let index = 0; index < 6; index++) {
+      wheel(-100, 230, 130);
+      run(30);
+    }
+    // El target se movió: la cámara ya no mira al centro.
+    expect(camera.getWorldDirection(new Vector3()).angleTo(camera.position.clone().negate())).toBeGreaterThan(1e-3);
+    for (let index = 0; index < 40; index++) {
+      wheel(100, 230, 130);
+      run(30);
+    }
+    expect(camera.position.length()).toBeCloseTo(DISTANCE * MAX_DISTANCE_FACTOR, 6);
+    expect(camera.getWorldDirection(new Vector3()).angleTo(camera.position.clone().negate())).toBeLessThan(1e-9);
+  });
+
+  it('el zoom de la rueda va por tiempo y es suave: no salta de golpe', () => {
+    enableWheel();
+    run(1);
+    wheel(-100);
+    run(1);
+    const first = DISTANCE - camera.position.length();
+    run(120);
+    const total = DISTANCE - camera.position.length();
+    expect(first).toBeGreaterThan(0);
+    expect(first).toBeLessThan(total * 0.5);
+    expect(camera.position.length()).toBeCloseTo(DISTANCE * Math.exp(-0.3), 6);
   });
 });

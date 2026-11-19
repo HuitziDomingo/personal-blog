@@ -1,7 +1,7 @@
-import { BoxGeometry, Group, Mesh, MeshBasicMaterial, Vector3 } from 'three';
+import { BoxGeometry, Group, Mesh, MeshBasicMaterial, PerspectiveCamera, Vector2, Vector3 } from 'three';
 import { describe, expect, it } from 'vitest';
 
-import { createSurfaceProbe } from './island-surface';
+import { createPointPicker, createSurfaceProbe } from './island-surface';
 
 /** Un cubo de lado `size` con centro en (x, y, z). */
 function box(size: number, x = 0, y = 0, z = 0): Mesh {
@@ -57,5 +57,16 @@ describe('createSurfaceProbe', () => {
     const probe = createSurfaceProbe(root, 5);
     // Girado 90°, el lado largo (2 desde el centro) apunta a Z.
     expect(probe(new Vector3(), Z)).toBeCloseTo(2);
+  });
+});
+
+describe('createPointPicker', () => {
+  it('devuelve el punto del modelo bajo el puntero, o undefined fuera de él', () => {
+    const camera = new PerspectiveCamera(30, 4 / 3, 0.1, 100);
+    camera.position.set(0, 0, 5);
+    camera.lookAt(0, 0, 0);
+    const pick = createPointPicker(scene(box(2)), camera);
+    expect(pick(new Vector2(0, 0))?.toArray()).toEqual([0, 0, 1]);
+    expect(pick(new Vector2(0.95, 0.95))).toBeUndefined();
   });
 });
