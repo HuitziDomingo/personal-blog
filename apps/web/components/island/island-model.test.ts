@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { currentIslandModel, DEFAULT_MODEL, FORTRESS, islandModelFor, previewModelsEnabled } from './island-model';
 import { HONGO } from './island-model-hongo';
+import { MEDIEVAL } from './island-model-medieval';
 
 describe('DEFAULT_MODEL', () => {
   it('la portada usa el Rey Hongo mientras León lo evalúa', () => {
@@ -32,11 +33,13 @@ describe('islandModelFor', () => {
   it('con la guarda activa, ?isla= elige el modelo', () => {
     expect(islandModelFor('?isla=fortaleza', true)).toBe(FORTRESS);
     expect(islandModelFor('?isla=hongo', true)).toBe(HONGO);
+    expect(islandModelFor('?isla=medieval', true)).toBe(MEDIEVAL);
     expect(islandModelFor('?foo=1&isla=fortaleza', true)).toBe(FORTRESS);
   });
 
   it('sin la guarda (producción), siempre el de la portada', () => {
     expect(islandModelFor('?isla=fortaleza', false)).toBe(DEFAULT_MODEL);
+    expect(islandModelFor('?isla=medieval', false)).toBe(DEFAULT_MODEL);
   });
 
   it('sin parámetro, o con uno que no existe, el de la portada', () => {

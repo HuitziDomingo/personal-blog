@@ -1,4 +1,5 @@
 import { HONGO } from './island-model-hongo';
+import { MEDIEVAL } from './island-model-medieval';
 
 /** Un modelo de la isla del hero. */
 export interface IslandModel {
@@ -22,7 +23,11 @@ export const DEFAULT_MODEL: IslandModel = HONGO;
  * Modelos para comparar con `?isla=<id>` (BLOG-123). Se quitan borrando su
  * entrada aquí, su archivo y su carpeta en `public/models/`.
  */
-const PREVIEW_MODELS: Readonly<Record<string, IslandModel>> = { [FORTRESS.id]: FORTRESS, [HONGO.id]: HONGO };
+const PREVIEW_MODELS: Readonly<Record<string, IslandModel>> = {
+  [FORTRESS.id]: FORTRESS,
+  [HONGO.id]: HONGO,
+  [MEDIEVAL.id]: MEDIEVAL,
+};
 
 /** Lo que se mira del entorno: Next.js sustituye las variables al compilar. */
 export interface ModelEnv {
