@@ -74,7 +74,7 @@
 - [x] BLOG-052: Job web en ci.yml con su filtro en el job changes, cuando exista `apps/web` (ADR-014). ([#53](https://github.com/HuitziDomingo/personal-blog/pull/53))
 - [x] BLOG-049: Incluir Makefile y scripts de generación en el filtro del job api (va en el ADR de BLOG-021). ([#34](https://github.com/HuitziDomingo/personal-blog/pull/34))
 - [x] BLOG-037: Crear el `Dockerfile` multi-stage de la API y compilarlo en CI, sin publicar la imagen (ADR-004). ([#19](https://github.com/HuitziDomingo/personal-blog/pull/19))
-- [x] BLOG-054: ADR de despliegue: Cloud Run, dominio de la API (api.huitzi.xyz) y certificados. Resuelta con ADR-025. (PR_LINK)
+- [x] BLOG-054: ADR de despliegue: Cloud Run, dominio de la API (api.huitzi.xyz) y certificados. Resuelta con ADR-025. ([#142](https://github.com/HuitziDomingo/personal-blog/pull/142))
 - [ ] BLOG-022: Configurar pipeline de despliegue de la API a GCP Cloud Run.
 - [ ] BLOG-041: Verificar en el primer despliegue: rango de proxies, Cache-Control y cookies bajo api.huitzi.xyz.
 - [ ] BLOG-134: Preparación del despliegue en el repo (ADR-025): Dockerfile de la API revisado para Cloud Run (distroless, sin root, `PORT`), respaldo semanal con `mongodump` a GCS (Workload Identity Federation y URI leída de Secret Manager al ejecutarse), revisión de la configuración de Vercel de web y admin, variables de producción de cada app y runbook `docs/runbooks/despliegue.md` con los pasos manuales y la reversión.
@@ -154,7 +154,7 @@
 - [x] BLOG-131: ADR-027: RAG sobre los posts publicados del autor para el asistente de escritura (embeddings de Gemini, colección `post_chunks`, similitud coseno en memoria, `RAG_ENABLED=false` por defecto). ([#141](https://github.com/HuitziDomingo/personal-blog/pull/141))
 - [ ] BLOG-132: RAG en la API (ADR-027): puertos `Embedder` y `ChunkRepository`, adaptador de embeddings de Gemini y fake, divisor propio por `##` sin cortar bloques de código, colección `post_chunks` con índices, indexación al publicar, editar o archivar con `contentHash`, endpoint para reindexar todo, búsqueda coseno en memoria (top-4, umbral configurable, sin el post actual), operación «mejorar con contexto» en el contrato y set de evaluación con recall@4 que se corre a mano.
 - [ ] BLOG-133: RAG en el admin (ADR-027): botón «Mejorar con mi contexto» en el panel del asistente con la sugerencia y los posts usados como contexto (con su link), y botón «Reindexar todo» en ajustes.
-- [x] BLOG-136: ADR-028: página de CV en la web (`/cv` y `/en/resume`) con contenido HTML en los archivos de contenido y PDF vigente por idioma subido desde el admin. (PR_LINK)
+- [x] BLOG-136: ADR-028: página de CV en la web (`/cv` y `/en/resume`) con contenido HTML en los archivos de contenido y PDF vigente por idioma subido desde el admin. ([#142](https://github.com/HuitziDomingo/personal-blog/pull/142))
 - [ ] BLOG-137: CV en la API (ADR-028): subida del PDF solo para admin (firma `%PDF-`, 2 MB máximo, límite de peticiones propio, nombre generado por la API), versiones con una vigente por idioma, metadatos en MongoDB, almacenamiento de ADR-026 bajo el prefijo `cv/` y operación pública con la URL del PDF vigente por idioma.
 - [ ] BLOG-138: CV en el admin (ADR-028): pantalla «CV» para subir el PDF por idioma, ver las versiones y marcar la vigente, con el aviso de que el PDF es público.
 - [ ] BLOG-139: CV en la web (ADR-028): `/cv` y `/en/resume` con link en la navegación, contenido en ES y EN y botón de descarga solo si hay un PDF vigente; el cargo en TCS alineado con el portafolio.
