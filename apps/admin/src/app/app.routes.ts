@@ -35,6 +35,11 @@ export const routes: Routes = [
         title: 'Comentarios · Admin',
         loadComponent: () => import('./features/comments/comments-queue.page').then((m) => m.CommentsQueuePage),
       },
+      {
+        path: 'cv',
+        title: 'CV · Admin',
+        loadComponent: () => import('./features/cv/cv.page').then((m) => m.CvPage),
+      },
       { path: '', pathMatch: 'full', redirectTo: 'posts' },
     ],
   },
