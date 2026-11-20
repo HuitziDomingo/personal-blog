@@ -333,6 +333,7 @@ make web-test       # Vitest de lib/
   - `/`: portada (isla 3D, presentación, acerca de mí, biografía, últimos 3 posts y redes).
   - `/works` y `/works/[id]`: trabajos, estáticos, con los datos de `lib/site.ts` y los textos de `lib/content`. Un id que no está ahí da 404.
   - `/en`, `/en/works` y `/en/works/[id]`: el portafolio en inglés ([ADR-024](adr/024-portafolio-bilingue.md)). El blog no se duplica: desde inglés, el link al blog avisa que está en español.
+  - `/cv` y `/en/resume`: el CV en HTML ([ADR-028](adr/028-pagina-de-cv.md)), con los textos de `lib/content` (`cv` y `ui.cv`) y el contacto de `lib/site.ts` (sin teléfono ni email). Piden `GET /api/v1/cv` con el mismo ISR que el resto y muestran «Descargar PDF» solo si hay un PDF vigente de su idioma con URL `http` o `https`; si la API no responde, la página sale igual, sin el botón. `localizedPath('en', '/cv')` da `/en/resume`, y el selector de idioma y el sitemap usan esa misma tabla.
   - `/blog`, `/blog/page/[n]` y `/blog/[slug]`: lista de posts paginada de 20 en 20 y cada post. La página 1 es `/blog` (`/blog/page/1` redirige con 308) y cada página tiene su canónica; una página fuera de rango responde 404. `/posts` y `/posts/[slug]` redirigen (308) a `/blog`.
   - `/sitemap.xml`, `/robots.txt` y `/feed.xml` (RSS de los últimos 20 publicados), con ISR de 60 s. `/og.png` es la imagen Open Graph por defecto, generada en el build.
 - **Idiomas** ([ADR-024](adr/024-portafolio-bilingue.md)):
