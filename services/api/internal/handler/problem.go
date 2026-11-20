@@ -113,6 +113,8 @@ func handlerError(c *gin.Context, err error) {
 		writeProblem(c, http.StatusServiceUnavailable, detailModerationDisabled)
 	case errors.Is(err, domain.ErrModerationUnavailable):
 		writeProblem(c, http.StatusServiceUnavailable, detailModerationUnavailable)
+	case errors.Is(err, domain.ErrRAGDisabled):
+		writeProblem(c, http.StatusServiceUnavailable, detailRAGDisabled)
 	case errors.Is(err, domain.ErrAssistantDisabled):
 		writeProblem(c, http.StatusServiceUnavailable, detailAssistantDisabled)
 	case errors.Is(err, domain.ErrAssistantInvalidOutput):

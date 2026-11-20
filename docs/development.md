@@ -169,6 +169,13 @@ npx @modelcontextprotocol/inspector@2.13.0 \
 | `ASSISTANT_TIMEOUT_SECONDS` | No | `30` | Timeout de una llamada a Gemini. Las rutas del asistente alargan el `WriteTimeout` del servidor (15 s) a este valor más 10 s. El SDK le pasa el plazo a Gemini, que responde 504 `DEADLINE_EXCEEDED` justo antes de que venza; en el log cuenta como `timeout`. Cada llamada deja una línea `writing assistant call` con operación, modelo, latencia, tokens y resultado, y en un fallo la causa en `reason` (por ejemplo `gemini responded 503 UNAVAILABLE`), nunca el borrador |
 | `ASSISTANT_THINKING_LEVEL` | No | `low` | Razonamiento del modelo en las tres operaciones: `minimal`, `low`, `medium` o `high`. Bajo porque corregir la redacción y sugerir metadatos no lo necesitan; con el del modelo, `gemini-3.8-flash` tardó de 20 s a más de 3 min. No todos los modelos aceptan `minimal` (`gemini-3.8-flash` responde 400). Otro valor detiene la API |
 | `ASSISTANT_MAX_OUTPUT_TOKENS` | No | `16384` | Tokens máximos de la respuesta de Gemini, razonamiento incluido. Alcanza para reescribir un borrador de 50 000 caracteres. Una salida cortada responde 503 por salida inválida. Otro valor que no sea un entero positivo de 32 bits detiene la API |
+| `RAG_ENABLED` | No | `false` | `true` enciende el RAG sobre los posts publicados (ADR-027): «mejorar con contexto», el índice `post_chunks` y el reindexado. Exige `ASSISTANT_ENABLED=true`; sin él, la API no arranca. Con `false`, «mejorar con contexto» y el reindexado responden 503 `rag is disabled`, el estado responde `enabled: false` y nada se indexa. Otro valor detiene la API |
+| `RAG_EMBEDDING_MODEL` | No | `gemini-embedding-2` | Modelo de embeddings (GA desde el 22 de abril de 2026, plan gratuito), con vectores de 768 dimensiones. Con `gemini-embedding-001` la tarea va en `taskType`; con los demás, como prefijo del texto. Si cambia, la búsqueda ignora los fragmentos del modelo anterior hasta reindexar |
+| `RAG_MIN_SCORE` | No | `0.55` | Similitud coseno mínima, entre 0 y 1, para usar un fragmento como contexto. Se ajusta con `make api-rag-eval`. Otro valor detiene la API |
+| `RAG_CHUNK_MAX_CHARS` | No | `800` | Tamaño máximo de un fragmento. Un bloque de código más largo queda entero en un solo fragmento. Cambiarlo cambia el `contentHash`: los posts se vuelven a indexar al editarlos o al reindexar |
+| `RAG_TIMEOUT_SECONDS` | No | `10` | Timeout de cada llamada de embeddings. «Mejorar con contexto» alarga el `WriteTimeout` del servidor a este valor más `ASSISTANT_TIMEOUT_SECONDS` y 10 s |
+| `RAG_INDEX_TIMEOUT_SECONDS` | No | `30` | Timeout de la indexación en segundo plano de un post al guardarlo. Si falla o vence, el post queda pendiente y lo registra `rag index post failed` |
+| `RAG_REINDEX_TIMEOUT_SECONDS` | No | `120` | Plazo de escritura de `POST /api/v1/admin/rag/reindex`, que espera a que termine el reindexado |
 | `INITIAL_ADMIN_EMAIL` | No | | Email del administrador inicial |
 | `INITIAL_ADMIN_PASSWORD` | No | | Contraseña del administrador inicial |
 | `LOG_FORMAT` | No | `text` | `text` (key=value, para la terminal) o `json` (una línea por evento con `severity`, `message` y `time`, los campos de Cloud Logging). En `json`, el access log también es JSON, con el grupo `httpRequest` que Cloud Logging muestra como petición HTTP: solo la ruta (sin query), y severidad `ERROR` para 5xx, `WARNING` para 4xx salvo 401 y 404, e `INFO` para el resto. Un `LOG_FORMAT` inválido detiene la API con el error ya en JSON |
@@ -205,6 +212,7 @@ La API arranca con cualquier configuración válida, pero algunas la dejan inút
 | `ASSISTANT_ENABLED`, `GEMINI_API_KEY` y `GEMINI_MODEL` | Apagado; para probarlo, una key propia en `.env` | La key desde Secret Manager, de un proyecto de Google sin facturación y separado del de la API (ADR-021) |
 | `COMMENTS_ENABLED` | `false`; `true` para probar los comentarios | `true` en la API y en la web a la vez (BLOG-093). `ALLOWED_ORIGINS` debe incluir el origen de la web, porque el navegador envía los comentarios directo a la API |
 | `COMMENTS_MODERATION_ENABLED`, `COMMENTS_MODERATION_MODEL` y `COMMENTS_MODERATION_MAX_OUTPUT_TOKENS` | Apagada; para probarla, la misma key del asistente, con `gemini-3.6-flash` y 512 | Encendida con `gemini-3.6-flash` y 512, la key desde Secret Manager |
+| `RAG_ENABLED` y `RAG_MIN_SCORE` | Apagado; para probarlo, con el asistente encendido y el umbral medido con `make api-rag-eval` | Apagado al lanzar (ADR-025, punto 10); se enciende con la variable, sin desplegar código |
 
 Los valores de producción son los previstos; el despliegue está pendiente (BLOG-054 y BLOG-022).
 
@@ -217,6 +225,7 @@ Los valores de producción son los previstos; el despliegue está pendiente (BLO
 | `make api-test` | Corre los tests de Go con `-race`; los de integración se saltan |
 | `make api-test-integration` | Levanta MongoDB y corre los tests de `internal/repository` contra él |
 | `make api-moderation-samples` | Corre los comentarios de ejemplo de la moderación contra Gemini real (`gemini-3.6-flash`). Gasta cuota: nunca en CI |
+| `make api-rag-eval` | Mide recall@4 del RAG con embeddings reales sobre el set de `internal/assistant/gemini/testdata/rag_eval.json` (ADR-027, punto 12) e imprime, por consulta, los 4 fragmentos más parecidos y cuáles superan el umbral. `RAG_EVAL_MODEL` y `RAG_MIN_SCORE` cambian modelo y umbral. Gasta cuota: nunca en CI |
 | `make api-lint` | Corre `golangci-lint` |
 | `make web-dev` | Levanta `apps/web` con `next dev` en `http://localhost:3000`; con `WEB_API_BASE_URL=<origen>` usa otra API |
 | `make web-build` | Build de producción de la web contra la API local (o `WEB_API_BASE_URL`) |
@@ -733,3 +742,18 @@ ADR-022. Los lectores comentan los posts publicados sin cuenta, y nada se public
   - `comments-client.tsx` es el formulario (componente de cliente): nombre, comentario con contador, aviso de IA y privacidad y el campo trampa `website`, fuera de pantalla, con `aria-hidden`, `tabindex=-1` y `autocomplete=off`. Envía directo a la API sin cookies. Estados: en revisión (202, con una tarjeta «Pendiente · solo tú lo ves» que se pierde al recargar), no publicado (400), demasiados intentos (429, conserva el texto), no disponible (404) y error. «Responder» elige el comentario padre.
   - `/comentarios/reglas` (`app/(es)/comentarios/reglas/`) explica la moderación, los datos y los límites (ADR-022, punto 9). Está fuera de `/blog` para que no tape a un post con ese slug, y entra al sitemap solo con `COMMENTS_ENABLED=true`.
   - **Probar en local:** levanta la API con `COMMENTS_ENABLED=true` y `ALLOWED_ORIGINS` con el origen de la web, y la web con `COMMENTS_ENABLED=true` (`COMMENTS_ENABLED=true make web-build` y `make web-start`).
+
+## RAG sobre los posts publicados
+
+ADR-027. «Mejorar con mi contexto» sugiere mejoras al borrador con los fragmentos más parecidos de los posts publicados. Es un workflow fijo, no un agente: fragmentar, generar embeddings, buscar, aumentar el prompt y generar. Apagado por defecto (`RAG_ENABLED=false`) y solo funciona con el asistente encendido.
+
+- **Indexación:**
+  - Al crear, editar o archivar un post, `PostService` avisa al RAG, que lo indexa en segundo plano: el guardado no espera a Gemini. Si el post está publicado y cambió su `contentHash` (título, slug, contenido, tamaño de fragmento y versión del divisor) o el modelo, se regeneran sus fragmentos. Si no está publicado, se borran.
+  - Si fallan los embeddings, el post se guarda igual y queda pendiente (`rag index post failed` en el log). Las indexaciones van de una en una, y la API las espera al apagarse.
+  - **Divisor** (`service.SplitMarkdown`): una sección por cada `##` (no `#` ni `###`), con el título de la sección en cada fragmento. Dentro de la sección agrupa párrafos hasta `RAG_CHUNK_MAX_CHARS`, nunca corta un bloque de código (``` o ~~~) y corta por palabras un párrafo más largo. Un `##` dentro de un bloque de código no abre sección.
+  - **Datos:** colección `post_chunks` (post, slug, título, sección, posición, texto, vector de 768, modelo y `contentHash`), con índices en `post_id` + `position` y en `model`. Solo posts publicados del autor, nunca comentarios.
+- **Admin:**
+  - `POST /api/v1/admin/assistant/improve-with-context` recibe `{ "title", "content", "postId"? }`. Convierte el borrador en embedding de consulta, compara en memoria contra todos los fragmentos del modelo actual, toma los 4 mejores que superan `RAG_MIN_SCORE` sin los de `postId` y pide la sugerencia con ellos como datos. Responde `suggestion` (Markdown no confiable), `internalLinks` y `contradictions` (solo a posts recuperados; si el modelo inventa otro, 503 por salida inválida) y `context`, los fragmentos usados. Sin fragmentos sobre el umbral, la sugerencia se pide sin contexto. Comparte el bucket del asistente.
+  - `GET /api/v1/admin/rag/status` devuelve `enabled`, el modelo y cuántos posts publicados están indexados al día y cuántos pendientes. Con el RAG apagado responde `enabled: false`.
+  - `POST /api/v1/admin/rag/reindex` regenera todos los publicados y borra los fragmentos de los demás. Cada post se reemplaza solo si sus embeddings se generaron; al primer fallo del proveedor se detiene y el resto queda en `pending`. Comparte el bucket del asistente.
+- **Evaluación:** `make api-rag-eval` mide recall@4 con el modelo real sobre `internal/assistant/gemini/testdata/rag_eval.json` (10 posts de ejemplo y 11 consultas). Nunca corre en CI; en CI solo se comprueba que el set esté completo. La tabla marca con `*` los fragmentos que superan el umbral, para ajustar `RAG_MIN_SCORE`.

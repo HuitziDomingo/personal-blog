@@ -73,6 +73,8 @@ type Config struct {
 
 	Assistant Assistant
 
+	RAG RAG
+
 	Comments Comments
 
 	// Opcionales: solo se usan para crear el administrador inicial.
@@ -143,6 +145,11 @@ func Load() (Config, error) {
 		return Config{}, err
 	}
 
+	rag, err := loadRAG(assistant)
+	if err != nil {
+		return Config{}, err
+	}
+
 	var limits [len(rateLimitSpecs)]RateLimit
 	for i, spec := range rateLimitSpecs {
 		if limits[i], err = loadRateLimit(spec); err != nil {
@@ -159,6 +166,7 @@ func Load() (Config, error) {
 		UserRateLimit:        limits[4],
 		AssistantRateLimit:   limits[5],
 		Assistant:            assistant,
+		RAG:                  rag,
 		Comments:             comments,
 		Port:                 port,
 		MongoURI:             mongoURI,

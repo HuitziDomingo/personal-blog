@@ -7,9 +7,12 @@ request:
 
 docs:
   content: |-
-    Asistente de escritura (ADR-021) con la configuración por defecto,
-    ASSISTANT_ENABLED=false: las tres operaciones responden 503 y nada llega a
-    Gemini. Con el asistente encendido, este flujo falla a propósito en vez de
-    gastar la cuota del plan gratuito. Pide adminEmail y adminPassword,
+    Asistente de escritura (ADR-021) y RAG (ADR-027) con la configuración por
+    defecto, ASSISTANT_ENABLED=false y RAG_ENABLED=false: las operaciones
+    responden 503 y nada llega a Gemini, y el estado del RAG responde
+    enabled: false. Con el asistente o el RAG encendidos, este flujo falla a
+    propósito en vez de gastar la cuota del plan gratuito. El reindexado no
+    está aquí: comparte el bucket del asistente (5 por defecto), que este
+    flujo ya agota; lo cubren los tests del handler. Pide adminEmail y adminPassword,
     variables secretas del environment local.
   type: text/markdown

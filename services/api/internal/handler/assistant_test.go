@@ -232,7 +232,7 @@ func TestNewRouterRequiresAnAssistant(t *testing.T) {
 func TestAssistantOutlivesTheServerWriteTimeout(t *testing.T) {
 	cfg := testRouterConfig()
 	cfg.Assistant = &fakeAssistant{improved: "ok", wait: 300 * time.Millisecond}
-	cfg.AssistantTimeout = time.Second
+	cfg.WriteDeadlines = WriteDeadlines{Assistant: time.Second}
 	router := newTestRouterWith(t, cfg)
 
 	server := httptest.NewUnstartedServer(router)

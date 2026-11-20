@@ -241,7 +241,7 @@ func (r *rateLimiter) handle(c *gin.Context) {
 
 	// Sin sesión, la operación responde 401 sin llegar al proveedor: basta
 	// el bucket global.
-	if authenticated && strings.HasPrefix(path, assistantPathPrefix) {
+	if authenticated && (strings.HasPrefix(path, assistantPathPrefix) || path == reindexPath) {
 		admit(c, r.assistant, userID)
 
 		return
