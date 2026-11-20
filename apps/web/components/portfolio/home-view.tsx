@@ -1,10 +1,10 @@
 import { Box, Button, Flex, Heading, Link, Stack, Text } from '@chakra-ui/react';
 import type { Metadata } from 'next';
-import Image from 'next/image';
 import NextLink from 'next/link';
 
 import perfil from '@/assets/img/perfil.webp';
 import { SocialIcon } from '@/components/brand-icons';
+import { BlurImage } from '@/components/blur-image';
 import { ExternalLink } from '@/components/external-link';
 import { ChevronRightIcon } from '@/components/icons';
 import { IslandHero } from '@/components/island/island-hero';
@@ -44,13 +44,12 @@ export function HomeView({ content, latest }: { content: SiteContent; latest: re
             </Text>
           </Stack>
           <Box flexShrink={0} borderRadius="full" borderWidth="3px" borderColor="brand.accent" overflow="hidden">
-            <Image
+            <BlurImage
               src={perfil}
               alt={ui.home.photoAlt}
               width={112}
               height={112}
-              priority
-              placeholder="blur"
+              preload
               style={{ objectFit: 'cover', width: '112px', height: '112px' }}
             />
           </Box>
