@@ -50,13 +50,13 @@ export const es: SiteContent = {
       period: "2021 – 2022",
       title: "Frontend Developer en Black Trust.",
       description:
-        "Aplicación web con React, Firebase, Material UI y Sass, y microservicios con Express.js.",
+        "Aplicación web con React, Node.js, MongoDB, Firebase, Material UI, Sass y Express.js.",
     },
     {
       period: "2020",
       title: "Frontend Developer en Deq.",
       description:
-        "Sitios web a partir de diseños en Adobe XD, con Bootstrap y jQuery.",
+        "Sitios en WordPress con CSS y JavaScript propios, a partir de diseños en Adobe XD, y algo de Symfony/Twig.",
     },
     {
       period: "2018",
@@ -183,7 +183,7 @@ export const es: SiteContent = {
         place: "Ciudad de México",
         period: "2020",
         points: [
-          "Desarrollé y mantuve sitios web responsivos con diseños a la medida, usando Bootstrap, Twig y jQuery.",
+          "Desarrollé sitios en WordPress con CSS y JavaScript propios, a partir de diseños en Adobe XD, y algo de Symfony/Twig.",
         ],
       },
     ],

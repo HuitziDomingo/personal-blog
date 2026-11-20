@@ -55,10 +55,11 @@ describe("CvView (ADR-028)", () => {
       "Interim Tech Lead &amp; Senior Developer — Angular / Node.js"
     );
     expect(out).toContain(
-      'href="https://www.linkedin.com/in/huitzitzili-domingo"'
+      'href="https://www.linkedin.com/in/huitzitzili-domingo-le%C3%B3n-nieves-0b32a953/"'
     );
+    expect(out).toContain('href="mailto:huitzitzilidomingo@gmail.com"');
     expect(out).toContain('href="https://github.com/HuitziDomingo"');
-    expect(out).not.toMatch(/tel:|mailto:/);
+    expect(out).not.toMatch(/tel:/);
   });
 
   it("tiene un solo h1, con el nombre", () => {

@@ -30,6 +30,13 @@ export interface ExternalLink {
   href: string;
 }
 
+/** URL de LinkedIn: una sola fuente para el pie, la portada y el CV. */
+export const LINKEDIN_URL =
+  "https://www.linkedin.com/in/huitzitzili-domingo-le%C3%B3n-nieves-0b32a953/";
+
+/** Correo público de contacto (solo en la página de CV, como mailto). */
+export const CONTACT_EMAIL = "huitzitzilidomingo@gmail.com";
+
 export const socialLinks: readonly ExternalLink[] = [
   {
     network: "GitHub",
@@ -44,22 +51,23 @@ export const socialLinks: readonly ExternalLink[] = [
   {
     network: "LinkedIn",
     label: "@HuitziDomingo",
-    href: "https://www.linkedin.com/in/huitzitzili-domingo-le%C3%B3n-nieves-0b32a953/",
+    href: LINKEDIN_URL,
   },
 ];
 
 export const debredUrl = "https://www.debred.com";
 
 /**
- * Contacto del CV (ADR-028, punto 7): sin teléfono ni email. El PDF y la
- * página son públicos; el CV completo se manda a los reclutadores aparte.
+ * Contacto del CV (ADR-028, punto 7): nunca el teléfono. El PDF y la página
+ * son públicos; el CV completo se manda a los reclutadores aparte.
  */
 export const cvContact: readonly ExternalLink[] = [
+  { network: "Email", label: CONTACT_EMAIL, href: `mailto:${CONTACT_EMAIL}` },
   { network: "Web", label: "huitzi.xyz", href: "https://huitzi.xyz" },
   {
     network: "LinkedIn",
-    label: "linkedin.com/in/huitzitzili-domingo",
-    href: "https://www.linkedin.com/in/huitzitzili-domingo",
+    label: "linkedin.com/in/huitzitzili-domingo-león-nieves",
+    href: LINKEDIN_URL,
   },
   {
     network: "GitHub",

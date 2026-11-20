@@ -51,13 +51,13 @@ export const en: SiteContent = {
       period: "2021 – 2022",
       title: "Frontend Developer at Black Trust.",
       description:
-        "Web app with React, Firebase, Material UI and Sass, plus Express.js microservices.",
+        "Web app with React, Node.js, MongoDB, Firebase, Material UI, Sass and Express.js.",
     },
     {
       period: "2020",
       title: "Frontend Developer at Deq.",
       description:
-        "Websites built from Adobe XD designs, using Bootstrap and jQuery.",
+        "WordPress sites with custom CSS and JavaScript, built from Adobe XD designs, plus some Symfony/Twig.",
     },
     {
       period: "2018",
@@ -186,7 +186,7 @@ export const en: SiteContent = {
         place: "Mexico City",
         period: "2020",
         points: [
-          "Developed and maintained responsive websites with custom designs using Bootstrap, Twig and jQuery.",
+          "Built WordPress sites with custom CSS and JavaScript from Adobe XD designs, plus some Symfony/Twig.",
         ],
       },
     ],
