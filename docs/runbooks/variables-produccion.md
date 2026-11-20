@@ -44,15 +44,16 @@ Al mergear cada PR, agrega sus variables a `production.env.yaml` (y los secretos
 |---|---|---|---|
 | `RAG_ENABLED` | #144 (BLOG-132) | Archivo | `false` (ADR-025, punto 10) |
 | `RAG_EMBEDDING_MODEL`, `RAG_MIN_SCORE`, `RAG_CHUNK_MAX_CHARS`, `RAG_TIMEOUT_SECONDS`, `RAG_INDEX_TIMEOUT_SECONDS`, `RAG_REINDEX_TIMEOUT_SECONDS` | #144 | Archivo o por defecto | por defecto; `RAG_MIN_SCORE` según `make api-rag-eval` |
-| `FILES_STORE` | #143 (BLOG-137) y el PR del adaptador de GCS | Archivo | `gcs` cuando exista el adaptador |
-| Bucket de `FILES_*` (nombre exacto según el PR del adaptador de GCS) | PR del adaptador de GCS | Archivo | `<FILES_BUCKET>` |
-| `FILES_LOCAL_DIR`, `FILES_LOCAL_BASE_URL` | #143 | — | solo desarrollo, sin definir |
-| `RATE_LIMIT_CV_UPLOADS_MAX`, `RATE_LIMIT_CV_UPLOADS_WINDOW_MINUTES` | #143 | — | por defecto |
+| `FILES_STORE` | #148 (adaptador de GCS) y #143 (BLOG-137); pendiente de merge de #148 | Archivo | `gcs`. Vacía: sin almacén y subir el CV responde 503 |
+| `FILES_GCS_BUCKET` | #148, pendiente de merge | Archivo | `<FILES_BUCKET>`; obligatoria con `FILES_STORE=gcs` |
+| `FILES_GCS_PUBLIC_URL` | #148, pendiente de merge | — | sin definir: `https://storage.googleapis.com` (si se define, debe ser `https`) |
+| `FILES_LOCAL_DIR`, `FILES_LOCAL_BASE_URL` | #143 y #148 | — | solo desarrollo (`FILES_STORE=local`), sin definir |
+| `RATE_LIMIT_CV_UPLOADS_MAX`, `RATE_LIMIT_CV_UPLOADS_WINDOW_MINUTES` | #143 y #148 | — | por defecto |
 | `IMAGES_ENABLED` | #128 (BLOG-112) | Archivo | `false` (ADR-025, punto 10) |
 | `CLOUDFLARE_ACCOUNT_ID` | #128 | Archivo | `<CLOUDFLARE_ACCOUNT_ID>` (no es secreto) |
 | `CLOUDFLARE_AI_TOKEN` | #128 | SM `cloudflare-ai-token` | secreto (BLOG-114) |
 | `IMAGES_TIMEOUT_SECONDS`, `RATE_LIMIT_IMAGES_{PER_MINUTE,BURST,PER_DAY}` | #128 | — | por defecto |
-| `IMAGES_STORE`, `IMAGES_GCS_BUCKET`, `IMAGES_LOCAL_*` | #128 | — | se reemplazan por `FILES_*` (decisión de León) |
+| `IMAGES_STORE`, `IMAGES_GCS_BUCKET`, `IMAGES_LOCAL_*` | #128 | — | se reemplazan por `FILES_*` de #148 (decisión de León) |
 
 ## Web (Vercel, proyecto `apps/web`)
 

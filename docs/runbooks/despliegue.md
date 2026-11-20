@@ -12,7 +12,7 @@ Variables de entorno de cada app: [variables-produccion.md](variables-produccion
 | `<PROJECT_NUMBER>` | Número del proyecto | `gcloud projects describe <PROJECT_ID> --format='value(projectNumber)'` |
 | `<BILLING_ACCOUNT_ID>` | Cuenta de facturación | `gcloud billing accounts list` |
 | `<GITHUB_REPO_ID>` | Id numérico del repo en GitHub (no cambia si se renombra) | `gh api repos/HuitziDomingo/personal-blog --jq .id` |
-| `<FILES_BUCKET>` | Bucket público de portadas y CV | Lo eliges en el paso 8 (único en todo GCS) |
+| `<FILES_BUCKET>` | Bucket público de portadas y CV (`FILES_GCS_BUCKET`) | Lo eliges en el paso 8 (único en todo GCS) |
 | `<BACKUP_BUCKET>` | Bucket privado de respaldos | Lo eliges en el paso 8 |
 | `<ADMIN_EMAIL>` | Email del administrador inicial | Tuyo |
 
@@ -203,6 +203,10 @@ gcloud storage buckets add-iam-policy-binding gs://<FILES_BUCKET> \
 gcloud storage buckets add-iam-policy-binding gs://<FILES_BUCKET> \
   --member="serviceAccount:$RUNTIME_SA" --role=roles/storage.objectUser
 ```
+
+La API lo usa con `FILES_STORE=gcs` y `FILES_GCS_BUCKET=<FILES_BUCKET>` (pendiente de merge de #148; agrégalas a `services/api/deploy/production.env.yaml` al mergearlo). `FILES_GCS_PUBLIC_URL` se deja sin definir: las URLs públicas salen de `https://storage.googleapis.com`. La API se autentica con la cuenta `api-runtime` de Cloud Run (Application Default Credentials), sin llaves.
+
+> **Pendiente de decisión de León (ADR-028, punto 6):** GCS **no envía `X-Content-Type-Options: nosniff`** en los objetos públicos, y no hay forma de agregar esa cabecera desde los metadatos del objeto. El `Content-Type: application/pdf` sí se fija al subir y el archivo se sirve desde `storage.googleapis.com`, aislado de `huitzi.xyz` y `admin.huitzi.xyz`, que es la defensa principal. Opciones: aceptar el riesgo y corregir ADR-028 con un ADR nuevo, o servir los archivos a través de algo que sí ponga la cabecera (la propia API o un balanceador; este último cuesta unos $18 USD al mes, ADR-025). Compruébalo tras el primer PDF: `curl -sSI https://storage.googleapis.com/<FILES_BUCKET>/cv/<archivo>.pdf`.
 
 **Respaldos:** privado, con borrado a los 90 días (ADR-025, punto 5). Archivo `lifecycle.json` fuera del repo:
 
