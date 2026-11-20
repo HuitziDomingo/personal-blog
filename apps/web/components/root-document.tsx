@@ -10,6 +10,7 @@ import type { SiteContent } from '@/lib/content';
 import { RSS_ALTERNATE } from '@/lib/seo';
 import { profile } from '@/lib/site';
 
+import { Aurora } from './aurora';
 import { Provider } from './provider';
 import { SiteFooter } from './site-footer';
 import { SiteHeader } from './site-header';
@@ -60,6 +61,7 @@ export function RootDocument({ content, children }: { content: SiteContent; chil
         <script dangerouslySetInnerHTML={{ __html: colorModeScript }} />
       </head>
       <body>
+        <Aurora />
         <Provider>
           <SkipLink label={content.ui.skipLink} />
           <SiteHeader locale={content.locale} ui={content.ui} />

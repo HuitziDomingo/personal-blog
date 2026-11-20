@@ -39,6 +39,34 @@ const config = defineConfig({
     '.blur-up > img[data-blur-loading]': {
       '@media (prefers-reduced-motion: no-preference)': { opacity: 0 },
     },
+    // Fondo aurora (components/aurora.tsx, lib/aurora.ts). Capa fija detrás de
+    // todo (z-index -1 sobre el fondo del body, que pasa al lienzo), recortada
+    // a la pantalla: sin scroll horizontal ni efecto en el layout. Cada mancha
+    // es un gradiente radial que ya nace borroso; se anima solo transform y
+    // opacity. Quieta con prefers-reduced-motion.
+    '.aurora': {
+      position: 'fixed',
+      inset: '0',
+      zIndex: '-1',
+      overflow: 'hidden',
+      pointerEvents: 'none',
+      contain: 'layout paint',
+    },
+    '.aurora > span': {
+      position: 'absolute',
+      borderRadius: '50%',
+      background: 'radial-gradient(closest-side, rgb(var(--aurora-rgb) / var(--aurora-alpha-light)), transparent)',
+      '@media (prefers-reduced-motion: no-preference)': {
+        animationName: 'aurora-deriva',
+        animationTimingFunction: 'ease-in-out',
+        animationIterationCount: 'infinite',
+        animationDirection: 'alternate',
+        willChange: 'transform, opacity',
+      },
+    },
+    '.dark .aurora > span': {
+      background: 'radial-gradient(closest-side, rgb(var(--aurora-rgb) / var(--aurora-alpha-dark)), transparent)',
+    },
     '.sr-only': {
       position: 'absolute',
       width: '1px',
@@ -58,6 +86,14 @@ const config = defineConfig({
       entrada: {
         from: { opacity: '0', transform: 'translateY(0.5rem)' },
         to: { opacity: '1', transform: 'none' },
+      },
+      // Fondo aurora: va y vuelve (alternate) entre la posición de reposo y el
+      // desplazamiento de cada mancha. La opacidad máxima (1) es la del test
+      // de contraste de lib/aurora.ts.
+      'aurora-deriva': {
+        '0%': { transform: 'translate3d(0, 0, 0) scale(1)', opacity: '0.75' },
+        '50%': { opacity: '1' },
+        '100%': { transform: 'translate3d(var(--aurora-dx), var(--aurora-dy), 0) scale(var(--aurora-scale))', opacity: '0.85' },
       },
     },
     tokens: {
