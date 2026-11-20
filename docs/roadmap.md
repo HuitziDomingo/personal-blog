@@ -75,9 +75,9 @@
 - [x] BLOG-049: Incluir Makefile y scripts de generación en el filtro del job api (va en el ADR de BLOG-021). ([#34](https://github.com/HuitziDomingo/personal-blog/pull/34))
 - [x] BLOG-037: Crear el `Dockerfile` multi-stage de la API y compilarlo en CI, sin publicar la imagen (ADR-004). ([#19](https://github.com/HuitziDomingo/personal-blog/pull/19))
 - [x] BLOG-054: ADR de despliegue: Cloud Run, dominio de la API (api.huitzi.xyz) y certificados. Resuelta con ADR-025. ([#142](https://github.com/HuitziDomingo/personal-blog/pull/142))
-- [ ] BLOG-022: Configurar pipeline de despliegue de la API a GCP Cloud Run.
+- [x] BLOG-022: Configurar pipeline de despliegue de la API a GCP Cloud Run. ([#149](https://github.com/HuitziDomingo/personal-blog/pull/149))
 - [ ] BLOG-041: Verificar en el primer despliegue: rango de proxies, Cache-Control y cookies bajo api.huitzi.xyz.
-- [ ] BLOG-134: Preparación del despliegue en el repo (ADR-025): Dockerfile de la API revisado para Cloud Run (distroless, sin root, `PORT`), respaldo semanal con `mongodump` a GCS (Workload Identity Federation y URI leída de Secret Manager al ejecutarse), revisión de la configuración de Vercel de web y admin, variables de producción de cada app y runbook `docs/runbooks/despliegue.md` con los pasos manuales y la reversión.
+- [x] BLOG-134: Preparación del despliegue en el repo (ADR-025): Dockerfile de la API revisado para Cloud Run (distroless, sin root, `PORT`), respaldo semanal con `mongodump` a GCS (Workload Identity Federation y URI leída de Secret Manager al ejecutarse), revisión de la configuración de Vercel de web y admin, variables de producción de cada app y runbook `docs/runbooks/despliegue.md` con los pasos manuales y la reversión. ([#149](https://github.com/HuitziDomingo/personal-blog/pull/149))
 - [ ] BLOG-135: Infraestructura de producción (León, a mano según el runbook de BLOG-134): proyecto de GCP, APIs, cuentas de servicio, Workload Identity Federation, Secret Manager, Artifact Registry, buckets, Atlas M0, Vercel, DNS en DreamHost, verificación y mapeo del dominio, presupuesto y uptime check.
 - [ ] BLOG-031: Revisar las 3 vulnerabilidades de `govulncheck` en módulos requeridos.
 - [x] BLOG-042: Configurar Dependabot con version updates semanales (ADR-010). ([#22](https://github.com/HuitziDomingo/personal-blog/pull/22))
