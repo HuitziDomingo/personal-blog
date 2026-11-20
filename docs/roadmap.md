@@ -155,6 +155,7 @@
 - [x] BLOG-137: CV en la API (ADR-028): subida del PDF solo para admin (firma `%PDF-`, 2 MB máximo, límite de peticiones propio, nombre generado por la API), versiones con una vigente por idioma, metadatos en MongoDB, almacenamiento de ADR-026 bajo el prefijo `cv/` y operación pública con la URL del PDF vigente por idioma. ([#143](https://github.com/HuitziDomingo/personal-blog/pull/143))
 - [ ] BLOG-138: CV en el admin (ADR-028): pantalla «CV» para subir el PDF por idioma, ver las versiones y marcar la vigente, con el aviso de que el PDF es público.
 - [ ] BLOG-139: CV en la web (ADR-028): `/cv` y `/en/resume` con link en la navegación, contenido en ES y EN y botón de descarga solo si hay un PDF vigente; el cargo en TCS alineado con el portafolio.
+- [x] BLOG-140: Adaptador de GCS para FileStore con una sola configuración FILES_* para portadas y CV (cliente oficial `cloud.google.com/go/storage`). (PR_LINK)
 - [x] ~~BLOG-023: Definir `domain/comment.go` e implementar comentarios.~~ Reemplazada por BLOG-090 (ADR-022). ([#91](https://github.com/HuitziDomingo/personal-blog/pull/91))
 - [x] ~~BLOG-024: Crear vista de moderación de comentarios.~~ Reemplazada por BLOG-092 (ADR-022). ([#91](https://github.com/HuitziDomingo/personal-blog/pull/91))
 - [x] ~~BLOG-025: Agregar `AIModeration` a la moderación de comentarios.~~ Reemplazada por BLOG-091 (ADR-022). ([#91](https://github.com/HuitziDomingo/personal-blog/pull/91))

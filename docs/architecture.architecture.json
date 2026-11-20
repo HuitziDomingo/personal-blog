@@ -10,7 +10,7 @@
       "url": "https://github.com/HuitziDomingo/personal-blog.git",
       "provider": "github",
       "link_mode": "web",
-      "revision": "5cc35502bea496f2f57789806f272504d3bdff3c"
+      "revision": "5db02a8409810f0bd9c82dada4deb3f9bd21ed4a"
     }
   },
   "components": [
@@ -55,12 +55,13 @@
         { "path": "services/api/internal/assistant/gemini/gemini.go", "line": 88, "end_line": 130 },
         { "path": "services/api/cmd/api/main.go", "line": 194, "end_line": 224 }
       ] },
-    { "id": "files_adapter", "type": "backend", "label": "files/localdisk", "sublabel": "PDF del CV · /media/", "pos": [500, 380], "size": [150, 64],
+    { "id": "files_adapter", "type": "backend", "label": "files (disco · GCS)", "sublabel": "portadas y CV · FILES_*", "pos": [500, 380], "size": [150, 64],
       "sources": [
         { "path": "services/api/internal/files/localdisk/localdisk.go", "line": 90, "end_line": 135 },
-        { "path": "services/api/cmd/api/main.go", "line": 227, "end_line": 246 }
+        { "path": "services/api/internal/files/gcs/gcs.go", "line": 121, "end_line": 145 },
+        { "path": "services/api/cmd/api/main.go", "line": 230, "end_line": 266 }
       ] },
-    { "id": "storage", "type": "database", "label": "Almacén de archivos", "sublabel": "disco local · GCS (BLOG-112)", "pos": [500, 540], "size": [150, 64],
+    { "id": "storage", "type": "database", "label": "Almacén de archivos", "sublabel": "disco local · bucket de GCS", "pos": [500, 540], "size": [150, 64],
       "sources": [{ "path": "services/api/internal/service/cv.go", "line": 39, "end_line": 80, "label": "cv/<idioma>/<hash>.pdf" }] },
     { "id": "mongo", "type": "database", "label": "MongoDB", "sublabel": "posts · comments · users · cv_versions", "pos": [1000, 540], "size": [150, 64],
       "sources": [{ "path": "services/api/internal/repository/mongodb/client.go", "line": 27, "end_line": 30 }] },
