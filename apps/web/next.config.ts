@@ -2,7 +2,7 @@ import path from 'node:path';
 
 import type { NextConfig } from 'next';
 
-import { commentsApiOrigin } from './lib/config';
+import { commentsApiOrigin, coverRemotePatterns } from './lib/config';
 import { securityHeaders } from './lib/security-headers';
 
 const isDev = process.env.NODE_ENV === 'development';
@@ -23,8 +23,16 @@ const nextConfig: NextConfig = {
   experimental: { optimizePackageImports: ['@chakra-ui/react'], globalNotFound: true },
   // Sin AGENTS.md generado por next dev dentro de apps/web.
   agentRules: false,
-  // AVIF primero y WebP de respaldo para next/image.
-  images: { formats: ['image/avif', 'image/webp'] },
+  // AVIF primero y WebP de respaldo para next/image. remotePatterns: solo las
+  // portadas bajo COVER_IMAGES_BASE_URL (ADR-026, punto 9); el navegador las
+  // pide a /_next/image, así que img-src de la CSP no cambia. En desarrollo,
+  // con FILES_STORE=local en la API, las portadas salen de localhost, que
+  // next/image rechaza por defecto como IP local.
+  images: {
+    formats: ['image/avif', 'image/webp'],
+    remotePatterns: coverRemotePatterns(),
+    dangerouslyAllowLocalIP: isDev,
+  },
   // /posts era la sección de artículos de la web anterior; el blog vive en /blog.
   redirects: () =>
     Promise.resolve([

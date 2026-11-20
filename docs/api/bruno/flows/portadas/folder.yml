@@ -1,0 +1,16 @@
+info:
+  name: portadas
+  type: folder
+
+request:
+  auth: inherit
+
+docs:
+  content: |-
+    Portadas generadas con IA (ADR-026) con la configuración por defecto,
+    IMAGES_ENABLED=false: la vista previa y aceptar responden 503 y nada llega a
+    Cloudflare ni a Gemini; un token mal formado responde 400 antes; quitar la
+    portada funciona igual. Con las portadas encendidas, este flujo falla a
+    propósito en vez de gastar la cuota. Crea un borrador y lo archiva al final.
+    Pide adminEmail y adminPassword, variables secretas del environment local.
+  type: text/markdown

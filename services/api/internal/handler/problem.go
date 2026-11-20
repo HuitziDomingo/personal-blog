@@ -77,7 +77,7 @@ func requestError(c *gin.Context, err error) {
 // handlerError responde a los errores que devuelven las operaciones.
 // Los errores del login y la sesión se traducen a 401 o 429 sin decir el
 // motivo concreto. Los del dominio de posts y comentarios, a 400, 403, 404 o
-// 409, y los del asistente y la moderación, a 503.
+// 409, y los del asistente, la moderación y las portadas, a 503.
 func handlerError(c *gin.Context, err error) {
 	var tooMany *service.TooManyAttemptsError
 
@@ -107,6 +107,18 @@ func handlerError(c *gin.Context, err error) {
 		writeProblem(c, http.StatusBadRequest, detailInvalidComment)
 	case errors.Is(err, domain.ErrInvalidParent):
 		writeProblem(c, http.StatusBadRequest, detailInvalidParent)
+	// Las portadas van antes que el asistente: la vista previa también
+	// puede fallar en Gemini, y entonces responde con el 503 del asistente.
+	case errors.Is(err, domain.ErrInvalidCoverPreview):
+		writeProblem(c, http.StatusBadRequest, detailInvalidCoverPreview)
+	case errors.Is(err, domain.ErrImagesDisabled):
+		writeProblem(c, http.StatusServiceUnavailable, detailImagesDisabled)
+	case errors.Is(err, domain.ErrImagesQuotaExceeded):
+		writeProblem(c, http.StatusServiceUnavailable, detailImagesQuotaExceeded)
+	case errors.Is(err, domain.ErrImagesUnavailable):
+		writeProblem(c, http.StatusServiceUnavailable, detailImagesUnavailable)
+	case errors.Is(err, domain.ErrCoverStoreUnavailable):
+		writeProblem(c, http.StatusServiceUnavailable, detailCoverStoreUnavailable)
 	// La moderación va antes que el asistente: su error envuelve también el
 	// del adaptador de Gemini, que es un error del asistente.
 	case errors.Is(err, domain.ErrModerationDisabled):

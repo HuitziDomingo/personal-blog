@@ -520,6 +520,117 @@ paths:
         default:
           $ref: "#/components/responses/UnexpectedError"
 
+  /api/v1/admin/posts/{id}/cover/preview:
+    parameters:
+      - $ref: "#/components/parameters/PostId"
+    post:
+      tags: [admin-posts]
+      operationId: generateCoverPreview
+      summary: Genera la vista previa de la portada de un post.
+      description: >-
+        Pide a Gemini la idea de la portada del post guardado (tema y texto
+        alternativo, como suggestCover) y genera la imagen con el tema en una
+        plantilla cerrada (ADR-026, puntos 1 y 7). Devuelve la imagen tal como
+        la generó el proveedor, sin recodificar ni recortar (el recorte 16:9 lo
+        hace la web), y NO la guarda (punto 4): para usarla,
+        el admin la reenvía con `token` a acceptCover antes de `expiresAt`.
+        Sin reintentos. Tiene su propio límite por usuario (punto 8): por
+        defecto 2 por minuto y 20 por día.
+      security:
+        - accessCookie: []
+      responses:
+        "200":
+          description: Vista previa de la portada, sin guardar.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoverPreview"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "503":
+          $ref: "#/components/responses/ImagesUnavailable"
+        default:
+          $ref: "#/components/responses/UnexpectedError"
+
+  /api/v1/admin/posts/{id}/cover:
+    parameters:
+      - $ref: "#/components/parameters/PostId"
+    put:
+      tags: [admin-posts]
+      operationId: acceptCover
+      summary: Acepta la vista previa de la portada de un post.
+      description: >-
+        Guarda en el almacén de portadas la imagen de una vista previa de
+        generateCoverPreview y la asigna al post como portada generada con IA
+        (ADR-026, puntos 4 y 5). La API no confía en el cliente: `token` es una
+        firma de la propia API sobre la imagen exacta, el post, el usuario y el
+        vencimiento, y además comprueba por sus bytes que la imagen es un JPEG,
+        PNG o WebP de al menos 1024 × 576. La guarda tal cual, con su formato,
+        y genera `blurDataUrl`. Un token inválido o vencido, o una imagen
+        distinta de la generada, responde 400. El texto alternativo se puede
+        editar. Esta ruta acepta un cuerpo de hasta 2,7 MiB aunque
+        `MAX_BODY_BYTES` sea menor: la imagen viaja en base64.
+      security:
+        - accessCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CoverAcceptance"
+      responses:
+        "200":
+          description: Post con su portada nueva.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Post"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "413":
+          $ref: "#/components/responses/PayloadTooLarge"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "503":
+          $ref: "#/components/responses/ImagesUnavailable"
+        default:
+          $ref: "#/components/responses/UnexpectedError"
+    delete:
+      tags: [admin-posts]
+      operationId: removeCover
+      summary: Quita la portada de un post.
+      description: >-
+        El post queda sin portada y se sigue publicando igual (ADR-026, punto
+        5). La imagen no se borra del almacén. Quitar la portada de un post sin
+        portada no cambia nada.
+      security:
+        - accessCookie: []
+      responses:
+        "204":
+          description: Post sin portada.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        default:
+          $ref: "#/components/responses/UnexpectedError"
+
   /api/v1/admin/comments:
     get:
       tags: [admin-comments]
@@ -833,6 +944,14 @@ components:
         type: string
 
   parameters:
+    PostId:
+      name: id
+      in: path
+      required: true
+      description: Identificador del post.
+      schema:
+        type: string
+        minLength: 1
     Slug:
       name: slug
       in: path
@@ -953,6 +1072,20 @@ components:
         El asistente está desactivado (ASSISTANT_ENABLED=false), el proveedor
         falló o agotó su cuota, o devolvió una sugerencia que no cumple las
         reglas. `detail` dice cuál.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+    ImagesUnavailable:
+      description: >-
+        La generación de portadas está desactivada
+        (`detail`: "image generation is disabled"), se agotó la cuota diaria
+        del proveedor ("image generation quota exhausted, try again tomorrow"),
+        el proveedor falló, agotó su tiempo o devolvió una imagen inválida
+        ("image generation is unavailable, try again later"), o no se pudo
+        guardar la portada ("cover storage is unavailable, try again later").
+        La vista previa también puede responder con los 503 del asistente, que
+        propone el tema.
       content:
         application/problem+json:
           schema:
@@ -1239,6 +1372,101 @@ components:
             letras, marcas diacríticas, dígitos, el espacio y
             `. , ; : ' " ( ) - ¿ ? ¡ ! « » ’ “ ” – — / % &`.
 
+    Cover:
+      type: object
+      description: >-
+        Portada de un post (ADR-026, punto 5). Opcional: un post sin portada se
+        publica igual. Si `aiGenerated` es true, la web muestra la leyenda
+        «Imagen generada con IA» (punto 6).
+      required: [url, alt, aiGenerated]
+      properties:
+        url:
+          type: string
+          format: uri
+          maxLength: 2048
+          description: >-
+            URL pública de la imagen, tal como la generó el proveedor (JPEG,
+            PNG o WebP de al menos 1024 × 576). La web la recorta a 16:9.
+        alt:
+          type: string
+          maxLength: 250
+          description: Texto alternativo de la imagen.
+        aiGenerated:
+          type: boolean
+          description: Si la imagen se generó con IA.
+        blurDataUrl:
+          type: string
+          maxLength: 4096
+          pattern: "^data:image/png;base64,[A-Za-z0-9+/=]+$"
+          description: >-
+            Placeholder diminuto (16 px de ancho, PNG en base64) que la web
+            muestra borroso mientras carga la portada. Falta en portadas
+            guardadas antes de que existiera.
+
+    CoverPreview:
+      type: object
+      description: >-
+        Vista previa de una portada generada con IA (ADR-026, punto 4). No está
+        guardada en ningún sitio: para usarla se reenvían `image` y `token` a
+        acceptCover.
+      required: [image, contentType, width, height, subject, alt, token, expiresAt]
+      properties:
+        image:
+          type: string
+          format: byte
+          description: La imagen, en base64. Se muestra como `data:` con `contentType`.
+        contentType:
+          type: string
+          description: Tipo de la imagen, detectado por sus bytes `image/jpeg`, `image/png` o `image/webp`.
+        width:
+          type: integer
+          format: int32
+          description: Ancho en píxeles de la imagen del proveedor (al menos 1024).
+        height:
+          type: integer
+          format: int32
+          description: Alto en píxeles de la imagen del proveedor (al menos 576).
+        subject:
+          type: string
+          description: Tema que propuso Gemini y que se usó en la plantilla, en inglés.
+        alt:
+          type: string
+          description: Texto alternativo sugerido, en el idioma del post. Se puede editar al aceptar.
+        token:
+          type: string
+          description: >-
+            Firma de la API sobre la imagen, el post, el usuario y el
+            vencimiento. Se reenvía tal cual a acceptCover.
+        expiresAt:
+          type: string
+          format: date-time
+          description: Hasta cuándo se puede aceptar la vista previa.
+
+    CoverAcceptance:
+      type: object
+      description: La vista previa que se acepta, tal como la devolvió generateCoverPreview.
+      required: [image, token, alt]
+      properties:
+        image:
+          type: string
+          format: byte
+          maxLength: 2796204
+          description: La imagen de la vista previa, en base64 (2 MiB como máximo).
+        token:
+          type: string
+          maxLength: 64
+          pattern: "^[0-9]{1,12}\\.[A-Za-z0-9_-]{43}$"
+          description: El `token` de la vista previa.
+        alt:
+          type: string
+          minLength: 1
+          maxLength: 250
+          pattern: "^[\\p{L}\\p{M}\\p{N} .,;:'\"()¿?¡!«»’“”–—/%&-]+$"
+          description: >-
+            Texto alternativo de la portada. Solo letras, marcas diacríticas,
+            dígitos, el espacio y `. , ; : ' " ( ) - ¿ ? ¡ ! « » ’ “ ” – — / % &`.
+            Se guarda sin espacios en los extremos.
+
     PostSummary:
       type: object
       description: Datos de un post para listados, sin su contenido.
@@ -1265,6 +1493,8 @@ components:
           format: date-time
           nullable: true
           description: Nulo mientras no se haya publicado.
+        cover:
+          $ref: "#/components/schemas/Cover"
         createdAt:
           type: string
           format: date-time

@@ -1,0 +1,35 @@
+info:
+  name: 4 Token mal formado
+  type: http
+  seq: 4
+
+http:
+  method: PUT
+  url: "{{baseUrl}}/api/v1/admin/posts/{{postId}}/cover"
+  body:
+    type: json
+    data: |-
+      {
+        "image": "/9j/4AAQSkZJRg==",
+        "token": "not-a-token",
+        "alt": "Una portada de prueba."
+      }
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "400"
+  scripts:
+    - type: tests
+      code: |-
+        test("the contract rejects the token before the service", function () {
+          expect(res.body.detail).to.include("token");
+        });
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: true
