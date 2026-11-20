@@ -243,4 +243,4 @@ examples:
             "instance": ""
           }
 
-docs: "Pide a Gemini la idea de la portada del post guardado (tema y texto alternativo, como suggestCover) y genera la imagen con el tema en una plantilla cerrada (ADR-026, puntos 1 y 7). Devuelve la imagen ya recortada al tamaño de portada y NO la guarda (punto 4): para usarla, el admin la reenvía con `token` a acceptCover antes de `expiresAt`. Sin reintentos. Tiene su propio límite por usuario (punto 8): por defecto 2 por minuto y 20 por día."
+docs: "Pide a Gemini la idea de la portada del post guardado (tema y texto alternativo, como suggestCover) y genera la imagen con el tema en una plantilla cerrada (ADR-026, puntos 1 y 7). Devuelve la imagen tal como la generó el proveedor, sin recodificar ni recortar (el recorte 16:9 lo hace la web), y NO la guarda (punto 4): para usarla, el admin la reenvía con `token` a acceptCover antes de `expiresAt`. Sin reintentos. Tiene su propio límite por usuario (punto 8): por defecto 2 por minuto y 20 por día."

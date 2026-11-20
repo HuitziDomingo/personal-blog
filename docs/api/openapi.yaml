@@ -530,8 +530,9 @@ paths:
       description: >-
         Pide a Gemini la idea de la portada del post guardado (tema y texto
         alternativo, como suggestCover) y genera la imagen con el tema en una
-        plantilla cerrada (ADR-026, puntos 1 y 7). Devuelve la imagen ya
-        recortada al tamaño de portada y NO la guarda (punto 4): para usarla,
+        plantilla cerrada (ADR-026, puntos 1 y 7). Devuelve la imagen tal como
+        la generó el proveedor, sin recodificar ni recortar (el recorte 16:9 lo
+        hace la web), y NO la guarda (punto 4): para usarla,
         el admin la reenvía con `token` a acceptCover antes de `expiresAt`.
         Sin reintentos. Tiene su propio límite por usuario (punto 8): por
         defecto 2 por minuto y 20 por día.
@@ -569,10 +570,12 @@ paths:
         generateCoverPreview y la asigna al post como portada generada con IA
         (ADR-026, puntos 4 y 5). La API no confía en el cliente: `token` es una
         firma de la propia API sobre la imagen exacta, el post, el usuario y el
-        vencimiento, y además comprueba por sus bytes que la imagen es un JPEG
-        del tamaño de portada. Un token inválido o vencido, o una imagen
+        vencimiento, y además comprueba por sus bytes que la imagen es un JPEG,
+        PNG o WebP de al menos 1024 × 576. La guarda tal cual, con su formato,
+        y genera `blurDataUrl`. Un token inválido o vencido, o una imagen
         distinta de la generada, responde 400. El texto alternativo se puede
-        editar.
+        editar. Esta ruta acepta un cuerpo de hasta 2,7 MiB aunque
+        `MAX_BODY_BYTES` sea menor: la imagen viaja en base64.
       security:
         - accessCookie: []
       requestBody:
@@ -1381,7 +1384,9 @@ components:
           type: string
           format: uri
           maxLength: 2048
-          description: URL pública de la imagen, de 1024 × 576.
+          description: >-
+            URL pública de la imagen, tal como la generó el proveedor (JPEG,
+            PNG o WebP de al menos 1024 × 576). La web la recorta a 16:9.
         alt:
           type: string
           maxLength: 250
@@ -1389,6 +1394,14 @@ components:
         aiGenerated:
           type: boolean
           description: Si la imagen se generó con IA.
+        blurDataUrl:
+          type: string
+          maxLength: 4096
+          pattern: "^data:image/png;base64,[A-Za-z0-9+/=]+$"
+          description: >-
+            Placeholder diminuto (16 px de ancho, PNG en base64) que la web
+            muestra borroso mientras carga la portada. Falta en portadas
+            guardadas antes de que existiera.
 
     CoverPreview:
       type: object
@@ -1404,15 +1417,15 @@ components:
           description: La imagen, en base64. Se muestra como `data:` con `contentType`.
         contentType:
           type: string
-          description: Tipo de la imagen, por ahora `image/jpeg`.
+          description: Tipo de la imagen, detectado por sus bytes `image/jpeg`, `image/png` o `image/webp`.
         width:
           type: integer
           format: int32
-          description: Ancho en píxeles (1024).
+          description: Ancho en píxeles de la imagen del proveedor (al menos 1024).
         height:
           type: integer
           format: int32
-          description: Alto en píxeles (576).
+          description: Alto en píxeles de la imagen del proveedor (al menos 576).
         subject:
           type: string
           description: Tema que propuso Gemini y que se usó en la plantilla, en inglés.
@@ -1437,8 +1450,8 @@ components:
         image:
           type: string
           format: byte
-          maxLength: 699052
-          description: La imagen de la vista previa, en base64 (512 KiB como máximo).
+          maxLength: 2796204
+          description: La imagen de la vista previa, en base64 (2 MiB como máximo).
         token:
           type: string
           maxLength: 64

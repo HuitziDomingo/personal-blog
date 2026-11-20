@@ -74,7 +74,8 @@ examples:
                 "cover": {
                   "url": "",
                   "alt": "",
-                  "aiGenerated": false
+                  "aiGenerated": false,
+                  "blurDataUrl": ""
                 },
                 "createdAt": "",
                 "updatedAt": ""

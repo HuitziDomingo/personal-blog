@@ -10,6 +10,7 @@ import (
 
 	"github.com/HuitziDomingo/personal-blog/services/api/internal/domain"
 	"github.com/HuitziDomingo/personal-blog/services/api/internal/handler/gen"
+	"github.com/HuitziDomingo/personal-blog/services/api/internal/imaging"
 	"github.com/HuitziDomingo/personal-blog/services/api/internal/service"
 )
 
@@ -24,6 +25,19 @@ const (
 // coverPreviewPattern reconoce la ruta que genera una vista previa: la única que
 // llama al proveedor de imágenes, y la única con su bucket y su deadline.
 var coverPreviewPattern = regexp.MustCompile(`^/api/v1/admin/posts/[^/]+/cover/preview$`)
+
+// coverAcceptPattern reconoce la ruta que acepta una portada: la imagen viaja
+// en base64 dentro del JSON, así que tiene su propio límite de cuerpo.
+var coverAcceptPattern = regexp.MustCompile(`^/api/v1/admin/posts/[^/]+/cover$`)
+
+// coverAcceptBodyLimit es el base64 de una imagen de imaging.MaxBytes más
+// margen para el token, el texto alternativo y el JSON. Solo vale para
+// acceptCover: el resto de la API sigue con MAX_BODY_BYTES.
+const coverAcceptBodyLimit int64 = (imaging.MaxBytes+2)/3*4 + 16<<10
+
+func isCoverAccept(method, path string) bool {
+	return method == http.MethodPut && coverAcceptPattern.MatchString(path)
+}
 
 func isCoverPreview(request *http.Request) bool {
 	return request.Method == http.MethodPost && coverPreviewPattern.MatchString(request.URL.Path)
@@ -98,7 +112,12 @@ func toCover(cover *domain.Cover) *gen.Cover {
 		return nil
 	}
 
-	return &gen.Cover{Url: cover.URL, Alt: cover.Alt, AiGenerated: cover.AIGenerated}
+	out := &gen.Cover{Url: cover.URL, Alt: cover.Alt, AiGenerated: cover.AIGenerated}
+	if cover.BlurDataURL != "" {
+		out.BlurDataUrl = &cover.BlurDataURL
+	}
+
+	return out
 }
 
 // extendCoverPreviewWriteDeadline alarga el WriteTimeout del servidor solo

@@ -33,10 +33,14 @@ type Cover struct {
 	URL         string
 	Alt         string
 	AIGenerated bool
+	// BlurDataURL es un placeholder diminuto (data:image/png;base64) que la
+	// web muestra borroso mientras carga la imagen. Vacío en portadas
+	// guardadas antes de que existiera.
+	BlurDataURL string
 }
 
 // GeneratedImage es la imagen tal como la devolvió el proveedor: bytes sin
-// verificar, que el service decodifica y recorta antes de usarlos.
+// verificar, que el service comprueba antes de usarlos y guarda tal cual.
 type GeneratedImage struct {
 	Data  []byte
 	Model string

@@ -3,12 +3,17 @@ package service
 import (
 	"bytes"
 	"context"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"image"
 	"image/color"
 	"image/jpeg"
+	stdpng "image/png"
 	"log/slog"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -169,11 +174,11 @@ func TestCoverPreview(t *testing.T) {
 	assert.Equal(t, []string{CoverPrompt(testCoverSubject)}, f.generator.prompts)
 	assert.Equal(t, testCoverSubject, preview.Subject)
 	assert.Equal(t, testCoverAlt, preview.Alt)
-	assert.Equal(t, imaging.ContentType, preview.ContentType)
+	assert.Equal(t, "image/jpeg", preview.ContentType)
 	assert.Equal(t, 1024, preview.Width)
-	assert.Equal(t, 576, preview.Height)
+	assert.Equal(t, 1024, preview.Height, "the provider image as is, without cropping")
 	assert.Equal(t, f.clock.Now().Add(CoverPreviewTTL), preview.ExpiresAt)
-	require.NoError(t, imaging.VerifyCover(preview.Image), "the preview is already a cover")
+	assert.Equal(t, f.generator.image, preview.Image, "never re-encoded")
 	assert.Empty(t, f.store.stored, "a preview is never stored (ADR-026, point 4)")
 
 	stored, err := f.posts.GetByID(t.Context(), f.postID)
@@ -328,9 +333,14 @@ func TestAcceptCover(t *testing.T) {
 	stored := f.store.stored[0]
 	assert.Regexp(t, `^covers/`+f.postID+`/[0-9a-f]{24}\.jpg$`, stored.Key)
 	assert.Equal(t, "image/jpeg", stored.ContentType)
-	assert.Equal(t, preview.Image, stored.Data)
+	assert.Equal(t, preview.Image, stored.Data, "stored exactly as the provider returned it")
+	assert.Equal(t, "inline", stored.ContentDisposition)
 
-	want := &domain.Cover{URL: "https://storage.example/" + stored.Key, Alt: "Robots editados.", AIGenerated: true}
+	require.NotNil(t, post.Cover)
+	assert.True(t, strings.HasPrefix(post.Cover.BlurDataURL, "data:image/png;base64,"))
+	assert.Less(t, len(post.Cover.BlurDataURL), 2048)
+
+	want := &domain.Cover{URL: "https://storage.example/" + stored.Key, Alt: "Robots editados.", AIGenerated: true, BlurDataURL: post.Cover.BlurDataURL}
 	assert.Equal(t, want, post.Cover)
 	assert.Equal(t, f.clock.Now(), post.UpdatedAt)
 
@@ -490,4 +500,66 @@ func TestPostUpdateKeepsTheCover(t *testing.T) {
 	updated, err := f.service.Update(t.Context(), post.ID, draftInput("Título nuevo"))
 	require.NoError(t, err)
 	assert.Equal(t, cover, updated.Cover, "editing a post never drops its cover")
+}
+
+// El proveedor puede devolver JPEG, PNG o WebP: se guarda con su tipo y su
+// extensión, detectados por la firma de los bytes.
+func TestAcceptCoverKeepsTheProviderFormat(t *testing.T) {
+	webp, err := os.ReadFile("../imaging/testdata/cover-lossy.webp")
+	require.NoError(t, err)
+
+	var png bytes.Buffer
+	require.NoError(t, stdpng.Encode(&png, image.NewRGBA(image.Rect(0, 0, 1024, 576))))
+
+	for name, tt := range map[string]struct {
+		image       []byte
+		contentType string
+		extension   string
+	}{
+		"png":  {png.Bytes(), "image/png", "png"},
+		"webp": {webp, "image/webp", "webp"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			f := newCoverFixture(t)
+			f.generator.image = tt.image
+			preview := f.preview(t)
+
+			post, err := f.service.Accept(t.Context(), testCoverUser, f.postID, CoverAcceptance{Image: preview.Image, Token: preview.Token, Alt: testCoverAlt})
+			require.NoError(t, err)
+
+			require.Len(t, f.store.stored, 1)
+			assert.Equal(t, tt.contentType, preview.ContentType)
+			assert.Equal(t, tt.contentType, f.store.stored[0].ContentType)
+			assert.Regexp(t, `\.`+tt.extension+`$`, f.store.stored[0].Key)
+			assert.Equal(t, tt.image, f.store.stored[0].Data)
+			assert.NotEmpty(t, post.Cover.BlurDataURL)
+		})
+	}
+}
+
+// La clave de las vistas previas sale de JWT_SECRET con HKDF-SHA256 y la
+// etiqueta "cover-preview-v1". El test la calcula aparte, con HMAC según RFC
+// 5869 (extract con sal de ceros y un solo bloque de expand), y fija el valor
+// para que un cambio de etiqueta o de parámetros no pase sin verse.
+func TestCoverPreviewKeyIsHKDFOfTheSecret(t *testing.T) {
+	key, err := deriveCoverPreviewKey(testCoverSecret)
+	require.NoError(t, err)
+
+	extract := hmac.New(sha256.New, make([]byte, sha256.Size))
+	extract.Write(testCoverSecret)
+	expand := hmac.New(sha256.New, extract.Sum(nil))
+	expand.Write([]byte("cover-preview-v1"))
+	expand.Write([]byte{1})
+
+	assert.Equal(t, expand.Sum(nil), key)
+	assert.Equal(t, "2622f7b63531329d31bb34d45e88227769af2a4e5b40b13b9ec2a99dd566c53a", hex.EncodeToString(key))
+
+	other, err := deriveCoverPreviewKey([]byte("another-secret-of-at-least-32-bytes"))
+	require.NoError(t, err)
+	assert.NotEqual(t, key, other)
+
+	signer, err := newPreviewSigner(testCoverSecret)
+	require.NoError(t, err)
+	assert.Equal(t, key, signer.key)
+	assert.NotEqual(t, testCoverSecret, signer.key, "the JWT secret is never used directly")
 }

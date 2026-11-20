@@ -28,6 +28,8 @@ const (
 var testCoverImage = []byte("not really a jpeg")
 
 // fakeCovers es el service de portadas para los tests del handler (ADR-015).
+const testBlurDataURL = "data:image/png;base64,iVBORw0KGgo="
+
 type fakeCovers struct {
 	mu sync.Mutex
 
@@ -60,7 +62,7 @@ func (f *fakeCovers) Accept(_ context.Context, userID, postID string, acceptance
 	}
 
 	post := newTestPost()
-	post.Cover = &domain.Cover{URL: "https://storage.googleapis.com/bucket/covers/x.jpg", Alt: acceptance.Alt, AIGenerated: true}
+	post.Cover = &domain.Cover{URL: "https://storage.googleapis.com/bucket/covers/x.jpg", Alt: acceptance.Alt, AIGenerated: true, BlurDataURL: testBlurDataURL}
 
 	return post, nil
 }
@@ -108,24 +110,26 @@ func TestAcceptCover(t *testing.T) {
 	response := send(coversRouter(t, covers), http.MethodPut, coverPostPath, acceptBody(testCoverImage, testCoverToken, "Robots sobre un escritorio."), adminSession())
 
 	require.Equal(t, http.StatusOK, response.Code)
-	assert.Contains(t, response.Body.String(), `"cover":{"aiGenerated":true,"alt":"Robots sobre un escritorio.","url":"https://storage.googleapis.com/bucket/covers/x.jpg"}`)
+	assert.Contains(t, response.Body.String(), `"cover":{"aiGenerated":true,"alt":"Robots sobre un escritorio.","blurDataUrl":"`+testBlurDataURL+`","url":"https://storage.googleapis.com/bucket/covers/x.jpg"}`)
 	assert.Equal(t, [][2]string{{testUser.ID, testPostID}}, covers.acceptedFor)
 	assert.Equal(t, []service.CoverAcceptance{{Image: testCoverImage, Token: testCoverToken, Alt: "Robots sobre un escritorio."}}, covers.acceptances)
 }
 
 func TestAcceptCoverRejectsBodiesAgainstTheContract(t *testing.T) {
-	// 524 290 bytes son 699 056 caracteres de base64, uno más que el límite.
-	tooBig := make([]byte, 524290)
+	// 2 MiB + 2 bytes son 2 796 208 caracteres de base64, más que el
+	// maxLength del contrato (2 796 204) pero menos que el límite de cuerpo
+	// de la ruta: lo rechaza el validador con 400.
+	tooBig := make([]byte, 2<<20+2)
 
 	for name, body := range map[string]string{
-		"token mal formado":     acceptBody(testCoverImage, "not-a-token", "Alt."),
-		"alt vacío":             acceptBody(testCoverImage, testCoverToken, ""),
-		"alt con salto":         acceptBody(testCoverImage, testCoverToken, "Hola\nmundo"),
-		"alt con símbolos":      acceptBody(testCoverImage, testCoverToken, "<img src=x>"),
-		"alt largo":             acceptBody(testCoverImage, testCoverToken, strings.Repeat("a", 251)),
-		"imagen de más de 512K": acceptBody(tooBig, testCoverToken, "Alt."),
-		"imagen no es base64":   fmt.Sprintf(`{"image":"***","token":%q,"alt":"Alt."}`, testCoverToken),
-		"sin imagen":            fmt.Sprintf(`{"token":%q,"alt":"Alt."}`, testCoverToken),
+		"token mal formado":      acceptBody(testCoverImage, "not-a-token", "Alt."),
+		"alt vacío":              acceptBody(testCoverImage, testCoverToken, ""),
+		"alt con salto":          acceptBody(testCoverImage, testCoverToken, "Hola\nmundo"),
+		"alt con símbolos":       acceptBody(testCoverImage, testCoverToken, "<img src=x>"),
+		"alt largo":              acceptBody(testCoverImage, testCoverToken, strings.Repeat("a", 251)),
+		"imagen de más de 2 MiB": acceptBody(tooBig, testCoverToken, "Alt."),
+		"imagen no es base64":    fmt.Sprintf(`{"image":"***","token":%q,"alt":"Alt."}`, testCoverToken),
+		"sin imagen":             fmt.Sprintf(`{"token":%q,"alt":"Alt."}`, testCoverToken),
 	} {
 		t.Run(name, func(t *testing.T) {
 			covers := &fakeCovers{}
@@ -136,6 +140,26 @@ func TestAcceptCoverRejectsBodiesAgainstTheContract(t *testing.T) {
 			assert.Empty(t, covers.acceptances)
 		})
 	}
+}
+
+// Aceptar una portada tiene su propio límite de cuerpo: una imagen de 1,5 MiB
+// pasa aunque MAX_BODY_BYTES sea 1 MiB, y el resto de la API sigue con el
+// límite general.
+func TestAcceptCoverHasItsOwnBodyLimit(t *testing.T) {
+	covers := &fakeCovers{}
+	router := coversRouter(t, covers)
+
+	big := make([]byte, 3<<19)
+	response := send(router, http.MethodPut, coverPostPath, acceptBody(big, testCoverToken, "Alt."), adminSession())
+	require.Equal(t, http.StatusOK, response.Code, response.Body.String())
+	assert.Len(t, covers.acceptances, 1)
+
+	tooLarge := strings.Repeat("a", int(coverAcceptBodyLimit)+1)
+	response = send(router, http.MethodPut, coverPostPath, tooLarge, adminSession())
+	requireProblem(t, response, http.StatusRequestEntityTooLarge)
+
+	response = send(router, http.MethodPut, "/api/v1/admin/posts/"+testPostID, `{"title":"`+strings.Repeat("a", 1<<20)+`"}`, adminSession())
+	requireProblem(t, response, http.StatusRequestEntityTooLarge)
 }
 
 func TestRemoveCover(t *testing.T) {

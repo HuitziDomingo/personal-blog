@@ -50,6 +50,8 @@ type coverDocument struct {
 	URL         string `bson:"url"`
 	Alt         string `bson:"alt"`
 	AIGenerated bool   `bson:"ai_generated"`
+	// BlurDataURL falta en las portadas guardadas antes de que existiera.
+	BlurDataURL string `bson:"blur_data_url,omitempty"`
 }
 
 func toCoverDocument(cover *domain.Cover) *coverDocument {
@@ -57,7 +59,7 @@ func toCoverDocument(cover *domain.Cover) *coverDocument {
 		return nil
 	}
 
-	return &coverDocument{URL: cover.URL, Alt: cover.Alt, AIGenerated: cover.AIGenerated}
+	return &coverDocument{URL: cover.URL, Alt: cover.Alt, AIGenerated: cover.AIGenerated, BlurDataURL: cover.BlurDataURL}
 }
 
 func toPostDocument(post *domain.Post, id bson.ObjectID) postDocument {
@@ -110,7 +112,12 @@ func toDomainPost(document postDocument) *domain.Post {
 	}
 
 	if document.Cover != nil {
-		post.Cover = &domain.Cover{URL: document.Cover.URL, Alt: document.Cover.Alt, AIGenerated: document.Cover.AIGenerated}
+		post.Cover = &domain.Cover{
+			URL:         document.Cover.URL,
+			Alt:         document.Cover.Alt,
+			AIGenerated: document.Cover.AIGenerated,
+			BlurDataURL: document.Cover.BlurDataURL,
+		}
 	}
 
 	if document.PublishedAt != nil {

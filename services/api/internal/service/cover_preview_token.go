@@ -1,6 +1,7 @@
 package service
 
 import (
+	"crypto/hkdf"
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/base64"
@@ -13,10 +14,15 @@ import (
 	"github.com/HuitziDomingo/personal-blog/services/api/internal/domain"
 )
 
-// coverPreviewKeyLabel separa la clave de las vistas previas de la de los JWT,
-// aunque las dos salgan de JWT_SECRET: una firma de un uso nunca vale para el
-// otro.
-const coverPreviewKeyLabel = "personal-blog cover preview v1"
+// coverPreviewKeyLabel es el info de HKDF: separa la clave de las vistas
+// previas de la de los JWT, aunque las dos salgan de JWT_SECRET, así que una
+// firma de un uso nunca vale para el otro. Cambiar la etiqueta invalida todas
+// las vistas previas pendientes.
+const coverPreviewKeyLabel = "cover-preview-v1"
+
+// coverPreviewKeyBytes es el largo de la clave derivada: el tamaño del bloque
+// de salida de SHA-256.
+const coverPreviewKeyBytes = sha256.Size
 
 // previewSigner firma y verifica las vistas previas de portada (ADR-026, punto
 // 4). La API no guarda la vista previa: el admin la reenvía al aceptarla, y la
@@ -26,16 +32,28 @@ type previewSigner struct {
 	key []byte
 }
 
-// newPreviewSigner deriva la clave de las vistas previas del secreto de la API.
+// newPreviewSigner deriva la clave de las vistas previas del secreto de la API
+// con HKDF-SHA256 (RFC 5869), sin sal y con coverPreviewKeyLabel como info.
 func newPreviewSigner(secret []byte) (previewSigner, error) {
 	if len(secret) == 0 {
 		return previewSigner{}, errors.New("cover preview signer needs a secret")
 	}
 
-	mac := hmac.New(sha256.New, secret)
-	mac.Write([]byte(coverPreviewKeyLabel))
+	key, err := deriveCoverPreviewKey(secret)
+	if err != nil {
+		return previewSigner{}, err
+	}
 
-	return previewSigner{key: mac.Sum(nil)}, nil
+	return previewSigner{key: key}, nil
+}
+
+func deriveCoverPreviewKey(secret []byte) ([]byte, error) {
+	key, err := hkdf.Key(sha256.New, secret, nil, coverPreviewKeyLabel, coverPreviewKeyBytes)
+	if err != nil {
+		return nil, fmt.Errorf("derive cover preview key: %w", err)
+	}
+
+	return key, nil
 }
 
 // sign devuelve el token "<vencimiento en segundos Unix>.<HMAC en base64url>".

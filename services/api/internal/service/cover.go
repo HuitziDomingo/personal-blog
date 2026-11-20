@@ -137,7 +137,7 @@ func (s *CoverService) Preview(ctx context.Context, userID, postID string) (Cove
 		return CoverPreview{}, fmt.Errorf("cover preview: %w", err)
 	}
 
-	cover, err := s.generate(ctx, suggestion.Subject)
+	cover, info, err := s.generate(ctx, suggestion.Subject)
 	if err != nil {
 		return CoverPreview{}, fmt.Errorf("cover preview: %w", err)
 	}
@@ -146,9 +146,9 @@ func (s *CoverService) Preview(ctx context.Context, userID, postID string) (Cove
 
 	return CoverPreview{
 		Image:       cover,
-		ContentType: imaging.ContentType,
-		Width:       imaging.Width,
-		Height:      imaging.Height,
+		ContentType: info.ContentType,
+		Width:       info.Width,
+		Height:      info.Height,
 		Subject:     suggestion.Subject,
 		Alt:         suggestion.Alt,
 		Token:       s.signer.sign(userID, post.ID, cover, expiresAt),
@@ -156,18 +156,20 @@ func (s *CoverService) Preview(ctx context.Context, userID, postID string) (Cove
 	}, nil
 }
 
-// generate llama al generador con timeout, prepara la portada y deja un log
-// con modelo, latencia, tamaño y resultado, nunca con el prompt.
-func (s *CoverService) generate(ctx context.Context, subject string) ([]byte, error) {
+// generate llama al generador con timeout, verifica la imagen sin
+// recodificarla ni recortarla (se guarda tal cual; el recorte 16:9 lo hace la
+// web) y deja un log con modelo, latencia, formato, tamaño y resultado, nunca
+// con el prompt.
+func (s *CoverService) generate(ctx context.Context, subject string) ([]byte, imaging.Info, error) {
 	ctx, cancel := context.WithTimeout(ctx, s.deps.Timeout)
 	defer cancel()
 
 	start := s.deps.Now()
 	generated, err := s.deps.Generator.Generate(ctx, CoverPrompt(subject))
 
-	var cover []byte
+	var info imaging.Info
 	if err == nil {
-		cover, err = imaging.PrepareCover(generated.Data)
+		info, err = imaging.Inspect(generated.Data)
 		if err != nil {
 			err = fmt.Errorf("%w: %w", domain.ErrImagesUnavailable, err)
 		}
@@ -177,8 +179,10 @@ func (s *CoverService) generate(ctx context.Context, subject string) ([]byte, er
 		"operation", "generate_cover",
 		"model", generated.Model,
 		"latency_ms", s.deps.Now().Sub(start).Milliseconds(),
-		"source_bytes", len(generated.Data),
-		"cover_bytes", len(cover),
+		"format", info.Name,
+		"width", info.Width,
+		"height", info.Height,
+		"cover_bytes", len(generated.Data),
 		"result", imageResultOf(err),
 	}
 
@@ -191,10 +195,10 @@ func (s *CoverService) generate(ctx context.Context, subject string) ([]byte, er
 	s.deps.Logger.Log(ctx, level, "image generator call", attrs...)
 
 	if err != nil {
-		return nil, fmt.Errorf("generate cover: %w", err)
+		return nil, imaging.Info{}, fmt.Errorf("generate cover: %w", err)
 	}
 
-	return cover, nil
+	return generated.Data, info, nil
 }
 
 func imageResultOf(err error) string {
@@ -224,7 +228,15 @@ func (s *CoverService) Accept(ctx context.Context, userID, postID string, accept
 		return nil, fmt.Errorf("accept cover: %w", err)
 	}
 
-	if err := imaging.VerifyCover(acceptance.Image); err != nil {
+	// La firma ya prueba que la API generó estos bytes; se verifican de nuevo
+	// por si cambió el formato aceptado entre la vista previa y el guardado.
+	info, err := imaging.Inspect(acceptance.Image)
+	if err != nil {
+		return nil, fmt.Errorf("accept cover: %w: %w", domain.ErrInvalidCoverPreview, err)
+	}
+
+	blur, err := imaging.BlurDataURL(acceptance.Image)
+	if err != nil {
 		return nil, fmt.Errorf("accept cover: %w: %w", domain.ErrInvalidCoverPreview, err)
 	}
 
@@ -240,8 +252,8 @@ func (s *CoverService) Accept(ctx context.Context, userID, postID string, accept
 
 	digest := sha256.Sum256(acceptance.Image)
 	url, err := s.deps.Store.Put(ctx, domain.StoredFile{
-		Key:         fmt.Sprintf("covers/%s/%s.%s", post.ID, hex.EncodeToString(digest[:coverKeyHashBytes]), imaging.Extension),
-		ContentType: imaging.ContentType,
+		Key:         fmt.Sprintf("covers/%s/%s.%s", post.ID, hex.EncodeToString(digest[:coverKeyHashBytes]), info.Extension),
+		ContentType: info.ContentType,
 		// La web muestra la portada en un <img>: inline, no como descarga.
 		ContentDisposition: "inline",
 		Data:               acceptance.Image,
@@ -250,7 +262,7 @@ func (s *CoverService) Accept(ctx context.Context, userID, postID string, accept
 		return nil, fmt.Errorf("accept cover: %w: %w", domain.ErrCoverStoreUnavailable, err)
 	}
 
-	post.Cover = &domain.Cover{URL: url, Alt: alt, AIGenerated: true}
+	post.Cover = &domain.Cover{URL: url, Alt: alt, AIGenerated: true, BlurDataURL: blur}
 	post.UpdatedAt = s.deps.Now().UTC().Truncate(time.Millisecond)
 
 	if err := s.deps.Posts.Update(ctx, post); err != nil {

@@ -1,135 +1,200 @@
-// Package imaging prepara y verifica las imágenes de portada (ADR-026, punto
-// 8) solo con la biblioteca estándar: decodifica lo que devuelve el proveedor,
-// lo recorta al tamaño de portada y lo codifica.
+// Package imaging verifica las imágenes de portada y genera su placeholder
+// borroso (ADR-026). La imagen del proveedor se guarda tal cual: aquí no se
+// recodifica ni se recorta (el recorte 16:9 lo hace la web). JPEG y PNG se
+// decodifican con la biblioteca estándar y WebP con golang.org/x/image/webp,
+// solo para leer sus dimensiones y generar el placeholder.
 package imaging
 
 import (
 	"bytes"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"image"
-	"image/jpeg"
-	"net/http"
+	"image/color"
+	"image/png"
 
-	// Registra el decodificador de PNG para image.Decode y DecodeConfig: el
-	// proveedor documenta JPEG, pero un PNG también se acepta.
-	_ "image/png"
+	// Registra el decodificador de JPEG en image.Decode y DecodeConfig.
+	_ "image/jpeg"
+
+	// Registra el decodificador de WebP en image.Decode y DecodeConfig: solo
+	// decodifica, la API nunca escribe WebP.
+	_ "golang.org/x/image/webp"
 )
 
 const (
-	// Width es el ancho fijo de una portada, 16:9.
-	Width = 1024
-	// Height es el alto fijo de una portada.
-	Height = 576
+	// MaxBytes es el tamaño máximo de una portada. FLUX.1 [schnell] devuelve
+	// una imagen de unos cientos de KiB; 2 MiB cubre un PNG de 1024 × 1024.
+	MaxBytes = 2 << 20
 
-	// ContentType es el formato en que se guarda una portada. ADR-026 pide
-	// webp, pero la biblioteca estándar no lo codifica: hasta decidir el
-	// codificador, se guarda en JPEG.
-	ContentType = "image/jpeg"
-	// Extension es la extensión de la clave de una portada en el almacén.
-	Extension = "jpg"
+	// MinWidth es el ancho mínimo para recortar una portada 16:9 de 1024 × 576
+	// sin estirarla.
+	MinWidth = 1024
+	// MinHeight es el alto mínimo de esa portada.
+	MinHeight = 576
 
-	// MaxBytes es el tamaño máximo de una portada ya codificada. Una portada
-	// de 1024 × 576 en JPEG con calidad 85 pesa unos 100 a 250 KiB; el límite
-	// deja que su base64 quepa en el cuerpo por defecto de 1 MB.
-	MaxBytes = 512 << 10
+	// maxSide limita el ancho y el alto antes de decodificar los píxeles, para
+	// que una imagen enorme no agote la memoria.
+	maxSide = 4096
 
-	// maxSourceSide limita el ancho y el alto de la imagen del proveedor antes
-	// de decodificarla, para que una imagen enorme no agote la memoria.
-	maxSourceSide = 4096
-
-	jpegQuality = 85
+	// BlurWidth es el ancho del placeholder borroso: unos cientos de bytes en
+	// base64, que van dentro del post.
+	BlurWidth = 16
 )
 
 // ErrInvalidImage indica bytes que no son una imagen utilizable.
 var ErrInvalidImage = errors.New("invalid image")
 
-// PrepareCover convierte la imagen del proveedor en una portada: comprueba su
-// tipo por los bytes, recorta el centro a Width × Height y la codifica en
-// ContentType. Una imagen más chica que la portada es un error: estirarla
-// perdería calidad.
-func PrepareCover(source []byte) ([]byte, error) {
-	switch kind := http.DetectContentType(source); kind {
-	case "image/jpeg", "image/png":
-	default:
-		return nil, fmt.Errorf("%w: unexpected type %s", ErrInvalidImage, kind)
+// Format es un formato de portada aceptado.
+type Format struct {
+	// Name es el nombre que registra el decodificador ("jpeg", "png", "webp").
+	Name        string
+	ContentType string
+	Extension   string
+}
+
+// formats son los formatos aceptados, cada uno con su firma de bytes.
+var formats = []struct {
+	Format
+	matches func([]byte) bool
+}{
+	{Format{"jpeg", "image/jpeg", "jpg"}, func(b []byte) bool { return bytes.HasPrefix(b, []byte{0xff, 0xd8, 0xff}) }},
+	{Format{"png", "image/png", "png"}, func(b []byte) bool { return bytes.HasPrefix(b, []byte("\x89PNG\r\n\x1a\n")) }},
+	{Format{"webp", "image/webp", "webp"}, func(b []byte) bool {
+		return len(b) >= 12 && bytes.Equal(b[:4], []byte("RIFF")) && bytes.Equal(b[8:12], []byte("WEBP"))
+	}},
+}
+
+// Info es lo que se sabe de una portada sin decodificar sus píxeles.
+type Info struct {
+	Format
+	Width  int
+	Height int
+}
+
+// Inspect comprueba, por sus bytes y no por el tipo que declare nadie
+// (ADR-010), que data es un JPEG, PNG o WebP de hasta MaxBytes, de al menos
+// MinWidth × MinHeight y de no más de maxSide por lado.
+func Inspect(data []byte) (Info, error) {
+	if len(data) == 0 || len(data) > MaxBytes {
+		return Info{}, fmt.Errorf("%w: %d bytes", ErrInvalidImage, len(data))
 	}
 
-	config, _, err := image.DecodeConfig(bytes.NewReader(source))
+	format, ok := detect(data)
+	if !ok {
+		return Info{}, fmt.Errorf("%w: unknown signature", ErrInvalidImage)
+	}
+
+	config, name, err := image.DecodeConfig(bytes.NewReader(data))
 	if err != nil {
-		return nil, fmt.Errorf("%w: %w", ErrInvalidImage, err)
+		return Info{}, fmt.Errorf("%w: %w", ErrInvalidImage, err)
 	}
 
 	switch {
-	case config.Width > maxSourceSide || config.Height > maxSourceSide:
-		return nil, fmt.Errorf("%w: %dx%d is too large", ErrInvalidImage, config.Width, config.Height)
-	case config.Width < Width || config.Height < Height:
-		return nil, fmt.Errorf("%w: %dx%d is smaller than %dx%d", ErrInvalidImage, config.Width, config.Height, Width, Height)
+	case name != format.Name:
+		return Info{}, fmt.Errorf("%w: signature says %s but decodes as %s", ErrInvalidImage, format.Name, name)
+	case config.Width > maxSide || config.Height > maxSide:
+		return Info{}, fmt.Errorf("%w: %dx%d is too large", ErrInvalidImage, config.Width, config.Height)
+	case config.Width < MinWidth || config.Height < MinHeight:
+		return Info{}, fmt.Errorf("%w: %dx%d is smaller than %dx%d", ErrInvalidImage, config.Width, config.Height, MinWidth, MinHeight)
 	}
 
-	decoded, _, err := image.Decode(bytes.NewReader(source))
-	if err != nil {
-		return nil, fmt.Errorf("%w: %w", ErrInvalidImage, err)
+	return Info{Format: format, Width: config.Width, Height: config.Height}, nil
+}
+
+func detect(data []byte) (Format, bool) {
+	for _, f := range formats {
+		if f.matches(data) {
+			return f.Format, true
+		}
 	}
 
-	cropped, err := cropCenter(decoded)
+	return Format{}, false
+}
+
+// BlurDataURL devuelve un placeholder diminuto de la imagen, BlurWidth píxeles
+// de ancho con su proporción, como data:image/png;base64. La web lo muestra
+// borroso mientras carga la portada (placeholder="blur" de next/image).
+// Comprueba la imagen con Inspect antes de decodificarla.
+func BlurDataURL(data []byte) (string, error) {
+	if _, err := Inspect(data); err != nil {
+		return "", err
+	}
+
+	return blurOf(data)
+}
+
+// blurOf decodifica y reduce sin los límites de tamaño de portada: lo usa
+// también la migración de las portadas existentes, que son más chicas.
+func blurOf(data []byte) (string, error) {
+	if _, ok := detect(data); !ok {
+		return "", fmt.Errorf("%w: unknown signature", ErrInvalidImage)
+	}
+
+	config, _, err := image.DecodeConfig(bytes.NewReader(data))
 	if err != nil {
-		return nil, err
+		return "", fmt.Errorf("%w: %w", ErrInvalidImage, err)
+	}
+
+	if config.Width > maxSide || config.Height > maxSide || config.Width < 1 || config.Height < 1 {
+		return "", fmt.Errorf("%w: %dx%d", ErrInvalidImage, config.Width, config.Height)
+	}
+
+	decoded, _, err := image.Decode(bytes.NewReader(data))
+	if err != nil {
+		return "", fmt.Errorf("%w: %w", ErrInvalidImage, err)
 	}
 
 	var encoded bytes.Buffer
-	if err := jpeg.Encode(&encoded, cropped, &jpeg.Options{Quality: jpegQuality}); err != nil {
-		return nil, fmt.Errorf("encode cover: %w", err)
+	if err := png.Encode(&encoded, shrink(decoded, BlurWidth)); err != nil {
+		return "", fmt.Errorf("encode blur placeholder: %w", err)
 	}
 
-	if encoded.Len() > MaxBytes {
-		return nil, fmt.Errorf("%w: encoded cover has %d bytes, over %d", ErrInvalidImage, encoded.Len(), MaxBytes)
-	}
-
-	return encoded.Bytes(), nil
+	return "data:image/png;base64," + base64.StdEncoding.EncodeToString(encoded.Bytes()), nil
 }
 
-// subImager es lo que tienen en común los tipos de image que devuelven los
-// decodificadores (*image.YCbCr, *image.RGBA, *image.NRGBA, ...): recortar sin
-// copiar los píxeles.
-type subImager interface {
-	SubImage(r image.Rectangle) image.Image
-}
-
-// cropCenter recorta el centro de la imagen a Width × Height.
-func cropCenter(source image.Image) (image.Image, error) {
-	sub, ok := source.(subImager)
-	if !ok {
-		return nil, fmt.Errorf("%w: cannot crop %T", ErrInvalidImage, source)
-	}
-
-	bounds := source.Bounds()
-	x := bounds.Min.X + (bounds.Dx()-Width)/2
-	y := bounds.Min.Y + (bounds.Dy()-Height)/2
-
-	return sub.SubImage(image.Rect(x, y, x+Width, y+Height)), nil
-}
-
-// VerifyCover comprueba, por sus bytes y sin decodificar los píxeles, que una
-// portada que llega del cliente es un ContentType de Width × Height y de hasta
-// MaxBytes (ADR-010: no se confía en el tipo que declara el cliente).
-func VerifyCover(data []byte) error {
+// BlurDataURLOf es BlurDataURL sin el mínimo de tamaño de portada, para
+// imágenes que ya están publicadas (por ejemplo, las de los posts migrados).
+func BlurDataURLOf(data []byte) (string, error) {
 	if len(data) == 0 || len(data) > MaxBytes {
-		return fmt.Errorf("%w: %d bytes", ErrInvalidImage, len(data))
+		return "", fmt.Errorf("%w: %d bytes", ErrInvalidImage, len(data))
 	}
 
-	if kind := http.DetectContentType(data); kind != ContentType {
-		return fmt.Errorf("%w: unexpected type %s", ErrInvalidImage, kind)
+	return blurOf(data)
+}
+
+// shrink reduce la imagen a width píxeles de ancho promediando cada bloque de
+// píxeles de origen (box filter). Para un placeholder borroso basta, y evita
+// depender de golang.org/x/image/draw.
+func shrink(source image.Image, width int) image.Image {
+	bounds := source.Bounds()
+	width = min(width, bounds.Dx())
+	height := max(1, bounds.Dy()*width/bounds.Dx())
+	out := image.NewNRGBA(image.Rect(0, 0, width, height))
+
+	for y := range height {
+		y0 := bounds.Min.Y + y*bounds.Dy()/height
+		y1 := bounds.Min.Y + (y+1)*bounds.Dy()/height
+
+		for x := range width {
+			x0 := bounds.Min.X + x*bounds.Dx()/width
+			x1 := bounds.Min.X + (x+1)*bounds.Dx()/width
+
+			var r, g, b, a, n uint64
+
+			for sy := y0; sy < y1; sy++ {
+				for sx := x0; sx < x1; sx++ {
+					cr, cg, cb, ca := source.At(sx, sy).RGBA()
+					r, g, b, a = r+uint64(cr), g+uint64(cg), b+uint64(cb), a+uint64(ca)
+					n++
+				}
+			}
+
+			// RGBA() devuelve valores premultiplicados de 16 bits; el promedio
+			// cabe en uint16.
+			out.Set(x, y, color.RGBA64{R: uint16(r / n), G: uint16(g / n), B: uint16(b / n), A: uint16(a / n)}) //nolint:gosec // Promedio de valores de 16 bits.
+		}
 	}
 
-	config, format, err := image.DecodeConfig(bytes.NewReader(data))
-	if err != nil {
-		return fmt.Errorf("%w: %w", ErrInvalidImage, err)
-	}
-
-	if format != "jpeg" || config.Width != Width || config.Height != Height {
-		return fmt.Errorf("%w: %s %dx%d", ErrInvalidImage, format, config.Width, config.Height)
-	}
-
-	return nil
+	return out
 }

@@ -180,7 +180,7 @@ func TestPostRepositoryUpdate(t *testing.T) {
 }
 
 func withCover(post *domain.Post) *domain.Post {
-	post.Cover = &domain.Cover{URL: "https://storage.googleapis.com/bucket/covers/a.jpg", Alt: "Un robot.", AIGenerated: true}
+	post.Cover = &domain.Cover{URL: "https://storage.googleapis.com/bucket/covers/a.jpg", Alt: "Un robot.", AIGenerated: true, BlurDataURL: "data:image/png;base64,iVBORw0KGgo="}
 
 	return post
 }

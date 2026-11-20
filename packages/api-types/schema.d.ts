@@ -253,7 +253,7 @@ export interface paths {
         put?: never;
         /**
          * Genera la vista previa de la portada de un post.
-         * @description Pide a Gemini la idea de la portada del post guardado (tema y texto alternativo, como suggestCover) y genera la imagen con el tema en una plantilla cerrada (ADR-026, puntos 1 y 7). Devuelve la imagen ya recortada al tamaño de portada y NO la guarda (punto 4): para usarla, el admin la reenvía con `token` a acceptCover antes de `expiresAt`. Sin reintentos. Tiene su propio límite por usuario (punto 8): por defecto 2 por minuto y 20 por día.
+         * @description Pide a Gemini la idea de la portada del post guardado (tema y texto alternativo, como suggestCover) y genera la imagen con el tema en una plantilla cerrada (ADR-026, puntos 1 y 7). Devuelve la imagen tal como la generó el proveedor, sin recodificar ni recortar (el recorte 16:9 lo hace la web), y NO la guarda (punto 4): para usarla, el admin la reenvía con `token` a acceptCover antes de `expiresAt`. Sin reintentos. Tiene su propio límite por usuario (punto 8): por defecto 2 por minuto y 20 por día.
          */
         post: operations["generateCoverPreview"];
         delete?: never;
@@ -275,7 +275,7 @@ export interface paths {
         get?: never;
         /**
          * Acepta la vista previa de la portada de un post.
-         * @description Guarda en el almacén de portadas la imagen de una vista previa de generateCoverPreview y la asigna al post como portada generada con IA (ADR-026, puntos 4 y 5). La API no confía en el cliente: `token` es una firma de la propia API sobre la imagen exacta, el post, el usuario y el vencimiento, y además comprueba por sus bytes que la imagen es un JPEG del tamaño de portada. Un token inválido o vencido, o una imagen distinta de la generada, responde 400. El texto alternativo se puede editar.
+         * @description Guarda en el almacén de portadas la imagen de una vista previa de generateCoverPreview y la asigna al post como portada generada con IA (ADR-026, puntos 4 y 5). La API no confía en el cliente: `token` es una firma de la propia API sobre la imagen exacta, el post, el usuario y el vencimiento, y además comprueba por sus bytes que la imagen es un JPEG, PNG o WebP de al menos 1024 × 576. La guarda tal cual, con su formato, y genera `blurDataUrl`. Un token inválido o vencido, o una imagen distinta de la generada, responde 400. El texto alternativo se puede editar. Esta ruta acepta un cuerpo de hasta 2,7 MiB aunque `MAX_BODY_BYTES` sea menor: la imagen viaja en base64.
          */
         put: operations["acceptCover"];
         post?: never;
@@ -624,13 +624,15 @@ export interface components {
         Cover: {
             /**
              * Format: uri
-             * @description URL pública de la imagen, de 1024 × 576.
+             * @description URL pública de la imagen, tal como la generó el proveedor (JPEG, PNG o WebP de al menos 1024 × 576). La web la recorta a 16:9.
              */
             url: string;
             /** @description Texto alternativo de la imagen. */
             alt: string;
             /** @description Si la imagen se generó con IA. */
             aiGenerated: boolean;
+            /** @description Placeholder diminuto (16 px de ancho, PNG en base64) que la web muestra borroso mientras carga la portada. Falta en portadas guardadas antes de que existiera. */
+            blurDataUrl?: string;
         };
         /** @description Vista previa de una portada generada con IA (ADR-026, punto 4). No está guardada en ningún sitio: para usarla se reenvían `image` y `token` a acceptCover. */
         CoverPreview: {
@@ -639,16 +641,16 @@ export interface components {
              * @description La imagen, en base64. Se muestra como `data:` con `contentType`.
              */
             image: string;
-            /** @description Tipo de la imagen, por ahora `image/jpeg`. */
+            /** @description Tipo de la imagen, detectado por sus bytes `image/jpeg`, `image/png` o `image/webp`. */
             contentType: string;
             /**
              * Format: int32
-             * @description Ancho en píxeles (1024).
+             * @description Ancho en píxeles de la imagen del proveedor (al menos 1024).
              */
             width: number;
             /**
              * Format: int32
-             * @description Alto en píxeles (576).
+             * @description Alto en píxeles de la imagen del proveedor (al menos 576).
              */
             height: number;
             /** @description Tema que propuso Gemini y que se usó en la plantilla, en inglés. */
@@ -667,7 +669,7 @@ export interface components {
         CoverAcceptance: {
             /**
              * Format: byte
-             * @description La imagen de la vista previa, en base64 (512 KiB como máximo).
+             * @description La imagen de la vista previa, en base64 (2 MiB como máximo).
              */
             image: string;
             /** @description El `token` de la vista previa. */
