@@ -16,6 +16,7 @@ import (
 	"github.com/HuitziDomingo/personal-blog/services/api/internal/assistant/gemini"
 	"github.com/HuitziDomingo/personal-blog/services/api/internal/config"
 	"github.com/HuitziDomingo/personal-blog/services/api/internal/domain"
+	"github.com/HuitziDomingo/personal-blog/services/api/internal/files/gcs"
 	"github.com/HuitziDomingo/personal-blog/services/api/internal/files/localdisk"
 	"github.com/HuitziDomingo/personal-blog/services/api/internal/handler"
 	"github.com/HuitziDomingo/personal-blog/services/api/internal/logging"
@@ -109,7 +110,7 @@ func run(logger *slog.Logger) error {
 		slog.Info("comments enabled", "llm_moderation", moderation != nil)
 	}
 
-	files, media, closeFiles, err := newFileStore(cfg.Files)
+	files, media, closeFiles, err := newFileStore(ctx, cfg.Files)
 	if err != nil {
 		return errors.Join(err, client.Disconnect(ctx))
 	}
@@ -221,11 +222,30 @@ func newAssistant(ctx context.Context, cfg config.Assistant, logger *slog.Logger
 	return assistant, nil
 }
 
-// newFileStore arma el almacenamiento de archivos (ADR-028, punto 5). Sin
-// FILES_STORE devuelve nil: subir el CV responde 503. Con local, también el
-// handler que sirve el directorio en /media/.
-func newFileStore(cfg config.Files) (domain.FileStore, http.Handler, func(), error) {
-	if cfg.Store != config.FilesStoreLocal {
+// newFileStore arma el almacenamiento de archivos de las portadas y el CV
+// (ADR-026, punto 9, y ADR-028, punto 5). Sin FILES_STORE devuelve nil: subir
+// el CV responde 503. Con gcs, el bucket sirve los archivos desde su propio
+// dominio. Con local, también devuelve el handler que sirve el directorio en
+// /media/.
+func newFileStore(ctx context.Context, cfg config.Files) (domain.FileStore, http.Handler, func(), error) {
+	switch cfg.Store {
+	case config.FilesStoreGCS:
+		store, err := gcs.New(ctx, gcs.Config{Bucket: cfg.GCSBucket, PublicURL: cfg.GCSPublicURL})
+		if err != nil {
+			return nil, nil, nil, fmt.Errorf("create gcs file store: %w", err)
+		}
+
+		slog.Info("gcs file store enabled", "bucket", cfg.GCSBucket)
+
+		closeStore := func() {
+			if err := store.Close(); err != nil {
+				slog.Warn("close gcs file store failed", "error", err)
+			}
+		}
+
+		return store, nil, closeStore, nil
+	case config.FilesStoreLocal:
+	default:
 		return nil, nil, func() {}, nil
 	}
 

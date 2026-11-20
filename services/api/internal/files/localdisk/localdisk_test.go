@@ -94,3 +94,32 @@ func TestHandlerOnlyServesExactKeys(t *testing.T) {
 		assert.Equal(t, http.StatusNotFound, recorder.Code, target)
 	}
 }
+
+func TestHandlerServesCoversInline(t *testing.T) {
+	store, _ := newTestStore(t)
+	key := "covers/6730f1a2b3c4d5e6f7a8b9c0/0123456789abcdef01234567.webp"
+	data := []byte("RIFF\x00\x00\x00\x00WEBPVP8 ")
+
+	_, err := store.Put(t.Context(), domain.StoredFile{Key: key, ContentType: "image/webp", Data: data})
+	require.NoError(t, err)
+
+	recorder := httptest.NewRecorder()
+	store.Handler().ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/"+key, nil))
+
+	assert.Equal(t, http.StatusOK, recorder.Code)
+	assert.Equal(t, "image/webp", recorder.Header().Get("Content-Type"))
+	assert.Equal(t, "inline", recorder.Header().Get("Content-Disposition"))
+	assert.Equal(t, "nosniff", recorder.Header().Get("X-Content-Type-Options"))
+	assert.Equal(t, data, recorder.Body.Bytes())
+}
+
+func TestPutRejectsACoverWithTheWrongType(t *testing.T) {
+	store, _ := newTestStore(t)
+
+	_, err := store.Put(t.Context(), domain.StoredFile{
+		Key:         "covers/6730f1a2b3c4d5e6f7a8b9c0/0123456789abcdef01234567.jpg",
+		ContentType: "image/png",
+	})
+
+	require.Error(t, err)
+}

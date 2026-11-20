@@ -46,6 +46,19 @@ var kinds = []fileKind{
 			return fmt.Sprintf("attachment; filename=%q", "cv-"+strings.Split(key, "/")[1]+".pdf")
 		},
 	},
+	// covers/<post>/<hash>.<ext> (ADR-026): la imagen del proveedor tal cual,
+	// que la web muestra en un <img>.
+	coverKind("jpg", "image/jpeg"),
+	coverKind("png", "image/png"),
+	coverKind("webp", "image/webp"),
+}
+
+func coverKind(ext, contentType string) fileKind {
+	return fileKind{
+		pattern:     regexp.MustCompile(`^covers/[0-9a-f]{24}/[0-9a-f]{24}\.` + ext + `$`),
+		contentType: contentType,
+		disposition: func(string) string { return "inline" },
+	}
 }
 
 func kindOf(key string) (fileKind, bool) {
