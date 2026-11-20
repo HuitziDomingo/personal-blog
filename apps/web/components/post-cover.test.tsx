@@ -6,8 +6,8 @@ import { system } from './theme/system';
 import { PostCover } from './post-cover';
 
 vi.mock('next/image', () => ({
-  default: ({ src, alt, width, height }: { src: string; alt: string; width: number; height: number }) => (
-    <img src={src} alt={alt} width={width} height={height} />
+  default: ({ src, alt, width, height, style }: { src: string; alt: string; width: number; height: number; style?: React.CSSProperties }) => (
+    <img src={src} alt={alt} width={width} height={height} style={style} />
   ),
 }));
 
@@ -29,6 +29,13 @@ describe('PostCover', () => {
     expect(html).toContain('alt="Robots que arman una tubería."');
     expect(html).toContain('width="1024"');
     expect(html).toContain('height="576"');
+  });
+
+  it('recorta al centro a 16:9 una imagen de otra proporción', () => {
+    const html = render(true);
+
+    expect(html).toContain('aspect-ratio:16 / 9');
+    expect(html).toContain('object-fit:cover');
   });
 
   it('con una portada generada con IA, la leyenda (ADR-026, punto 6)', () => {

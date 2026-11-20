@@ -230,6 +230,7 @@ Los valores de producción son los previstos; el despliegue está pendiente (BLO
 | `make api-test` | Corre los tests de Go con `-race`; los de integración se saltan |
 | `make api-test-integration` | Levanta MongoDB y corre los tests de `internal/repository` contra él |
 | `make api-moderation-samples` | Corre los comentarios de ejemplo de la moderación contra Gemini real (`gemini-3.6-flash`). Gasta cuota: nunca en CI |
+| `make api-migrate-covers` | Asigna la portada a los 2 posts migrados (`arreglos` y `backend-api`). Pide `MIGRATE_MONGO_URI` en el entorno (nunca la toma de `.env`), `MIGRATE_DB` y `SITE_URL`; `DRY_RUN=1` solo informa. Idempotente. Ver «Portadas de los posts migrados» |
 | `make api-cover-sample` | Genera UNA portada real con FLUX.1 [schnell] (necesita `CLOUDFLARE_ACCOUNT_ID` y `CLOUDFLARE_AI_TOKEN` en `.env`), la guarda en `Claude outputs/portadas/` e imprime formato, resolución, tamaño, si trae C2PA/JUMBF, XMP, IPTC o EXIF y el largo del `blurDataUrl`. Gasta una imagen de la cuota de Cloudflare: nunca en CI |
 | `make api-lint` | Corre `golangci-lint` |
 | `make web-dev` | Levanta `apps/web` con `next dev` en `http://localhost:3000`; con `WEB_API_BASE_URL=<origen>` usa otra API |
@@ -731,6 +732,30 @@ ADR-026 (BLOG-112). La API genera la portada de un post con FLUX.1 [schnell] en 
 - **Errores:** 503 con problem+json y `detail` en inglés: `image generation is disabled`, `image generation quota exhausted, try again tomorrow` (Workers AI responde 429 con el código 3036), `image generation is unavailable, try again later` (cualquier otro fallo, timeout o imagen inválida) y `cover storage is unavailable, try again later`. La vista previa también puede responder los 503 del asistente.
 - **Tests:** nunca llaman a Cloudflare ni a GCS: los adaptadores se prueban contra `httptest`.
 - **Probarlo a mano:** en `.env`, el asistente encendido, `IMAGES_ENABLED=true`, tu `CLOUDFLARE_ACCOUNT_ID` y `CLOUDFLARE_AI_TOKEN` y `FILES_STORE=local`. Gasta cuota de Cloudflare y de Gemini. Las portadas aceptadas quedan en `services/api/tmp/files/covers/` y se ven en `http://localhost:8080/media/covers/...`. Para que la web las muestre, `COVER_IMAGES_BASE_URL=http://localhost:8080/media/covers/` en el entorno de `make web-dev`.
+
+### Portadas de los posts migrados
+
+Los 2 artículos de `docs/web/posts-migrados/` usan como portada la imagen que ya sirve la web, `/img/blog/arreglos-portada.webp`, con su `alt` en español y su `blurDataUrl`. `make api-migrate-covers` la asigna:
+
+- **Idempotente:** un post que ya tiene esa portada no cambia, uno con otra portada no se pisa y uno que no existe se omite. La escritura lleva la condición «sin portada» en el filtro. No cambia `updated_at`.
+- **Sin valores por defecto:** la URI va en `MIGRATE_MONGO_URI` (no en un argumento, para que no aparezca en la lista de procesos, y nunca la `MONGO_URI` de `.env`); la base en `MIGRATE_DB` y la web en `SITE_URL` (solo esquema y host). La URL de la portada es `SITE_URL` + `/img/blog/...`.
+- **En local**, con la base de `make db-up` y la web en el puerto 3000 (primero el simulacro):
+
+  ```sh
+  set -a && . ./.env && set +a
+  MIGRATE_MONGO_URI="$MONGO_URI" make api-migrate-covers MIGRATE_DB="$MONGO_DB_NAME" SITE_URL=http://localhost:3000 DRY_RUN=1
+  MIGRATE_MONGO_URI="$MONGO_URI" make api-migrate-covers MIGRATE_DB="$MONGO_DB_NAME" SITE_URL=http://localhost:3000
+  ```
+
+- **En producción** (León, a mano, después del despliegue): la URI desde Secret Manager, sin escribirla en el historial, y `SITE_URL=https://huitzi.xyz`. El nombre del secreto es el del runbook de despliegue:
+
+  ```sh
+  MIGRATE_MONGO_URI="$(gcloud secrets versions access latest --secret=<SECRETO_DE_LA_URI>)" \
+    make api-migrate-covers MIGRATE_DB=<BASE> SITE_URL=https://huitzi.xyz DRY_RUN=1
+  ```
+
+  Y lo mismo sin `DRY_RUN=1`.
+- **Ojo:** la web solo muestra portadas bajo `COVER_IMAGES_BASE_URL` (el bucket). Para que muestre estas, que están en su propio origen, la web tiene que aceptar también `/img/blog/` (pendiente en el PR de la web).
 
 ## Comentarios
 

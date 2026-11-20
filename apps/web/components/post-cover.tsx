@@ -3,7 +3,10 @@ import Image from 'next/image';
 
 import { AI_COVER_CAPTION, type Cover } from '@/lib/cover';
 
-/** Tamaño fijo de las portadas (ADR-026, punto 8). */
+/**
+ * Caja de las portadas, 16:9. La API guarda la imagen del proveedor tal cual
+ * (puede ser cuadrada): el recorte al centro lo hace aquí object-fit.
+ */
 const COVER_WIDTH = 1024;
 const COVER_HEIGHT = 576;
 
@@ -24,7 +27,7 @@ export function PostCover({ cover }: { cover: Cover }) {
           // Arriba del contenido: suele ser el elemento del LCP del post.
           preload
           fetchPriority="high"
-          style={{ width: '100%', height: 'auto', display: 'block' }}
+          style={{ width: '100%', height: 'auto', aspectRatio: '16 / 9', objectFit: 'cover', display: 'block' }}
         />
       </Box>
       {cover.aiGenerated && (
