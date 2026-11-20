@@ -10,7 +10,7 @@
       "url": "https://github.com/HuitziDomingo/personal-blog.git",
       "provider": "github",
       "link_mode": "web",
-      "revision": "5db02a8409810f0bd9c82dada4deb3f9bd21ed4a"
+      "revision": "e7e87a24f6641a2b5c5ed0439e4fb8d15116af1e"
     }
   },
   "components": [
@@ -53,23 +53,33 @@
     { "id": "gemini_adapter", "type": "backend", "label": "assistant/gemini", "sublabel": "asistente · moderación", "pos": [760, 380], "size": [150, 64],
       "sources": [
         { "path": "services/api/internal/assistant/gemini/gemini.go", "line": 88, "end_line": 130 },
-        { "path": "services/api/cmd/api/main.go", "line": 194, "end_line": 224 }
+        { "path": "services/api/cmd/api/main.go", "line": 207, "end_line": 235 }
       ] },
     { "id": "files_adapter", "type": "backend", "label": "files (disco · GCS)", "sublabel": "portadas y CV · FILES_*", "pos": [500, 380], "size": [150, 64],
       "sources": [
         { "path": "services/api/internal/files/localdisk/localdisk.go", "line": 90, "end_line": 135 },
         { "path": "services/api/internal/files/gcs/gcs.go", "line": 121, "end_line": 145 },
-        { "path": "services/api/cmd/api/main.go", "line": 230, "end_line": 266 }
+        { "path": "services/api/cmd/api/main.go", "line": 242, "end_line": 278 }
       ] },
     { "id": "storage", "type": "database", "label": "Almacén de archivos", "sublabel": "disco local · bucket de GCS", "pos": [500, 540], "size": [150, 64],
-      "sources": [{ "path": "services/api/internal/service/cv.go", "line": 39, "end_line": 80, "label": "cv/<idioma>/<hash>.pdf" }] },
+      "sources": [
+        { "path": "services/api/internal/service/cv.go", "line": 39, "end_line": 80, "label": "cv/<idioma>/<hash>.pdf" },
+        { "path": "services/api/internal/service/cover.go", "line": 255, "label": "covers/<post>/<hash>.<ext>" }
+      ] },
+    { "id": "images_adapter", "type": "backend", "label": "images/cloudflare", "sublabel": "portadas con IA", "pos": [1000, 380], "size": [150, 64],
+      "sources": [
+        { "path": "services/api/internal/images/cloudflare/cloudflare.go", "line": 119, "end_line": 158 },
+        { "path": "services/api/cmd/api/main.go", "line": 283, "end_line": 314 }
+      ] },
+    { "id": "cloudflare", "type": "cloud", "label": "Workers AI", "sublabel": "Cloudflare · FLUX.1 schnell", "pos": [1180, 540], "size": [150, 64],
+      "sources": [{ "path": "services/api/internal/images/cloudflare/cloudflare.go", "line": 119, "end_line": 158 }] },
     { "id": "mongo", "type": "database", "label": "MongoDB", "sublabel": "posts · comments · users · cv_versions", "pos": [1000, 540], "size": [150, 64],
       "sources": [{ "path": "services/api/internal/repository/mongodb/client.go", "line": 27, "end_line": 30 }] },
     { "id": "gemini", "type": "cloud", "label": "Gemini API", "sublabel": "Google · plan gratuito", "pos": [760, 540], "size": [150, 64],
       "sources": [{ "path": "services/api/internal/assistant/gemini/gemini.go", "line": 172, "end_line": 180 }] }
   ],
   "boundaries": [
-    { "kind": "region", "label": "services/api (Go, hexagonal)", "wraps": ["handler", "mcp", "service", "domain", "repository", "gemini_adapter", "files_adapter"] }
+    { "kind": "region", "label": "services/api (Go, hexagonal)", "wraps": ["handler", "mcp", "service", "domain", "repository", "gemini_adapter", "files_adapter", "images_adapter"] }
   ],
   "connections": [
     { "id": "lector-web", "from": "lector", "to": "web", "label": "HTTPS" },
@@ -86,7 +96,9 @@
     { "id": "repository-domain", "from": "repository", "to": "domain", "label": "implementa", "variant": "dashed" },
     { "id": "service-gemini", "from": "service", "to": "gemini_adapter", "label": "sugiere · clasifica" },
     { "id": "repository-mongo", "from": "repository", "to": "mongo", "label": "driver v2" },
-    { "id": "service-files", "from": "service", "to": "files_adapter", "label": "guarda el PDF" },
+    { "id": "service-files", "from": "service", "to": "files_adapter", "label": "guarda el PDF y las portadas" },
+    { "id": "service-images", "from": "service", "to": "images_adapter", "label": "genera la portada" },
+    { "id": "images-cloudflare", "from": "images_adapter", "to": "cloudflare", "label": "HTTPS" },
     { "id": "files-storage", "from": "files_adapter", "to": "storage", "label": "escribe" },
     { "id": "lector-storage", "from": "lector", "to": "storage", "label": "descarga el CV", "variant": "dashed" },
     { "id": "adapter-gemini", "from": "gemini_adapter", "to": "gemini", "label": "generateContent", "variant": "security" }
