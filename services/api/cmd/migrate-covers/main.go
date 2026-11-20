@@ -103,7 +103,9 @@ type coverSetter interface {
 
 func apply(ctx context.Context, posts coverSetter, covers map[string]domain.Cover, dryRun bool, out io.Writer) error {
 	if dryRun {
-		fmt.Fprintln(out, "simulacro: no se escribe nada")
+		if _, err := fmt.Fprintln(out, "simulacro: no se escribe nada"); err != nil {
+			return fmt.Errorf("write report: %w", err)
+		}
 	}
 
 	for _, m := range migrations {
@@ -112,7 +114,9 @@ func apply(ctx context.Context, posts coverSetter, covers map[string]domain.Cove
 			return fmt.Errorf("%s: %w", m.slug, err)
 		}
 
-		fmt.Fprintf(out, "%-12s %s\n", m.slug, describe(result, dryRun))
+		if _, err := fmt.Fprintf(out, "%-12s %s\n", m.slug, describe(result, dryRun)); err != nil {
+			return fmt.Errorf("write report: %w", err)
+		}
 	}
 
 	return nil
@@ -162,7 +166,9 @@ func buildCovers(siteURL, publicDir string) (map[string]domain.Cover, error) {
 	covers := make(map[string]domain.Cover, len(migrations))
 
 	for _, m := range migrations {
-		data, err := os.ReadFile(filepath.Join(publicDir, filepath.FromSlash(m.image)))
+		// Rutas fijas de migrations bajo el public/ que pasa quien corre el
+		// comando a mano.
+		data, err := os.ReadFile(filepath.Join(publicDir, filepath.FromSlash(m.image))) //nolint:gosec // Ruta fija bajo un directorio local.
 		if err != nil {
 			return nil, fmt.Errorf("leer %s: %w", m.image, err)
 		}
