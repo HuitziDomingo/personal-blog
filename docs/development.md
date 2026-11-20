@@ -373,7 +373,7 @@ make web-test       # Vitest de lib/
 - **Paquetes del monorepo:** `transpilePackages` compila `@personal-blog/markdown` y `serverExternalPackages` deja jsdom fuera del bundle.
 - **CI:** job `web` (ADR-017, punto 7), con lint, typecheck, tests y build con `WEB_SKIP_API=1`.
 - **Probar de punta a punta en local:** `make api-run`, `make admin-dev`, `make web-build` y `make web-start`. Publica un post en el admin y abre `http://localhost:3000/blog`. Si no aparece, recarga pasados 60 s.
-- **Pendiente:** el despliegue en Vercel.
+- **Despliegue:** Vercel, según [el runbook](runbooks/despliegue.md#14-vercel) (ADR-025). Todavía no está en producción.
 
 ### Admin (`apps/admin`)
 
@@ -625,6 +625,22 @@ rm cookies.txt
 - Tras 5 logins fallidos con un email en 15 minutos, el siguiente responde 429 con `Retry-After`. Un login correcto reinicia la cuenta. Para desbloquear en local, reinicia la API: el contador está en memoria.
 
 `cookies.txt` contiene tokens válidos: no lo subas a git y bórralo al terminar.
+
+## Despliegue (ADR-025)
+
+Nada está en producción todavía. Lo que ya está en el repo:
+
+- **`.github/workflows/deploy-api.yml`:** despliega la API a Cloud Run cuando el workflow `ci` termina en verde para un push a `main` que cambió `services/api/`. Espera la aprobación de León en el environment `production` y se autentica con Workload Identity Federation (sin llaves JSON).
+- **`.github/workflows/backup-mongo.yml`:** `mongodump` semanal (y a mano) a un bucket privado, con la URI leída de Secret Manager al ejecutarse.
+- **`services/api/deploy/production.env.yaml`:** variables no secretas de la API en producción. El workflow las aplica completas en cada despliegue; los secretos vienen de Secret Manager.
+- **[`docs/runbooks/despliegue.md`](runbooks/despliegue.md):** los pasos manuales en GCP, Atlas, Vercel, DreamHost y GitHub, la verificación del primer despliegue y la reversión.
+- **[`docs/runbooks/variables-produccion.md`](runbooks/variables-produccion.md):** las variables de cada app en producción y de dónde salen.
+
+Para validar los workflows en local (sin instalar nada en el repo):
+
+```sh
+go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.12 .github/workflows/*.yml
+```
 
 ## Troubleshooting
 
