@@ -1,0 +1,35 @@
+info:
+  name: 5 Aceptar desactivado
+  type: http
+  seq: 5
+
+http:
+  method: PUT
+  url: "{{baseUrl}}/api/v1/admin/posts/{{postId}}/cover"
+  body:
+    type: json
+    data: |-
+      {
+        "image": "/9j/4AAQSkZJRg==",
+        "token": "1763400000.AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        "alt": "Una portada de prueba."
+      }
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "503"
+  scripts:
+    - type: tests
+      code: |-
+        test("says image generation is disabled", function () {
+          expect(res.body.detail).to.equal("image generation is disabled");
+        });
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: true

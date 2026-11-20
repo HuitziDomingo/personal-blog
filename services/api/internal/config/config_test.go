@@ -33,6 +33,14 @@ func setRequiredEnv(t *testing.T) {
 	t.Setenv("FILES_LOCAL_BASE_URL", "")
 	t.Setenv("RATE_LIMIT_CV_UPLOADS_MAX", "")
 	t.Setenv("RATE_LIMIT_CV_UPLOADS_WINDOW_MINUTES", "")
+
+	for _, key := range []string{
+		"IMAGES_ENABLED", "CLOUDFLARE_ACCOUNT_ID", "CLOUDFLARE_AI_TOKEN", "IMAGES_TIMEOUT_SECONDS",
+		"FILES_GCS_BUCKET", "FILES_GCS_PUBLIC_URL",
+		"RATE_LIMIT_IMAGES_PER_MINUTE", "RATE_LIMIT_IMAGES_BURST", "RATE_LIMIT_IMAGES_PER_DAY",
+	} {
+		t.Setenv(key, "")
+	}
 }
 
 const testJWTSecret = "0123456789abcdef0123456789abcdef"

@@ -50,8 +50,8 @@ func securityHeaders(c *gin.Context) {
 // importar si la petición declara Content-Length o llega por chunks; más
 // adelante, el validador convertiría el error en un 400.
 //
-// La subida del CV tiene su propio tope, el de ADR-028, aunque MAX_BODY_BYTES
-// sea menor.
+// La subida del CV tiene su propio tope, el de ADR-028, y aceptar una portada
+// el suyo, el de una imagen en base64, aunque MAX_BODY_BYTES sea menor.
 func limitBody(maxBytes int64) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if c.Request.Body == nil || c.Request.Body == http.NoBody {
@@ -59,8 +59,11 @@ func limitBody(maxBytes int64) gin.HandlerFunc {
 		}
 
 		limit := maxBytes
-		if isCVUpload(c.Request.Method, c.Request.URL.Path) {
+		switch {
+		case isCVUpload(c.Request.Method, c.Request.URL.Path):
 			limit = cvUploadBodyLimit
+		case isCoverAccept(c.Request.Method, c.Request.URL.Path):
+			limit = coverAcceptBodyLimit
 		}
 
 		body, err := io.ReadAll(http.MaxBytesReader(c.Writer, c.Request.Body, limit))

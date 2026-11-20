@@ -143,14 +143,16 @@ func TestInvalidAccessTokensNeverUseTheUserBucket(t *testing.T) {
 			// Ráfaga global de 1 y de usuario de 100: con un token que diera
 			// el bucket de usuario, la segunda petición pasaría.
 			limiter := newRateLimiter(RateLimits{
-				Global:    RateLimit{PerMinute: 1, Burst: 1},
-				Login:     RateLimit{PerMinute: 1, Burst: 1},
-				Refresh:   RateLimit{PerMinute: 1, Burst: 1},
-				Preflight: RateLimit{PerMinute: 1, Burst: 1},
-				User:      RateLimit{PerMinute: 60, Burst: 100},
-				Assistant: RateLimit{PerMinute: 1, Burst: 1},
-				Comments:  WindowLimit{Max: 1, Window: time.Minute},
-				CVUploads: WindowLimit{Max: 1, Window: time.Minute},
+				Global:      RateLimit{PerMinute: 1, Burst: 1},
+				Login:       RateLimit{PerMinute: 1, Burst: 1},
+				Refresh:     RateLimit{PerMinute: 1, Burst: 1},
+				Preflight:   RateLimit{PerMinute: 1, Burst: 1},
+				User:        RateLimit{PerMinute: 60, Burst: 100},
+				Assistant:   RateLimit{PerMinute: 1, Burst: 1},
+				Comments:    WindowLimit{Max: 1, Window: time.Minute},
+				CVUploads:   WindowLimit{Max: 1, Window: time.Minute},
+				Images:      RateLimit{PerMinute: 1, Burst: 1},
+				ImagesDaily: WindowLimit{Max: 1, Window: time.Hour},
 			}, tokens.ParseAccess, clock.Now)
 			router := gin.New()
 			router.Use(limiter.handle)
@@ -181,7 +183,14 @@ func bucketsRouter(t *testing.T, limits RateLimits) *gin.Engine {
 
 	cfg := testRouterConfig()
 	generous := cfg.RateLimits.Global
-	cfg.RateLimits = RateLimits{Global: generous, Login: generous, Refresh: generous, Preflight: generous, User: generous, Assistant: generous, Comments: generousWindow, CVUploads: generousWindow}
+	cfg.RateLimits = RateLimits{
+		Global: generous, Login: generous, Refresh: generous, Preflight: generous, User: generous, Assistant: generous, Comments: generousWindow,
+		CVUploads: generousWindow, Images: generous, ImagesDaily: generousWindow,
+	}
+	if limits.ImagesDaily != (WindowLimit{}) {
+		cfg.RateLimits.ImagesDaily = limits.ImagesDaily
+	}
+
 	for _, change := range []struct {
 		value  RateLimit
 		target *RateLimit
@@ -190,6 +199,7 @@ func bucketsRouter(t *testing.T, limits RateLimits) *gin.Engine {
 		{limits.Preflight, &cfg.RateLimits.Preflight},
 		{limits.User, &cfg.RateLimits.User},
 		{limits.Assistant, &cfg.RateLimits.Assistant},
+		{limits.Images, &cfg.RateLimits.Images},
 	} {
 		if change.value != (RateLimit{}) {
 			*change.target = change.value

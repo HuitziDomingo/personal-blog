@@ -2,7 +2,7 @@ API_DIR := services/api
 # Swagger UI para ver el contrato en local; fijada por tag y digest.
 SWAGGER_UI_IMAGE := swaggerapi/swagger-ui:v5.33.3@sha256:b26661cd754a7efbb2e1aab419ffb5603320d8f35f0bd086d1d7506e23934d23
 
-.PHONY: web-dev web-lint web-typecheck web-test web-build web-start e2e e2e-clean admin-dev admin-lint admin-test admin-build admin-preview admin-csp-test api-run api-watch api-test api-test-integration api-moderation-samples api-lint api-build mcp-build api-docker-build api-docs api-flows generate db-up db-down db-logs db-reset docs-architecture
+.PHONY: web-dev web-lint web-typecheck web-test web-build web-start e2e e2e-clean admin-dev admin-lint admin-test admin-build admin-preview admin-csp-test api-run api-watch api-test api-test-integration api-moderation-samples api-cover-sample api-migrate-covers api-lint api-build mcp-build api-docker-build api-docs api-flows generate db-up db-down db-logs db-reset docs-architecture
 
 api-run:
 	@test -f .env || { echo "Falta .env: copia .env.example a .env"; exit 1; }
@@ -27,6 +27,22 @@ api-test-integration: db-up
 api-moderation-samples:
 	@test -f .env || { echo "Falta .env: copia .env.example a .env y pon GEMINI_API_KEY"; exit 1; }
 	@set -a && . ./.env && set +a && cd $(API_DIR) && MODERATION_LIVE_MODEL=gemini-3.6-flash go test -tags gemini_live -run TestModerationSamplesAgainstGemini -count=1 -v ./internal/assistant/gemini/
+
+# Genera UNA portada real con FLUX.1 [schnell] (gasta cuota de Cloudflare) y
+# describe formato, resolución, tamaño y metadatos de IA. Nunca en CI.
+api-cover-sample:
+	@test -f .env || { echo "Falta .env: copia .env.example a .env y pon CLOUDFLARE_ACCOUNT_ID y CLOUDFLARE_AI_TOKEN"; exit 1; }
+	@set -a && . ./.env && set +a && cd $(API_DIR) && go run ./cmd/cover-sample -out "../../Claude outputs/portadas"
+
+# Asigna la portada a los 2 posts migrados (docs/web/posts-migrados/), sin
+# pisar una portada distinta. Sin valores por defecto: la URI llega en
+# MIGRATE_MONGO_URI (nunca la de .env) y la base y la web como variables de
+# make. DRY_RUN=1 solo informa. Nunca en CI.
+api-migrate-covers:
+	@test -n "$$MIGRATE_MONGO_URI" || { echo "Falta MIGRATE_MONGO_URI (no se toma de .env)"; exit 1; }
+	@test -n "$(MIGRATE_DB)" || { echo "Falta MIGRATE_DB=<base>"; exit 1; }
+	@test -n "$(SITE_URL)" || { echo "Falta SITE_URL=<url de la web>, por ejemplo http://localhost:3000"; exit 1; }
+	cd $(API_DIR) && go run ./cmd/migrate-covers -db "$(MIGRATE_DB)" -site-url "$(SITE_URL)" $(if $(DRY_RUN),-dry-run,)
 
 api-lint:
 	cd $(API_DIR) && golangci-lint run ./...
