@@ -1,10 +1,10 @@
 import { Heading, LinkBox, LinkOverlay, Stack, Text } from '@chakra-ui/react';
-import Image from 'next/image';
 import NextLink from 'next/link';
 
 import type { WorkText } from '@/lib/content/types';
 import type { Work } from '@/lib/site';
 
+import { BlurImage } from './blur-image';
 import { entrance } from './entrance';
 
 export function WorkCard({
@@ -34,11 +34,10 @@ export function WorkCard({
       css={entrance(index)}
     >
       {cover && (
-        <Image
+        <BlurImage
           src={cover}
           alt=""
-          placeholder="blur"
-          priority={priority}
+          preload={priority}
           sizes="(min-width: 768px) 420px, 100vw"
           style={{ width: '100%', height: 'auto', aspectRatio: '16 / 9', objectFit: 'cover' }}
         />
