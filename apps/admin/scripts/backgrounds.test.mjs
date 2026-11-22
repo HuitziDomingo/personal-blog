@@ -1,27 +1,65 @@
-// Fondos del admin (BLOG-121, BLOG-124): cada imagen de backgrounds.ts existe, pesa como
-// mucho 300 KB y tiene sus extremos medidos; y el vidrio de .glass-card en
+// Fondos del admin (BLOG-121, BLOG-124, BLOG-146): cada variante de backgrounds.ts existe
+// en AVIF y WebP, sin pasar del límite de su formato, y cada fondo tiene sus extremos medidos; y el vidrio de .glass-card en
 // styles.css es el que mide check-theme-contrast.mjs (BLOG-143).
 import assert from 'node:assert/strict';
-import { readFileSync, statSync } from 'node:fs';
+import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { test } from 'node:test';
 
 import { CARD_GLASS_BLUR, CARD_GLASS_BLUR_MEASURED, CARD_GLASS_MIN_ALPHA, CARD_GLASS_SATURATE, cardAlphas } from './check-theme-contrast.mjs';
-import { BACKGROUND_ORIENTATIONS, BACKGROUND_VARIANTS, BACKGROUNDS, backgroundPath, thumbnailPath } from '../src/app/core/theme/backgrounds.ts';
+import {
+  BACKGROUND_FORMATS,
+  BACKGROUND_ORIENTATIONS,
+  BACKGROUND_VARIANTS,
+  BACKGROUNDS,
+  backgroundPath,
+  backgroundWidths,
+  maxCropWidth,
+  thumbnailPath,
+} from '../src/app/core/theme/backgrounds.ts';
 
 const extremes = JSON.parse(readFileSync(new URL('../src/app/core/theme/background-extremes.json', import.meta.url), 'utf8'));
 
-test('cada fondo tiene sus 4 imágenes AVIF de 300 KB o menos, medidas', () => {
+/** Límite por archivo: la de 3840 de un fondo con grano fino es la que más pesa. */
+const MAX_BYTES = { avif: 1024 * 1024, webp: 2 * 1024 * 1024 };
+/** Firma de cada formato: `ftypavif` en el byte 4 y `WEBP` en el 8. */
+const SIGNATURES = { avif: [4, 'ftypavif'], webp: [8, 'WEBP'] };
+
+test('cada fondo tiene cada variante en AVIF y WebP, sin pasar del límite, y sus extremos medidos (BLOG-146)', () => {
   const keys = [];
+  const expected = new Set(['CREDITS.md']);
   for (const id of BACKGROUNDS) {
     for (const variant of BACKGROUND_VARIANTS) {
+      expected.add(thumbnailPath(id, variant).replace('backgrounds/', ''));
       for (const orientation of BACKGROUND_ORIENTATIONS) {
-        const path = backgroundPath(id, variant, orientation);
-        assert.ok(statSync(new URL(`../public/${path}`, import.meta.url)).size <= 300 * 1024, path);
+        for (const width of backgroundWidths(id, orientation)) {
+          for (const format of BACKGROUND_FORMATS) {
+            const path = backgroundPath(id, variant, orientation, width, format);
+            expected.add(path.replace('backgrounds/', ''));
+            const bytes = readFileSync(new URL(`../public/${path}`, import.meta.url));
+            assert.ok(bytes.length <= MAX_BYTES[format], `${path}: ${bytes.length} B`);
+            const [offset, signature] = SIGNATURES[format];
+            assert.equal(bytes.subarray(offset, offset + signature.length).toString('ascii'), signature, path);
+          }
+        }
         keys.push(`${id}-${variant}-${orientation}`);
       }
     }
   }
   assert.deepEqual(Object.keys(extremes).sort(), keys.sort());
+  // Ni archivos de más (variantes viejas) ni de menos.
+  assert.deepEqual(readdirSync(new URL('../public/backgrounds/', import.meta.url)).sort(), [...expected].sort());
+});
+
+test('los anchos no amplían el original y llegan a 3840 cuando el original alcanza (BLOG-146)', () => {
+  for (const id of BACKGROUNDS) {
+    for (const orientation of BACKGROUND_ORIENTATIONS) {
+      const widths = backgroundWidths(id, orientation);
+      assert.equal(widths[0], 1280, `${id}-${orientation}`);
+      assert.equal(widths.at(-1), Math.min(3840, maxCropWidth(id, orientation)), `${id}-${orientation}`);
+      assert.deepEqual([...widths].sort((a, b) => a - b), widths);
+      assert.equal(new Set(widths).size, widths.length);
+    }
+  }
 });
 
 test('cada fondo tiene su miniatura webp de cada versión, de 16 KB o menos (BLOG-124)', () => {

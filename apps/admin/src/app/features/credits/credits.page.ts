@@ -6,21 +6,27 @@ import { AppBackdrop } from '../../core/layout/app-backdrop';
 import { SessionService } from '../../core/session/session.service';
 import { BackgroundService } from '../../core/theme/background.service';
 import {
+  BACKGROUND_FORMATS,
   BACKGROUND_INFO,
-  BACKGROUND_SIZES,
+  BACKGROUND_SOURCES,
+  BACKGROUND_WIDTHS,
   BACKGROUNDS,
-  BACKGROUNDS_SOURCE,
+  BackgroundSourceId,
+  maxCropWidth,
   THUMBNAIL_SIZE,
   thumbnailPath,
 } from '../../core/theme/backgrounds';
+
+const FORMAT_NAMES = { avif: 'AVIF', webp: 'WebP' } as const;
 
 const LINK =
   'underline underline-offset-2 rounded-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/50';
 
 /**
- * Créditos de los fondos de pantalla (BLOG-130). CC BY-SA 3.0 pide citar
- * título, autor, fuente y licencia, e indicar los cambios: todo sale de
- * BACKGROUND_INFO, así que un fondo nuevo aparece aquí sin tocar esta página.
+ * Créditos de los fondos de pantalla (BLOG-130). CC BY-SA 3.0 y 4.0 piden
+ * citar título, autor, fuente y licencia, e indicar los cambios: todo sale de
+ * BACKGROUND_INFO y BACKGROUND_SOURCES, así que un fondo nuevo aparece aquí
+ * sin tocar esta página.
  * La ruta es pública: el login enlaza aquí.
  */
 @Component({
@@ -35,8 +41,8 @@ const LINK =
       <div hlmCardHeader>
         <h1 hlmCardTitle class="text-2xl">Créditos</h1>
         <p hlmCardDescription class="text-muted-foreground">
-          Los fondos de pantalla del admin son obras de sus autores, con licencia
-          <a [class]="link" [href]="licenseUrl">Creative Commons Atribución-CompartirIgual 3.0 (CC BY-SA 3.0)</a>.
+          Los fondos de pantalla del admin son obras de sus autores, con licencia Creative Commons
+          Atribución-CompartirIgual (CC BY-SA): la 3.0 los de GNOME y la 4.0 los de Fedora. Cada uno enlaza a la suya.
         </p>
       </div>
 
@@ -63,6 +69,14 @@ const LINK =
                       <dd>{{ item.info.author }}</dd>
                     </div>
                     <div class="flex flex-wrap gap-x-1">
+                      <dt class="text-muted-foreground">Fuente:</dt>
+                      <dd>
+                        <a [class]="link" [href]="item.source.releaseUrl"
+                          >{{ item.source.name }}<span class="sr-only"> (fuente del fondo {{ item.info.label }})</span></a
+                        >
+                      </dd>
+                    </div>
+                    <div class="flex flex-wrap gap-x-1">
                       <dt class="text-muted-foreground">Archivos de origen:</dt>
                       <dd>
                         <code>{{ item.info.files.light }}</code> y <code>{{ item.info.files.dark }}</code>
@@ -71,8 +85,8 @@ const LINK =
                     <div class="flex flex-wrap gap-x-1">
                       <dt class="text-muted-foreground">Licencia:</dt>
                       <dd>
-                        <a [class]="link" [href]="item.info.licenseUrl"
-                          >{{ item.info.license }}<span class="sr-only"> del fondo {{ item.info.label }}</span></a
+                        <a [class]="link" [href]="item.source.licenseUrl"
+                          >{{ item.source.license }}<span class="sr-only"> del fondo {{ item.info.label }}</span></a
                         >
                       </dd>
                     </div>
@@ -84,20 +98,32 @@ const LINK =
         </section>
 
         <section aria-labelledby="creditos-fuente">
-          <h2 id="creditos-fuente" class="mb-2 text-lg font-semibold">Fuente</h2>
-          <p class="text-sm">
-            Todos vienen de {{ source.name }}, la colección de fondos de GNOME:
-            <a [class]="link" [href]="source.projectUrl">repositorio de gnome-backgrounds en el GitLab de GNOME</a>
-            y <a [class]="link" [href]="source.releaseUrl">descargas de la versión 51</a>. El autor y la licencia de cada
-            fondo están en los metadatos de sus archivos de origen.
+          <h2 id="creditos-fuente" class="mb-2 text-lg font-semibold">Fuentes</h2>
+          <ul class="flex list-disc flex-col gap-1 ps-5 text-sm">
+            @for (source of sources; track source.id) {
+              <li>
+                {{ source.info.name }}:
+                <a [class]="link" [href]="source.info.projectUrl">{{ source.projectLabel }}</a>
+                y <a [class]="link" [href]="source.info.releaseUrl">tarball de {{ source.info.name }}</a>.
+              </li>
+            }
+          </ul>
+          <p class="mt-2 text-sm">
+            En los de GNOME, el autor y la licencia están en los metadatos de cada archivo de origen. En los de Fedora,
+            en el paquete: la licencia del spec, los archivos COPYING y Attribution, y el texto de la licencia que trae el
+            tarball.
           </p>
         </section>
 
         <section aria-labelledby="creditos-cambios">
           <h2 id="creditos-cambios" class="mb-2 text-lg font-semibold">Cambios</h2>
           <p class="text-sm">
-            Cada fondo se recortó al centro ({{ changes }}), se escaló y se convirtió a AVIF, y la miniatura a webp. Estas
-            imágenes derivadas se distribuyen con la misma licencia, CC BY-SA 3.0, que no se extiende al código del admin.
+            Cada fondo se recortó al centro en dos proporciones, 16:10 apaisado y 9:16 vertical, y se escaló a
+            {{ widths }} px de ancho, sin ampliar: si el original no alcanza un ancho, la variante mayor queda del ancho
+            del original ({{ narrow }}). Cada variante se convirtió a {{ formats }}, y la miniatura del selector, de
+            {{ thumbnailSize.width }} × {{ thumbnailSize.height }}, a WebP. Las versiones claras y oscuras son las de cada
+            fuente: no hay variantes oscuras derivadas. Estas imágenes derivadas se distribuyen con la misma licencia
+            que su original, que no se extiende al código del admin.
           </p>
         </section>
       </div>
@@ -113,15 +139,28 @@ export class CreditsPage {
   private readonly session = inject(SessionService);
 
   protected readonly link = LINK;
-  protected readonly items = BACKGROUNDS.map((id) => ({ id, info: BACKGROUND_INFO[id] }));
-  protected readonly source = BACKGROUNDS_SOURCE;
-  protected readonly licenseUrl = BACKGROUND_INFO[BACKGROUNDS[0]].licenseUrl;
+  protected readonly items = BACKGROUNDS.map((id) => ({
+    id,
+    info: BACKGROUND_INFO[id],
+    source: BACKGROUND_SOURCES[BACKGROUND_INFO[id].source],
+  }));
+  protected readonly sources = (Object.keys(BACKGROUND_SOURCES) as BackgroundSourceId[]).map((id) => ({
+    id,
+    info: BACKGROUND_SOURCES[id],
+    projectLabel: id.startsWith('gnome') ? 'repositorio en el GitLab de GNOME' : 'paquete en Fedora',
+  }));
   protected readonly thumbnailSize = THUMBNAIL_SIZE;
-  protected readonly changes = [
-    `${BACKGROUND_SIZES.landscape.width} × ${BACKGROUND_SIZES.landscape.height} apaisado`,
-    `${BACKGROUND_SIZES.portrait.width} × ${BACKGROUND_SIZES.portrait.height} vertical`,
-    `${THUMBNAIL_SIZE.width} × ${THUMBNAIL_SIZE.height} para la miniatura del selector`,
-  ].join(', ');
+  protected readonly widths = listFormat(BACKGROUND_WIDTHS.map(String));
+  protected readonly formats = listFormat(BACKGROUND_FORMATS.map((format) => FORMAT_NAMES[format]));
+  /** Los recortes verticales que no llegan a 3840: el ancho de su original. */
+  protected readonly narrow = listFormat([
+    ...new Set(
+      BACKGROUNDS.map((id) => {
+        const { width, height } = BACKGROUND_INFO[id].size;
+        return `${maxCropWidth(id, 'portrait')} px en el vertical de los originales de ${width} × ${height}`;
+      }),
+    ),
+  ]);
 
   /** Con sesión vuelve al admin; sin ella, al login. */
   protected readonly back = computed(() =>
@@ -131,4 +170,8 @@ export class CreditsPage {
   protected thumbnail(id: (typeof BACKGROUNDS)[number]): string {
     return thumbnailPath(id, this.backgrounds.variant());
   }
+}
+
+function listFormat(items: readonly string[]): string {
+  return items.length < 2 ? items.join('') : `${items.slice(0, -1).join(', ')} y ${items.at(-1)}`;
 }

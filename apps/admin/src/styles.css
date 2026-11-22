@@ -71,7 +71,7 @@
    * más clara de cada fondo (background-extremes.json).
    */
   --glass-tint: oklch(1 0 0);
-  --glass-card-alpha: 70%;
+  --glass-card-alpha: 75%;
   --glass-muted-foreground: oklch(0.34 0 0);
   --glass-destructive: oklch(0.4 0.15 27);
 
@@ -302,12 +302,18 @@
 :root:not(.dark)[data-glass-backdrop='sheet-light'] { --glass-card-alpha: 65%; }
 :root:not(.dark)[data-glass-backdrop='blobs-light'] { --glass-card-alpha: 65%; }
 :root:not(.dark)[data-glass-backdrop='glass-chip-light'] { --glass-card-alpha: 65%; }
-:root:not(.dark)[data-glass-backdrop='tarka-light'] { --glass-card-alpha: 50%; }
+:root:not(.dark)[data-glass-backdrop='tarka-light'] { --glass-card-alpha: 55%; }
 :root:not(.dark)[data-glass-backdrop='curvy-light'] { --glass-card-alpha: 55%; }
 :root:not(.dark)[data-glass-backdrop='symbolic-light'] { --glass-card-alpha: 40%; }
 :root:not(.dark)[data-glass-backdrop='dithered-sun-light'] { --glass-card-alpha: 45%; }
+:root:not(.dark)[data-glass-backdrop='balls-light'] { --glass-card-alpha: 75%; }
+:root:not(.dark)[data-glass-backdrop='blendpills-light'] { --glass-card-alpha: 65%; }
+:root:not(.dark)[data-glass-backdrop='lcd-rainbow-light'] { --glass-card-alpha: 35%; }
+:root:not(.dark)[data-glass-backdrop='fedora-42-light'] { --glass-card-alpha: 65%; }
+:root:not(.dark)[data-glass-backdrop='fedora-43-light'] { --glass-card-alpha: 70%; }
+:root:not(.dark)[data-glass-backdrop='fedora-44-light'] { --glass-card-alpha: 45%; }
 :root.dark[data-glass-backdrop='fold-dark'] { --glass-card-alpha: 60%; }
-:root.dark[data-glass-backdrop='map-dark'] { --glass-card-alpha: 45%; }
+:root.dark[data-glass-backdrop='map-dark'] { --glass-card-alpha: 55%; }
 :root.dark[data-glass-backdrop='sheet-dark'] { --glass-card-alpha: 40%; }
 :root.dark[data-glass-backdrop='blobs-dark'] { --glass-card-alpha: 45%; }
 :root.dark[data-glass-backdrop='glass-chip-dark'] { --glass-card-alpha: 70%; }
@@ -315,6 +321,12 @@
 :root.dark[data-glass-backdrop='curvy-dark'] { --glass-card-alpha: 35%; }
 :root.dark[data-glass-backdrop='symbolic-dark'] { --glass-card-alpha: 35%; }
 :root.dark[data-glass-backdrop='dithered-sun-dark'] { --glass-card-alpha: 75%; }
+:root.dark[data-glass-backdrop='balls-dark'] { --glass-card-alpha: 65%; }
+:root.dark[data-glass-backdrop='blendpills-dark'] { --glass-card-alpha: 70%; }
+:root.dark[data-glass-backdrop='lcd-rainbow-dark'] { --glass-card-alpha: 40%; }
+:root.dark[data-glass-backdrop='fedora-42-dark'] { --glass-card-alpha: 35%; }
+:root.dark[data-glass-backdrop='fedora-43-dark'] { --glass-card-alpha: 75%; }
+:root.dark[data-glass-backdrop='fedora-44-dark'] { --glass-card-alpha: 60%; }
 
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
   .glass-card {

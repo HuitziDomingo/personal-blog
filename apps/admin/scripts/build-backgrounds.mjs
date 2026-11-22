@@ -1,17 +1,25 @@
 #!/usr/bin/env node
-// Genera los fondos del admin (public/backgrounds/) a partir del tarball de
-// gnome-backgrounds. Solo usa módulos de Node y herramientas del sistema, que
-// no entran al repo: djxl (libjxl), ffmpeg, avifenc (libavif), cwebp (libwebp)
-// y, para los SVG, Chrome headless. Cada fondo sale en AVIF en dos recortes
-// centrados, apaisado para escritorio y vertical para móvil, y en una
-// miniatura webp para el selector del menú (BLOG-124).
+// Genera los fondos del admin (public/backgrounds/) a partir de los tarballs
+// de sus fuentes (BACKGROUND_SOURCES en backgrounds.ts). Solo usa módulos de
+// Node y herramientas del sistema, que no entran al repo: djxl (libjxl),
+// ffmpeg y ffprobe, avifenc (libavif), cwebp (libwebp) y, para los SVG,
+// Chrome headless.
+//
+// Cada fondo sale en dos recortes centrados, apaisado (16:10) para escritorio
+// y vertical (9:16) para móvil, en cada ancho de backgroundWidths (1280, 1920,
+// 2560 y 3840, sin ampliar el original) y en AVIF y WebP (BLOG-146). La
+// miniatura del selector (webp de 160 × 120, BLOG-124) solo se genera si no
+// existe; con THUMBNAILS=1 se regenera.
 //
 // Uso:
-//   node scripts/build-backgrounds.mjs <carpeta backgrounds/ de gnome-backgrounds-51.0.1>
-//   CHROME=/ruta/a/chrome node scripts/build-backgrounds.mjs …   (si hay SVG)
-//   node scripts/build-backgrounds.mjs <carpeta> fold map           (solo esos fondos)
+//   node scripts/build-backgrounds.mjs <fuente>=<carpeta del tarball> … [ids]
+//   p. ej. CHROME=/ruta/a/chrome node scripts/build-backgrounds.mjs \
+//     gnome-51=/tmp/gnome-backgrounds-51.0.1 fedora-42=/tmp/f42-backgrounds-42.0.0 \
+//     fedora-43=/tmp/f43-backgrounds-43.0.4 fedora-44=/tmp/f44-backgrounds-44.0.0
+//   (CHROME solo hace falta si hay SVG; con ids al final, genera solo esos)
 //
-// Después, `node scripts/measure-backgrounds.mjs` mide los colores extremos.
+// Solo genera los fondos cuyas fuentes se pasan. Después,
+// `node scripts/measure-backgrounds.mjs` mide los colores extremos.
 import { execFileSync } from 'node:child_process';
 import { existsSync, mkdtempSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -21,85 +29,124 @@ import { fileURLToPath } from 'node:url';
 import {
   BACKGROUND_INFO,
   BACKGROUND_ORIENTATIONS,
-  BACKGROUND_SIZES,
+  BACKGROUND_SOURCES,
   BACKGROUND_VARIANTS,
   BACKGROUNDS,
+  backgroundHeight,
   backgroundPath,
+  backgroundWidths,
   THUMBNAIL_SIZE,
   thumbnailPath,
 } from '../src/app/core/theme/backgrounds.ts';
 
-const [source, ...only] = process.argv.slice(2);
-if (!source) {
-  console.error('Uso: node scripts/build-backgrounds.mjs <carpeta backgrounds/ de gnome-backgrounds>');
+/**
+ * Parámetros de codificación (BLOG-146). AVIF: calidad 65 a 10 bits y 4:4:4
+ * (los 10 bits evitan bandas en los degradados y, a igual calidad, pesan un
+ * poco menos que 8). WebP: calidad 85 con sharp_yuv, para los navegadores sin
+ * AVIF. Antes: AVIF calidad 50 a 8 bits, en dos tamaños fijos.
+ */
+const AVIF_ARGS = ['-q', '65', '-d', '10', '-y', '444', '-s', '6', '-j', 'all', '--ignore-exif', '--ignore-xmp'];
+const WEBP_ARGS = ['-q', '85', '-m', '6', '-sharp_yuv', '-metadata', 'none'];
+/** Calidad de cwebp para las miniaturas: a 160 × 120 queda alrededor de 10 KB. */
+const THUMBNAIL_ARGS = ['-q', '80', '-m', '6', '-metadata', 'none'];
+const MAX_THUMBNAIL_BYTES = 16 * 1024;
+
+const args = process.argv.slice(2);
+const sources = Object.fromEntries(
+  args.filter((arg) => arg.includes('=')).map((arg) => [arg.slice(0, arg.indexOf('=')), arg.slice(arg.indexOf('=') + 1)]),
+);
+const only = args.filter((arg) => !arg.includes('='));
+for (const source of Object.keys(sources)) {
+  if (!(source in BACKGROUND_SOURCES)) {
+    throw new Error(`fuente desconocida: ${source} (válidas: ${Object.keys(BACKGROUND_SOURCES).join(', ')})`);
+  }
+}
+if (!Object.keys(sources).length) {
+  console.error('Uso: node scripts/build-backgrounds.mjs <fuente>=<carpeta del tarball> … [ids]');
   process.exit(1);
 }
 const PUBLIC = fileURLToPath(new URL('../public/', import.meta.url));
-/** Calidad de avifenc (0–100): con el desenfoque del glass encima, 50 no deja artefactos visibles. */
-const QUALITY = '50';
-const MAX_BYTES = 300 * 1024;
-/** Calidad de cwebp para las miniaturas: a 160 × 120 queda alrededor de 10 KB. */
-const THUMBNAIL_QUALITY = '80';
-const MAX_THUMBNAIL_BYTES = 16 * 1024;
-const ids = only.length ? BACKGROUNDS.filter((id) => only.includes(id)) : BACKGROUNDS;
+const ids = BACKGROUNDS.filter((id) => BACKGROUND_INFO[id].source in sources && (!only.length || only.includes(id)));
+
+/** Recorte centrado con la proporción final y después el escalado, en ffmpeg. */
+function cropFilter(width, height) {
+  return `crop='min(iw,ih*${width}/${height})':'min(ih,iw*${height}/${width})',scale=${width}:${height}:flags=lanczos`;
+}
+
+/** Decodifica el original a PNG y comprueba que mide lo que dice backgrounds.ts. */
+function decode(file, png, size, work) {
+  if (file.endsWith('.jxl')) {
+    execFileSync('djxl', [file, png, '--quiet']);
+  } else if (file.endsWith('.svg')) {
+    const chrome = process.env.CHROME;
+    if (!chrome) {
+      throw new Error('los SVG necesitan CHROME con la ruta de Chrome');
+    }
+    // El SVG se dibuja dentro de un <img> del tamaño del original. Chrome a
+    // veces sale con error al cerrar aunque ya escribió la captura; vale si
+    // el archivo existe.
+    const page = join(work, 'svg.html');
+    writeFileSync(
+      page,
+      `<style>html,body{margin:0}img{display:block;width:${size.width}px;height:${size.height}px}</style><img src="file://${file}">`,
+    );
+    const window = `--window-size=${size.width},${size.height}`;
+    try {
+      execFileSync(chrome, ['--headless=new', '--hide-scrollbars', `--screenshot=${png}`, window, `file://${page}`], { stdio: 'ignore' });
+    } catch (error) {
+      if (!existsSync(png)) {
+        throw error;
+      }
+    }
+  } else {
+    execFileSync('cp', [file, png]);
+  }
+  const probe = ['-v', 'error', '-select_streams', 'v:0', '-show_entries', 'stream=width,height', '-of', 'csv=p=0', png];
+  const [width, height] = execFileSync('ffprobe', probe, { encoding: 'utf8' }).trim().split(',').map(Number);
+  if (width !== size.width || height !== size.height) {
+    throw new Error(`${file} mide ${width} × ${height}, no ${size.width} × ${size.height} (backgrounds.ts)`);
+  }
+}
+
+const kb = (path) => `${(statSync(path).size / 1024).toFixed(1)} KB`;
 
 const work = mkdtempSync(join(tmpdir(), 'admin-fondos-'));
 try {
   for (const id of ids) {
+    const info = BACKGROUND_INFO[id];
     for (const variant of BACKGROUND_VARIANTS) {
-      const file = join(source, BACKGROUND_INFO[id].files[variant]);
+      const file = join(sources[info.source], info.files[variant]);
       if (!existsSync(file)) {
         throw new Error(`no existe ${file}`);
       }
       const png = join(work, `${id}-${variant}.png`);
-      if (file.endsWith('.jxl')) {
-        execFileSync('djxl', [file, png, '--quiet']);
-      } else if (file.endsWith('.svg')) {
-        const chrome = process.env.CHROME;
-        if (!chrome) {
-          throw new Error('los SVG necesitan CHROME con la ruta de Chrome');
-        }
-        // El SVG trae width y height de 4096: dentro de un <img> de 2048 se
-        // dibuja entero. Chrome a veces sale con error al cerrar aunque ya
-        // escribió la captura; vale si el archivo existe.
-        const page = join(work, `${id}-${variant}.html`);
-        writeFileSync(page, `<style>html,body{margin:0}img{display:block;width:2048px;height:2048px}</style><img src="file://${file}">`);
-        try {
-          execFileSync(chrome, ['--headless=new', '--hide-scrollbars', `--screenshot=${png}`, '--window-size=2048,2048', `file://${page}`], { stdio: 'ignore' });
-        } catch (error) {
-          if (!existsSync(png)) {
-            throw error;
-          }
-        }
-      } else {
-        execFileSync('cp', [file, png]);
-      }
+      decode(file, png, info.size, work);
       for (const orientation of BACKGROUND_ORIENTATIONS) {
-        const { width, height } = BACKGROUND_SIZES[orientation];
-        const cropped = join(work, `${id}-${variant}-${orientation}.png`);
-        // Recorte centrado con la proporción final y después el escalado.
-        const crop = `crop='min(iw,ih*${width}/${height})':'min(ih,iw*${height}/${width})',scale=${width}:${height}:flags=lanczos`;
-        execFileSync('ffmpeg', ['-loglevel', 'error', '-y', '-i', png, '-vf', crop, cropped]);
-        const out = join(PUBLIC, backgroundPath(id, variant, orientation));
-        execFileSync('avifenc', ['-q', QUALITY, '-s', '4', '-y', '444', '--ignore-exif', '--ignore-xmp', cropped, out], { stdio: 'ignore' });
-        const size = statSync(out).size;
-        console.log(`${out}: ${(size / 1024).toFixed(1)} KB`);
-        if (size > MAX_BYTES) {
-          throw new Error(`${out} pasa de ${MAX_BYTES / 1024} KB`);
+        for (const width of backgroundWidths(id, orientation)) {
+          const height = backgroundHeight(orientation, width);
+          const cropped = join(work, `${id}-${variant}-${orientation}-${width}.png`);
+          execFileSync('ffmpeg', ['-loglevel', 'error', '-y', '-i', png, '-vf', cropFilter(width, height), '-pix_fmt', 'rgb24', cropped]);
+          const avif = join(PUBLIC, backgroundPath(id, variant, orientation, width, 'avif'));
+          execFileSync('avifenc', [...AVIF_ARGS, cropped, avif], { stdio: 'ignore' });
+          const webp = join(PUBLIC, backgroundPath(id, variant, orientation, width, 'webp'));
+          execFileSync('cwebp', ['-quiet', ...WEBP_ARGS, cropped, '-o', webp]);
+          console.log(`${id}-${variant}-${orientation}-${width} (${width} × ${height}): avif ${kb(avif)}, webp ${kb(webp)}`);
+          rmSync(cropped);
         }
       }
-      // Miniatura: el mismo recorte centrado, con la proporción del selector.
-      const { width, height } = THUMBNAIL_SIZE;
-      const small = join(work, `${id}-${variant}-thumb.png`);
-      const crop = `crop='min(iw,ih*${width}/${height})':'min(ih,iw*${height}/${width})',scale=${width}:${height}:flags=lanczos`;
-      execFileSync('ffmpeg', ['-loglevel', 'error', '-y', '-i', png, '-vf', crop, small]);
       const thumb = join(PUBLIC, thumbnailPath(id, variant));
-      execFileSync('cwebp', ['-quiet', '-q', THUMBNAIL_QUALITY, '-m', '6', '-metadata', 'none', small, '-o', thumb]);
-      const thumbSize = statSync(thumb).size;
-      console.log(`${thumb}: ${(thumbSize / 1024).toFixed(1)} KB`);
-      if (thumbSize > MAX_THUMBNAIL_BYTES) {
-        throw new Error(`${thumb} pasa de ${MAX_THUMBNAIL_BYTES / 1024} KB`);
+      if (process.env.THUMBNAILS === '1' || !existsSync(thumb)) {
+        // Miniatura: el mismo recorte centrado, con la proporción del selector.
+        const { width, height } = THUMBNAIL_SIZE;
+        const small = join(work, `${id}-${variant}-thumb.png`);
+        execFileSync('ffmpeg', ['-loglevel', 'error', '-y', '-i', png, '-vf', cropFilter(width, height), small]);
+        execFileSync('cwebp', ['-quiet', ...THUMBNAIL_ARGS, small, '-o', thumb]);
+        console.log(`${thumb}: ${kb(thumb)}`);
+        if (statSync(thumb).size > MAX_THUMBNAIL_BYTES) {
+          throw new Error(`${thumb} pasa de ${MAX_THUMBNAIL_BYTES / 1024} KB`);
+        }
       }
+      rmSync(png);
     }
   }
 } finally {

@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 
-import { BACKGROUND_STORAGE_KEY, BACKGROUNDS, DEFAULT_BACKGROUND } from '../src/app/core/theme/backgrounds.ts';
+import { BACKGROUNDS } from '../src/app/core/theme/backgrounds.ts';
 import { ACCENTS, THEME_STORAGE_KEYS } from '../src/app/core/theme/theme.ts';
 
 const html = readFileSync(new URL('../src/index.html', import.meta.url), 'utf8');
@@ -49,7 +49,7 @@ function run({ stored = {}, systemDark = false, storageThrows = false, path = '/
     dark: classes.has('dark'),
     accent: attributes['data-accent'],
     loginBackground: attributes['data-login-background'],
-    preloads: preloads.map(({ rel, as, type, media, href, fetchpriority }) => ({ rel, as, type, media, href, fetchpriority })),
+    preloads,
   };
 }
 
@@ -87,37 +87,24 @@ test('si localStorage falla, usa el tema del sistema', () => {
   const result = run({ storageThrows: true, systemDark: true });
   assert.equal(result.dark, true);
   assert.equal(result.accent, 'neutral');
-  assert.equal(result.preloads[0].href, `backgrounds/${DEFAULT_BACKGROUND}-dark-portrait.avif`);
 });
 
-test('el script usa la misma lista de fondos y la misma clave que backgrounds.ts', () => {
+test('el script usa la misma lista de fondos que backgrounds.ts', () => {
   assert.ok(scripts[0].includes(`var backgrounds = ${JSON.stringify(BACKGROUNDS).replaceAll('"', "'").replaceAll(',', ', ')};`));
-  assert.ok(scripts[0].includes(`'${BACKGROUND_STORAGE_KEY}'`));
-  assert.ok(scripts[0].includes(`background = '${DEFAULT_BACKGROUND}'`));
 });
 
-test('fuera del login precarga el fondo guardado, en el tema actual, con los dos recortes por media', () => {
-  const { preloads, loginBackground } = run({ stored: { 'admin-background': 'map', 'admin-theme': 'dark' } });
-  assert.equal(loginBackground, undefined);
-  assert.deepEqual(preloads, [
-    { rel: 'preload', as: 'image', type: 'image/avif', media: '(orientation: portrait)', href: 'backgrounds/map-dark-portrait.avif', fetchpriority: 'high' },
-    { rel: 'preload', as: 'image', type: 'image/avif', media: 'not all and (orientation: portrait)', href: 'backgrounds/map-dark-landscape.avif', fetchpriority: 'high' },
-  ]);
+test('no precarga el fondo: competía con el JS por la red en móvil (BLOG-146)', () => {
+  assert.deepEqual(run({ stored: { 'admin-background': 'map' } }).preloads, []);
+  assert.deepEqual(run({ path: '/login' }).preloads, []);
 });
 
-test('un fondo guardado inválido cae al de por defecto', () => {
-  const { preloads } = run({ stored: { 'admin-background': '../../x' } });
-  assert.equal(preloads[1].href, `backgrounds/${DEFAULT_BACKGROUND}-light-landscape.avif`);
+test('fuera del login no elige fondo', () => {
+  assert.equal(run({ stored: { 'admin-background': 'map' } }).loginBackground, undefined);
 });
 
-test('en /login elige uno al azar, lo marca en <html> y precarga solo ese', () => {
+test('en /login elige uno al azar y lo marca en <html>', () => {
   for (const [index, background] of BACKGROUNDS.entries()) {
     const random = (index + 0.5) / BACKGROUNDS.length;
-    const result = run({ path: '/login', random, stored: { 'admin-background': 'fold' } });
-    assert.equal(result.loginBackground, background);
-    assert.deepEqual(result.preloads.map((link) => link.href), [
-      `backgrounds/${background}-light-portrait.avif`,
-      `backgrounds/${background}-light-landscape.avif`,
-    ]);
+    assert.equal(run({ path: '/login', random, stored: { 'admin-background': 'fold' } }).loginBackground, background);
   }
 });
