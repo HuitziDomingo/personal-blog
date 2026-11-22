@@ -18,6 +18,7 @@ type server struct {
 	comments  Comments
 	cvs       CVs
 	covers    Covers
+	rag       RAG
 }
 
 var _ gen.StrictServerInterface = server{}

@@ -214,6 +214,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/assistant/improve-with-context": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Sugiere mejoras con el contexto de los posts publicados.
+         * @description Workflow de RAG (ADR-027): el borrador se convierte en embedding de consulta, se recuperan los 4 fragmentos más parecidos de los posts publicados que superan el umbral (sin los del post `postId`) y se pide una sugerencia con ellos como contexto. Si ninguno supera el umbral, la sugerencia se pide sin contexto y `context` llega vacío. Es una sugerencia: no se guarda. Los links y las contradicciones solo pueden apuntar a posts de `context`. Comparte el límite por usuario del asistente (ADR-021).
+         */
+        post: operations["improveWithContext"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/rag/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Devuelve el estado del índice de posts.
+         * @description Dice si el RAG está encendido y cuántos posts publicados están indexados al día con el modelo actual y cuántos pendientes. Con el RAG apagado responde 200 con `enabled: false`: el admin lo usa para mostrar u ocultar «Mejorar con mi contexto» y «Reindexar todo».
+         */
+        get: operations["getRagStatus"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/rag/reindex": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reconstruye el índice de posts.
+         * @description Vuelve a generar los embeddings de todos los posts publicados y borra los fragmentos de los que ya no lo están (ADR-027, punto 5). Cada post se reemplaza solo si sus embeddings se generaron. Al primer fallo del proveedor (por ejemplo, cuota agotada) se detiene y los posts restantes quedan en `pending`, con su índice anterior. Comparte el límite por usuario del asistente.
+         */
+        post: operations["reindexPosts"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/posts/{id}": {
         parameters: {
             query?: never;
@@ -677,6 +737,72 @@ export interface components {
             /** @description Texto alternativo de la portada. Solo letras, marcas diacríticas, dígitos, el espacio y `. , ; : ' " ( ) - ¿ ? ¡ ! « » ’ “ ” – — / % &`. Se guarda sin espacios en los extremos. */
             alt: string;
         };
+        /** @description El borrador para «mejorar con contexto». `postId` es el post que se está editando: sus propios fragmentos no se usan como contexto. */
+        ContextDraft: {
+            /** @description Vacío o ausente si el post todavía no se guardó. */
+            postId?: string;
+            /** @description Puede estar vacío. */
+            title: string;
+            /** @description Contenido en Markdown. */
+            content: string;
+        };
+        /** @description Un fragmento de un post publicado usado como contexto. */
+        ContextSource: {
+            postId: string;
+            slug: components["schemas"]["Slug"];
+            /** @description Título del post. */
+            title: string;
+            /** @description Título de la sección (encabezado de nivel 2) del fragmento; vacío si es el texto antes de la primera. */
+            section: string;
+            /**
+             * Format: double
+             * @description Similitud coseno con el borrador.
+             */
+            score: number;
+        };
+        InternalLink: {
+            slug: components["schemas"]["Slug"];
+            /** @description Dónde y por qué enlazarlo. */
+            reason: string;
+        };
+        Contradiction: {
+            slug: components["schemas"]["Slug"];
+            /** @description Qué dice el borrador y qué dice el post. */
+            note: string;
+        };
+        ContextualSuggestion: {
+            /** @description Mejoras sugeridas en Markdown. Es texto no confiable: se renderiza con el mismo sanitizado que cualquier post (packages/markdown). */
+            suggestion: string;
+            /** @description Links sugeridos, solo a posts de `context` y sin repetir. */
+            internalLinks: components["schemas"]["InternalLink"][];
+            /** @description Diferencias con posts de `context`. */
+            contradictions: components["schemas"]["Contradiction"][];
+            /** @description Los fragmentos usados como contexto, del más parecido al menos. */
+            context: components["schemas"]["ContextSource"][];
+        };
+        RagStatus: {
+            enabled: boolean;
+            /** @description Modelo de embeddings; vacío con el RAG apagado. */
+            model: string;
+            publishedPosts: number;
+            /** @description Posts publicados con fragmentos al día con el modelo actual. */
+            indexedPosts: number;
+            /** @description Posts publicados sin indexar o con un índice viejo. */
+            pendingPosts: number;
+            /** @description Fragmentos de los posts indexados. */
+            chunks: number;
+        };
+        ReindexResult: {
+            /** @description Posts publicados. */
+            posts: number;
+            indexed: number;
+            /** @description Posts que quedaron sin reindexar porque el proveedor falló. */
+            pending: number;
+            /** @description Posts que ya no están publicados y cuyos fragmentos se borraron. */
+            removed: number;
+            /** @description Fragmentos generados. */
+            chunks: number;
+        };
         /** @description Datos de un post para listados, sin su contenido. */
         PostSummary: {
             id: string;
@@ -905,6 +1031,15 @@ export interface components {
         };
         /** @description No hay almacenamiento de archivos configurado (`detail`: "file storage is not configured") o falló al guardar (`detail`: "file storage is unavailable"). */
         FileStorageUnavailable: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["Problem"];
+            };
+        };
+        /** @description El RAG está desactivado (`detail`: "rag is disabled"), o el proveedor de embeddings o el asistente fallaron, agotaron su cuota o devolvieron una salida inválida. `detail` dice cuál. */
+        RagUnavailable: {
             headers: {
                 [name: string]: unknown;
             };
@@ -1325,6 +1460,86 @@ export interface operations {
             413: components["responses"]["PayloadTooLarge"];
             429: components["responses"]["TooManyRequests"];
             503: components["responses"]["AssistantUnavailable"];
+            default: components["responses"]["UnexpectedError"];
+        };
+    };
+    improveWithContext: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ContextDraft"];
+            };
+        };
+        responses: {
+            /** @description Sugerencia y fragmentos usados como contexto. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContextualSuggestion"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            413: components["responses"]["PayloadTooLarge"];
+            429: components["responses"]["TooManyRequests"];
+            503: components["responses"]["RagUnavailable"];
+            default: components["responses"]["UnexpectedError"];
+        };
+    };
+    getRagStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Estado del índice. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RagStatus"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["TooManyRequests"];
+            default: components["responses"]["UnexpectedError"];
+        };
+    };
+    reindexPosts: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Resultado del reindexado. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReindexResult"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["TooManyRequests"];
+            503: components["responses"]["RagUnavailable"];
             default: components["responses"]["UnexpectedError"];
         };
     };

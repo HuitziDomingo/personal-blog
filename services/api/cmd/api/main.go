@@ -101,7 +101,13 @@ func run(logger *slog.Logger) error {
 	}
 
 	postRepository := mongodb.NewPostRepository(client)
-	posts := service.NewPostService(postRepository, time.Now)
+
+	rag, err := newRAG(ctx, cfg.RAG, postRepository, mongodb.NewChunkRepository(client), assistant, logger)
+	if err != nil {
+		return errors.Join(err, client.Disconnect(ctx))
+	}
+
+	posts := service.NewPostService(postRepository, time.Now, service.WithPostIndexer(rag))
 
 	moderation, err := newModeration(ctx, cfg, logger)
 	if err != nil {
@@ -124,17 +130,23 @@ func run(logger *slog.Logger) error {
 	}
 
 	routerConfig := handler.RouterConfig{
-		AllowedOrigins:   cfg.AllowedOrigins,
-		MaxBodyBytes:     cfg.MaxBodyBytes,
-		TrustedProxies:   cfg.TrustedProxies,
-		Sessions:         sessions,
-		Posts:            posts,
-		Assistant:        assistant,
-		Comments:         service.NewCommentService(mongodb.NewCommentRepository(client), posts, moderation, cfg.Comments.Enabled, time.Now),
-		CVs:              service.NewCVService(mongodb.NewCVRepository(client), files, time.Now),
-		Covers:           covers,
-		Media:            media,
-		AssistantTimeout: cfg.Assistant.Timeout,
+		AllowedOrigins: cfg.AllowedOrigins,
+		MaxBodyBytes:   cfg.MaxBodyBytes,
+		TrustedProxies: cfg.TrustedProxies,
+		Sessions:       sessions,
+		Posts:          posts,
+		Assistant:      assistant,
+		Comments:       service.NewCommentService(mongodb.NewCommentRepository(client), posts, moderation, cfg.Comments.Enabled, time.Now),
+		CVs:            service.NewCVService(mongodb.NewCVRepository(client), files, time.Now),
+		Covers:         covers,
+		Media:          media,
+		RAG:            rag,
+		WriteDeadlines: handler.WriteDeadlines{
+			// «Mejorar con contexto» genera el embedding de la consulta y
+			// después llama al asistente.
+			Assistant: cfg.Assistant.Timeout + cfg.RAG.EmbedTimeout,
+			Reindex:   cfg.RAG.ReindexTimeout,
+		},
 		// La vista previa espera a Gemini y después al generador.
 		CoverPreviewTimeout: cfg.Assistant.Timeout + cfg.Images.Timeout,
 		Logger:              logger,
@@ -177,14 +189,14 @@ func run(logger *slog.Logger) error {
 
 	select {
 	case err := <-serveErr:
-		return errors.Join(fmt.Errorf("serve: %w", err), shutdown(server, client))
+		return errors.Join(fmt.Errorf("serve: %w", err), shutdown(server, client, rag))
 	case <-ctx.Done():
 	}
 
 	stop()
 	slog.Info("api shutting down")
 
-	return shutdown(server, client)
+	return shutdown(server, client, rag)
 }
 
 // newSessions arma el login y la sesión sobre MongoDB.
@@ -313,6 +325,57 @@ func newCovers(cfg config.Config, posts domain.PostRepository, assistant *servic
 	return covers, nil
 }
 
+// newRAG arma el RAG sobre los embeddings de Gemini, o el desactivado si
+// RAG_ENABLED no es true (ADR-027). config.Load ya comprobó que, encendido,
+// el asistente también lo está.
+func newRAG(ctx context.Context, cfg config.RAG, posts *mongodb.PostRepository, chunks *mongodb.ChunkRepository, assistant *service.AssistantService, logger *slog.Logger) (*service.RAGService, error) {
+	if !cfg.Enabled {
+		return service.NewDisabledRAG(), nil
+	}
+
+	embedder, err := gemini.NewEmbedder(ctx, gemini.EmbedderConfig{
+		APIKey: cfg.GeminiAPIKey.Reveal(),
+		Model:  cfg.EmbeddingModel,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("create embedder: %w", err)
+	}
+
+	rag, err := service.NewRAGService(posts, chunks, embedder, assistant, service.RAGConfig{
+		MinScore:      cfg.MinScore,
+		MaxChunkChars: cfg.ChunkMaxChars,
+		EmbedTimeout:  cfg.EmbedTimeout,
+		IndexTimeout:  cfg.IndexTimeout,
+	}, logger)
+	if err != nil {
+		return nil, fmt.Errorf("create rag: %w", err)
+	}
+
+	slog.Info("rag enabled",
+		"embedding_model", cfg.EmbeddingModel,
+		"min_score", cfg.MinScore,
+		"chunk_max_chars", cfg.ChunkMaxChars,
+	)
+
+	return rag, nil
+}
+
+// waitForIndexing espera las indexaciones en segundo plano hasta que venza
+// ctx. Las que no terminen se pierden: sus posts quedan pendientes.
+func waitForIndexing(ctx context.Context, rag *service.RAGService) {
+	done := make(chan struct{})
+	go func() {
+		rag.Wait()
+		close(done)
+	}()
+
+	select {
+	case <-done:
+	case <-ctx.Done():
+		slog.Warn("rag indexing did not finish before shutdown")
+	}
+}
+
 // newModeration arma el clasificador de comentarios sobre Gemini, con el mismo
 // nivel de razonamiento que el asistente y su propio límite de salida, o nil si
 // COMMENTS_MODERATION_ENABLED no es true (ADR-022).
@@ -346,9 +409,10 @@ func newModeration(ctx context.Context, cfg config.Config, logger *slog.Logger) 
 	return moderation, nil
 }
 
-// shutdown cierra el servidor y después la base de datos, para que las
-// peticiones en curso terminen con la conexión abierta.
-func shutdown(server *http.Server, client *mongodb.Client) error {
+// shutdown cierra el servidor, espera las indexaciones en segundo plano y
+// después cierra la base de datos, para que las peticiones y las
+// indexaciones en curso terminen con la conexión abierta.
+func shutdown(server *http.Server, client *mongodb.Client, rag *service.RAGService) error {
 	ctx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
 	defer cancel()
 
@@ -356,6 +420,8 @@ func shutdown(server *http.Server, client *mongodb.Client) error {
 	if err := server.Shutdown(ctx); err != nil {
 		shutdownErr = fmt.Errorf("shutdown: %w", err)
 	}
+
+	waitForIndexing(ctx, rag)
 
 	return errors.Join(shutdownErr, client.Disconnect(ctx))
 }

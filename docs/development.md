@@ -178,6 +178,13 @@ npx @modelcontextprotocol/inspector@2.13.0 \
 | `CLOUDFLARE_ACCOUNT_ID` | Con las portadas encendidas | | Account ID de Cloudflare: 32 caracteres hexadecimales en minúscula |
 | `CLOUDFLARE_AI_TOKEN` | Con las portadas encendidas | | API token de Cloudflare con permisos solo para Workers AI. Nunca aparece en logs ni en errores |
 | `IMAGES_TIMEOUT_SECONDS` | No | `30` | Timeout de una llamada a Cloudflare. La vista previa alarga el `WriteTimeout` a `ASSISTANT_TIMEOUT_SECONDS` + este valor + 10 s, porque espera a los dos proveedores. Cada llamada deja una línea `image generator call` con modelo, latencia, bytes y resultado (`ok`, `timeout`, `quota_exceeded`, `unavailable` o `invalid_output`), nunca el prompt |
+| `RAG_ENABLED` | No | `false` | `true` enciende el RAG sobre los posts publicados (ADR-027): «mejorar con contexto», el índice `post_chunks` y el reindexado. Exige `ASSISTANT_ENABLED=true`; sin él, la API no arranca. Con `false`, «mejorar con contexto» y el reindexado responden 503 `rag is disabled`, el estado responde `enabled: false` y nada se indexa. Otro valor detiene la API |
+| `RAG_EMBEDDING_MODEL` | No | `gemini-embedding-2` | Modelo de embeddings (GA desde el 22 de abril de 2026, plan gratuito), con vectores de 768 dimensiones. Con `gemini-embedding-001` la tarea va en `taskType`; con los demás, como prefijo del texto. Si cambia, la búsqueda ignora los fragmentos del modelo anterior hasta reindexar |
+| `RAG_MIN_SCORE` | No | `0.55` | Similitud coseno mínima, entre 0 y 1, para usar un fragmento como contexto. Se ajusta con `make api-rag-eval`. Otro valor detiene la API |
+| `RAG_CHUNK_MAX_CHARS` | No | `800` | Tamaño máximo de un fragmento. Un bloque de código más largo queda entero en un solo fragmento. Cambiarlo cambia el `contentHash`: los posts se vuelven a indexar al editarlos o al reindexar |
+| `RAG_TIMEOUT_SECONDS` | No | `10` | Timeout de cada llamada de embeddings. «Mejorar con contexto» alarga el `WriteTimeout` del servidor a este valor más `ASSISTANT_TIMEOUT_SECONDS` y 10 s |
+| `RAG_INDEX_TIMEOUT_SECONDS` | No | `30` | Timeout de la indexación en segundo plano de un post al guardarlo. Si falla o vence, el post queda pendiente y lo registra `rag index post failed` |
+| `RAG_REINDEX_TIMEOUT_SECONDS` | No | `120` | Plazo de escritura de `POST /api/v1/admin/rag/reindex`, que espera a que termine el reindexado |
 | `INITIAL_ADMIN_EMAIL` | No | | Email del administrador inicial |
 | `INITIAL_ADMIN_PASSWORD` | No | | Contraseña del administrador inicial |
 | `LOG_FORMAT` | No | `text` | `text` (key=value, para la terminal) o `json` (una línea por evento con `severity`, `message` y `time`, los campos de Cloud Logging). En `json`, el access log también es JSON, con el grupo `httpRequest` que Cloud Logging muestra como petición HTTP: solo la ruta (sin query), y severidad `ERROR` para 5xx, `WARNING` para 4xx salvo 401 y 404, e `INFO` para el resto. Un `LOG_FORMAT` inválido detiene la API con el error ya en JSON |
@@ -218,6 +225,7 @@ La API arranca con cualquier configuración válida, pero algunas la dejan inút
 | `COMMENTS_MODERATION_ENABLED`, `COMMENTS_MODERATION_MODEL` y `COMMENTS_MODERATION_MAX_OUTPUT_TOKENS` | Apagada; para probarla, la misma key del asistente, con `gemini-3.6-flash` y 512 | Encendida con `gemini-3.6-flash` y 512, la key desde Secret Manager |
 | `FILES_STORE`, `FILES_LOCAL_DIR` y `FILES_LOCAL_BASE_URL` | `local`, `tmp/files` y `http://localhost:8080/media` | `gcs` y `FILES_GCS_BUCKET` con el bucket de archivos |
 | `IMAGES_ENABLED`, `CLOUDFLARE_ACCOUNT_ID` y `CLOUDFLARE_AI_TOKEN` | Apagadas; para probarlas, una cuenta propia en `.env` con `FILES_STORE=local` | Apagadas hasta cumplir ADR-026, punto 11. Después, el token desde Secret Manager y el bucket de archivos (`FILES_STORE=gcs`), con lectura pública y escritura solo desde la cuenta de servicio de la API |
+| `RAG_ENABLED` y `RAG_MIN_SCORE` | Apagado; para probarlo, con el asistente encendido y el umbral medido con `make api-rag-eval` | Apagado al lanzar (ADR-025, punto 10); se enciende con la variable, sin desplegar código |
 
 Los valores de producción son los previstos; el despliegue está pendiente (BLOG-054 y BLOG-022).
 
@@ -232,6 +240,7 @@ Los valores de producción son los previstos; el despliegue está pendiente (BLO
 | `make api-moderation-samples` | Corre los comentarios de ejemplo de la moderación contra Gemini real (`gemini-3.6-flash`). Gasta cuota: nunca en CI |
 | `make api-migrate-covers` | Asigna la portada a los 2 posts migrados (`arreglos` y `backend-api`). Pide `MIGRATE_MONGO_URI` en el entorno (nunca la toma de `.env`), `MIGRATE_DB` y `SITE_URL`; `DRY_RUN=1` solo informa. Idempotente. Ver «Portadas de los posts migrados» |
 | `make api-cover-sample` | Genera UNA portada real con FLUX.1 [schnell] (necesita `CLOUDFLARE_ACCOUNT_ID` y `CLOUDFLARE_AI_TOKEN` en `.env`), la guarda en `Claude outputs/portadas/` e imprime formato, resolución, tamaño, si trae C2PA/JUMBF, XMP, IPTC o EXIF y el largo del `blurDataUrl`. Gasta una imagen de la cuota de Cloudflare: nunca en CI |
+| `make api-rag-eval` | Mide recall@4 del RAG con embeddings reales sobre el set de `internal/assistant/gemini/testdata/rag_eval.json` (ADR-027, punto 12) e imprime, por consulta, los 4 fragmentos más parecidos y cuáles superan el umbral. `RAG_EVAL_MODEL` y `RAG_MIN_SCORE` cambian modelo y umbral. Gasta cuota: nunca en CI |
 | `make api-lint` | Corre `golangci-lint` |
 | `make web-dev` | Levanta `apps/web` con `next dev` en `http://localhost:3000`; con `WEB_API_BASE_URL=<origen>` usa otra API |
 | `make web-build` | Build de producción de la web contra la API local (o `WEB_API_BASE_URL`) |
@@ -390,7 +399,7 @@ make web-test       # Vitest de lib/
 - **Paquetes del monorepo:** `transpilePackages` compila `@personal-blog/markdown` y `serverExternalPackages` deja jsdom fuera del bundle.
 - **CI:** job `web` (ADR-017, punto 7), con lint, typecheck, tests y build con `WEB_SKIP_API=1`.
 - **Probar de punta a punta en local:** `make api-run`, `make admin-dev`, `make web-build` y `make web-start`. Publica un post en el admin y abre `http://localhost:3000/blog`. Si no aparece, recarga pasados 60 s.
-- **Pendiente:** el despliegue en Vercel.
+- **Despliegue:** Vercel, según [el runbook](runbooks/despliegue.md#14-vercel) (ADR-025). Todavía no está en producción.
 
 ### Admin (`apps/admin`)
 
@@ -645,6 +654,22 @@ rm cookies.txt
 
 `cookies.txt` contiene tokens válidos: no lo subas a git y bórralo al terminar.
 
+## Despliegue (ADR-025)
+
+Nada está en producción todavía. Lo que ya está en el repo:
+
+- **`.github/workflows/deploy-api.yml`:** despliega la API a Cloud Run cuando el workflow `ci` termina en verde para un push a `main` que cambió `services/api/`. Espera la aprobación de León en el environment `production` y se autentica con Workload Identity Federation (sin llaves JSON).
+- **`.github/workflows/backup-mongo.yml`:** `mongodump` semanal (y a mano) a un bucket privado, con la URI leída de Secret Manager al ejecutarse.
+- **`services/api/deploy/production.env.yaml`:** variables no secretas de la API en producción. El workflow las aplica completas en cada despliegue; los secretos vienen de Secret Manager.
+- **[`docs/runbooks/despliegue.md`](runbooks/despliegue.md):** los pasos manuales en GCP, Atlas, Vercel, DreamHost y GitHub, la verificación del primer despliegue y la reversión.
+- **[`docs/runbooks/variables-produccion.md`](runbooks/variables-produccion.md):** las variables de cada app en producción y de dónde salen.
+
+Para validar los workflows en local (sin instalar nada en el repo):
+
+```sh
+go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.12 .github/workflows/*.yml
+```
+
 ## Troubleshooting
 
 ### MongoDB no arranca: `Linux kernel versions 6.19 and newer`
@@ -788,3 +813,18 @@ ADR-022. Los lectores comentan los posts publicados sin cuenta, y nada se public
   - `comments-client.tsx` es el formulario (componente de cliente): nombre, comentario con contador, aviso de IA y privacidad y el campo trampa `website`, fuera de pantalla, con `aria-hidden`, `tabindex=-1` y `autocomplete=off`. Envía directo a la API sin cookies. Estados: en revisión (202, con una tarjeta «Pendiente · solo tú lo ves» que se pierde al recargar), no publicado (400), demasiados intentos (429, conserva el texto), no disponible (404) y error. «Responder» elige el comentario padre.
   - `/comentarios/reglas` (`app/(es)/comentarios/reglas/`) explica la moderación, los datos y los límites (ADR-022, punto 9). Está fuera de `/blog` para que no tape a un post con ese slug, y entra al sitemap solo con `COMMENTS_ENABLED=true`.
   - **Probar en local:** levanta la API con `COMMENTS_ENABLED=true` y `ALLOWED_ORIGINS` con el origen de la web, y la web con `COMMENTS_ENABLED=true` (`COMMENTS_ENABLED=true make web-build` y `make web-start`).
+
+## RAG sobre los posts publicados
+
+ADR-027. «Mejorar con mi contexto» sugiere mejoras al borrador con los fragmentos más parecidos de los posts publicados. Es un workflow fijo, no un agente: fragmentar, generar embeddings, buscar, aumentar el prompt y generar. Apagado por defecto (`RAG_ENABLED=false`) y solo funciona con el asistente encendido.
+
+- **Indexación:**
+  - Al crear, editar o archivar un post, `PostService` avisa al RAG, que lo indexa en segundo plano: el guardado no espera a Gemini. Si el post está publicado y cambió su `contentHash` (título, slug, contenido, tamaño de fragmento y versión del divisor) o el modelo, se regeneran sus fragmentos. Si no está publicado, se borran.
+  - Si fallan los embeddings, el post se guarda igual y queda pendiente (`rag index post failed` en el log). Las indexaciones van de una en una, y la API las espera al apagarse.
+  - **Divisor** (`service.SplitMarkdown`): una sección por cada `##` (no `#` ni `###`), con el título de la sección en cada fragmento. Dentro de la sección agrupa párrafos hasta `RAG_CHUNK_MAX_CHARS`, nunca corta un bloque de código (``` o ~~~) y corta por palabras un párrafo más largo. Un `##` dentro de un bloque de código no abre sección.
+  - **Datos:** colección `post_chunks` (post, slug, título, sección, posición, texto, vector de 768, modelo y `contentHash`), con índices en `post_id` + `position` y en `model`. Solo posts publicados del autor, nunca comentarios.
+- **Admin:**
+  - `POST /api/v1/admin/assistant/improve-with-context` recibe `{ "title", "content", "postId"? }`. Convierte el borrador en embedding de consulta, compara en memoria contra todos los fragmentos del modelo actual, toma los 4 mejores que superan `RAG_MIN_SCORE` sin los de `postId` y pide la sugerencia con ellos como datos. Responde `suggestion` (Markdown no confiable), `internalLinks` y `contradictions` (solo a posts recuperados; si el modelo inventa otro, 503 por salida inválida) y `context`, los fragmentos usados. Sin fragmentos sobre el umbral, la sugerencia se pide sin contexto. Comparte el bucket del asistente.
+  - `GET /api/v1/admin/rag/status` devuelve `enabled`, el modelo y cuántos posts publicados están indexados al día y cuántos pendientes. Con el RAG apagado responde `enabled: false`.
+  - `POST /api/v1/admin/rag/reindex` regenera todos los publicados y borra los fragmentos de los demás. Cada post se reemplaza solo si sus embeddings se generaron; al primer fallo del proveedor se detiene y el resto queda en `pending`. Comparte el bucket del asistente.
+- **Evaluación:** `make api-rag-eval` mide recall@4 con el modelo real sobre `internal/assistant/gemini/testdata/rag_eval.json` (10 posts de ejemplo y 11 consultas). Nunca corre en CI; en CI solo se comprueba que el set esté completo. La tabla marca con `*` los fragmentos que superan el umbral, para ajustar `RAG_MIN_SCORE`.

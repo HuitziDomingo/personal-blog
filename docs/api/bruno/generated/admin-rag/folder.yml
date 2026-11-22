@@ -1,0 +1,10 @@
+info:
+  name: admin-rag
+  type: folder
+
+request:
+  auth: inherit
+
+docs:
+  content: Índice de los posts publicados para «mejorar con contexto» (ADR-027). Apagado por defecto (RAG_ENABLED=false).
+  type: text/markdown

@@ -22,7 +22,10 @@ type fakeProvider struct {
 	improved domain.ImprovedWriting
 	metadata domain.MetadataSuggestion
 	cover    domain.CoverSuggestion
-	err      error
+	context  domain.ContextualSuggestion
+	// chunks son los fragmentos que recibió ImproveWithContext.
+	chunks [][]domain.ContextChunk
+	err    error
 	// block hace que la llamada espere a que venza el contexto.
 	block bool
 }
@@ -54,6 +57,16 @@ func (f *fakeProvider) SuggestCover(ctx context.Context, draft domain.Draft) (do
 	}
 
 	return f.cover, f.err
+}
+
+func (f *fakeProvider) ImproveWithContext(ctx context.Context, draft domain.Draft, chunks []domain.ContextChunk) (domain.ContextualSuggestion, error) {
+	f.drafts = append(f.drafts, draft)
+	f.chunks = append(f.chunks, chunks)
+	if err := f.wait(ctx); err != nil {
+		return domain.ContextualSuggestion{}, err
+	}
+
+	return f.context, f.err
 }
 
 func (f *fakeProvider) wait(ctx context.Context) error {
@@ -315,4 +328,60 @@ func TestSuggestCoverRejectsInvalidOutput(t *testing.T) {
 			assert.Contains(t, logs.String(), `"result":"invalid_output"`)
 		})
 	}
+}
+
+func TestImproveWithContextValidatesTheSuggestion(t *testing.T) {
+	chunks := []domain.ContextChunk{{Slug: "uno"}, {Slug: "dos"}}
+	link := func(slug string) domain.InternalLink { return domain.InternalLink{Slug: slug, Reason: "Motivo."} }
+
+	tests := map[string]domain.ContextualSuggestion{
+		"empty suggestion":        {Suggestion: "  "},
+		"suggestion too long":     {Suggestion: strings.Repeat("a", MaxContextSuggestionLength+1)},
+		"link to unknown post":    {Suggestion: "ok", InternalLinks: []domain.InternalLink{link("tres")}},
+		"repeated link":           {Suggestion: "ok", InternalLinks: []domain.InternalLink{link("uno"), link("uno")}},
+		"empty reason":            {Suggestion: "ok", InternalLinks: []domain.InternalLink{{Slug: "uno", Reason: " "}}},
+		"reason too long":         {Suggestion: "ok", InternalLinks: []domain.InternalLink{{Slug: "uno", Reason: strings.Repeat("a", MaxContextReasonLength+1)}}},
+		"too many links":          {Suggestion: "ok", InternalLinks: []domain.InternalLink{link("uno"), link("dos"), link("uno"), link("dos"), link("uno")}},
+		"unknown contradiction":   {Suggestion: "ok", Contradictions: []domain.Contradiction{{Slug: "tres", Note: "Nota."}}},
+		"empty contradiction":     {Suggestion: "ok", Contradictions: []domain.Contradiction{{Slug: "uno"}}},
+		"contradiction too long":  {Suggestion: "ok", Contradictions: []domain.Contradiction{{Slug: "uno", Note: strings.Repeat("a", MaxContextNoteLength+1)}}},
+		"links without any chunk": {Suggestion: "ok", InternalLinks: []domain.InternalLink{link("uno")}},
+	}
+
+	for name, suggestion := range tests {
+		t.Run(name, func(t *testing.T) {
+			provider := &fakeProvider{context: suggestion}
+			service, logs := newTestAssistant(t, provider, time.Second)
+
+			given := chunks
+			if name == "links without any chunk" {
+				given = nil
+			}
+
+			_, err := service.ImproveWithContext(t.Context(), testDraft, given)
+
+			require.ErrorIs(t, err, domain.ErrAssistantInvalidOutput)
+			assert.Contains(t, logs.String(), `"operation":"improve_with_context"`)
+			assert.Contains(t, logs.String(), `"result":"invalid_output"`)
+			assert.NotContains(t, logs.String(), testDraft.Content)
+		})
+	}
+}
+
+func TestImproveWithContextPassesTheChunksToTheProvider(t *testing.T) {
+	provider := &fakeProvider{context: domain.ContextualSuggestion{Suggestion: "ok", Usage: testUsage}}
+	service, _ := newTestAssistant(t, provider, time.Second)
+	chunks := []domain.ContextChunk{{Slug: "uno", Text: "Fragmento."}}
+
+	suggestion, err := service.ImproveWithContext(t.Context(), testDraft, chunks)
+
+	require.NoError(t, err)
+	assert.Equal(t, "ok", suggestion.Suggestion)
+	assert.Equal(t, [][]domain.ContextChunk{chunks}, provider.chunks)
+}
+
+func TestDisabledAssistantRejectsImproveWithContext(t *testing.T) {
+	_, err := NewDisabledAssistant().ImproveWithContext(t.Context(), testDraft, nil)
+
+	require.ErrorIs(t, err, domain.ErrAssistantDisabled)
 }
