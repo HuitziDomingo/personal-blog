@@ -1,0 +1,125 @@
+name: deploy-api
+
+# Despliegue de la API a Cloud Run (ADR-025, punto 7).
+#
+# Se dispara cuando termina el workflow "ci" de un push a main, y solo sigue si
+# el CI pasó y el commit cambió la API. workflow_run siempre usa este archivo tal
+# como está en main, así que un PR no puede cambiar cómo se despliega.
+#
+# El job "deploy" usa el environment "production": GitHub lo detiene hasta que
+# León lo apruebe. La autenticación es con Workload Identity Federation: sin
+# llaves JSON guardadas en GitHub.
+#
+# Variables de GitHub (Settings → Secrets and variables → Actions → Variables),
+# ninguna es secreta; ver docs/runbooks/despliegue.md:
+#   GCP_PROJECT_ID, GCP_WIF_PROVIDER, GCP_DEPLOY_SA, GCP_RUNTIME_SA,
+#   GCP_ARTIFACT_REPO, CLOUD_RUN_SERVICE, GEMINI_MODEL
+
+on:
+  workflow_run:
+    workflows: [ci]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-api
+  cancel-in-progress: false
+
+env:
+  REGION: us-central1
+
+jobs:
+  changes:
+    name: changes
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_branch == 'main'
+    runs-on: ubuntu-latest
+    outputs:
+      api: ${{ steps.diff.outputs.api }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          fetch-depth: 2
+          persist-credentials: false
+
+      # Los PR se mergean con squash: cada push a main es un solo commit, así
+      # que basta compararlo con su padre.
+      - id: diff
+        run: |
+          if git diff --name-only HEAD^ HEAD | grep -qE '^(services/api/|\.github/workflows/deploy-api\.yml$)'; then
+            echo "api=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "api=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  deploy:
+    name: deploy
+    needs: changes
+    if: needs.changes.outputs.api == 'true'
+    runs-on: ubuntu-latest
+    environment: production
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      IMAGE: us-central1-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/${{ vars.GCP_ARTIFACT_REPO }}/api:${{ github.event.workflow_run.head_sha }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          persist-credentials: false
+
+      - id: auth
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOY_SA }}
+          token_format: access_token
+
+      - uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3.0.1
+
+      - name: Docker login to Artifact Registry
+        env:
+          TOKEN: ${{ steps.auth.outputs.access_token }}
+        run: echo "$TOKEN" | docker login -u oauth2accesstoken --password-stdin "https://${REGION}-docker.pkg.dev"
+
+      - name: Build and push
+        run: |
+          docker build --platform linux/amd64 -t "$IMAGE" services/api
+          docker push "$IMAGE"
+
+      # --env-vars-file reemplaza todas las variables no secretas; --set-secrets
+      # reemplaza todos los secretos montados. Así el servicio queda igual a lo
+      # que dice el repo, sin restos de configuraciones anteriores.
+      - name: Deploy to Cloud Run
+        env:
+          SERVICE: ${{ vars.CLOUD_RUN_SERVICE }}
+          RUNTIME_SA: ${{ vars.GCP_RUNTIME_SA }}
+          GEMINI_MODEL: ${{ vars.GEMINI_MODEL }}
+        run: |
+          test -n "$GEMINI_MODEL" || { echo "Falta la variable de GitHub GEMINI_MODEL"; exit 1; }
+          cp services/api/deploy/production.env.yaml "$RUNNER_TEMP/env.yaml"
+          printf 'GEMINI_MODEL: "%s"\n' "$GEMINI_MODEL" >> "$RUNNER_TEMP/env.yaml"
+          gcloud run deploy "$SERVICE" \
+            --project "${{ vars.GCP_PROJECT_ID }}" \
+            --region "$REGION" \
+            --image "$IMAGE" \
+            --service-account "$RUNTIME_SA" \
+            --min-instances 0 \
+            --max-instances 1 \
+            --env-vars-file "$RUNNER_TEMP/env.yaml" \
+            --set-secrets "JWT_SECRET=jwt-secret:latest,MONGO_URI=mongo-uri:latest,GEMINI_API_KEY=gemini-api-key:latest" \
+            --quiet
+
+      - name: Smoke test
+        env:
+          SERVICE: ${{ vars.CLOUD_RUN_SERVICE }}
+        run: |
+          url=$(gcloud run services describe "$SERVICE" --project "${{ vars.GCP_PROJECT_ID }}" --region "$REGION" --format 'value(status.url)')
+          curl --fail --silent --show-error --max-time 30 --retry 3 --retry-all-errors "$url/health"

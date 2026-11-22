@@ -37,7 +37,7 @@ personal-blog/
 - **Admin:** proyecto Angular con sesión, guard de rutas e interceptores de credenciales y refresh, lista de posts en `/posts` con filtro por estado, paginación y archivar, editor de posts WYSIWYG con Milkdown (`/posts/new` y `/posts/:id`) que guarda Markdown, con vista previa sanitizada, y layout con menú lateral u offcanvas, tema claro, oscuro o del sistema, color de acento y fondo de pantalla (9 pares claro y oscuro de GNOME, con selector de miniaturas y página pública de créditos) con el contenido en cards de vidrio. El editor tiene el panel «Asistente», conectado a la API del asistente y visible solo en development (`ADMIN_ASSISTANT_ENABLED`).
 - **E2E:** Playwright con el flujo crítico de ADR-006 (login, borrador, edición, publicación, API pública y archivo), la contraseña incorrecta y el logout, con `make e2e` contra el stack local en una base temporal. Todavía no corre en el CI.
 - **Web:** Next.js con TypeScript estricto (ADR-017): portafolio con el contenido de la web anterior (inicio, con una isla 3D de three.js cargada en diferido, y trabajos) y blog con ISR de 60 s, cada post con su Markdown sanitizado en el servidor; modo claro, oscuro y sistema; SEO (canónicas, Open Graph, sitemap, robots y RSS); CSP y cabeceras, y job `web` en el CI. Sin desplegar todavía.
-- **Despliegue:** pendiente; nada está en producción.
+- **Despliegue:** preparado en el repo (ADR-025): workflows de despliegue de la API a Cloud Run y de respaldo semanal de MongoDB, y el [runbook](docs/runbooks/despliegue.md) con los pasos manuales. Nada está en producción todavía.
 
 El detalle de cada tarea está en el [roadmap](docs/roadmap.md).
 
