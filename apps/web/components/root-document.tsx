@@ -6,6 +6,7 @@ import type { ReactNode } from 'react';
 import { palette } from '@/lib/brand';
 import { colorModeScript } from '@/lib/color-mode';
 import { siteUrl } from '@/lib/config';
+import { cvPdfUrl, loadCvPdfs } from '@/lib/cv';
 import type { SiteContent } from '@/lib/content';
 import { RSS_ALTERNATE } from '@/lib/seo';
 import { profile } from '@/lib/site';
@@ -53,7 +54,14 @@ export const rootViewport: Viewport = {
  * `<html>` y `<body>` de un idioma. Hay un layout raíz por idioma (ADR-024,
  * punto 2) para que cada página entregue su `lang` desde el servidor.
  */
-export function RootDocument({ content, children }: { content: SiteContent; children: ReactNode }) {
+/**
+ * Documento de cada idioma. Pide a la API el PDF vigente del CV para el botón
+ * «Descargar CV» de la cabecera (BLOG-152), con la misma caché que /cv; sin
+ * API o sin PDF, el botón no aparece.
+ */
+export async function RootDocument({ content, children }: { content: SiteContent; children: ReactNode }) {
+  const cvUrl = cvPdfUrl(await loadCvPdfs(), content.locale);
+
   return (
     // El script de <head> añade la clase light/dark antes de hidratar.
     <html lang={content.htmlLang} className={headingFont.variable} suppressHydrationWarning>
@@ -64,7 +72,7 @@ export function RootDocument({ content, children }: { content: SiteContent; chil
         <Aurora />
         <Provider>
           <SkipLink label={content.ui.skipLink} />
-          <SiteHeader locale={content.locale} ui={content.ui} />
+          <SiteHeader locale={content.locale} ui={content.ui} cvUrl={cvUrl} />
           <Container
             as="main"
             id="contenido"

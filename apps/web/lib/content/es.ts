@@ -244,6 +244,7 @@ export const es: SiteContent = {
     primaryNav: "Principal",
     nav: { home: "Inicio", works: "Trabajos", cv: "CV", blog: "Blog" },
     blogLanguageNote: "",
+    cvButton: "Descargar CV",
     menuLabel: "Menú de navegación",
     colorMode: {
       group: "Tema",

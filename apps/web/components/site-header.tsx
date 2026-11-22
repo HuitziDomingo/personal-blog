@@ -13,28 +13,39 @@ import { HEADER_GLASS } from '@/lib/glass';
 import { profile } from '@/lib/site';
 
 import { ColorModeToggle } from './color-mode-toggle';
-import { MenuIcon } from './icons';
+import { CvDownloadButton } from './cv-download-button';
+import { BriefcaseIcon, FileUserIcon, HomeIcon, MenuIcon, PenLineIcon } from './icons';
 
 interface NavItem {
   href: string;
   label: string;
+  icon: typeof HomeIcon;
+  /** Solo activo en su ruta exacta: el inicio, que es prefijo de todo. */
+  exact?: boolean;
   /** Aviso de idioma junto al link, cuando la página no existe en el idioma actual. */
   note?: string;
 }
 
-function navItems(locale: Locale, ui: SiteContent['ui']): NavItem[] {
+export function navItems(locale: Locale, ui: SiteContent['ui']): NavItem[] {
   return [
-    { href: localizedPath(locale, '/works'), label: ui.nav.works },
-    { href: localizedPath(locale, '/cv'), label: ui.nav.cv },
+    { href: localizedPath(locale, '/'), label: ui.nav.home, icon: HomeIcon, exact: true },
+    { href: localizedPath(locale, '/works'), label: ui.nav.works, icon: BriefcaseIcon },
+    { href: localizedPath(locale, '/cv'), label: ui.nav.cv, icon: FileUserIcon },
     // El blog solo existe en español (ADR-024, punto 1).
-    { href: '/blog', label: ui.nav.blog, ...(ui.blogLanguageNote ? { note: ui.blogLanguageNote } : {}) },
+    { href: '/blog', label: ui.nav.blog, icon: PenLineIcon, ...(ui.blogLanguageNote ? { note: ui.blogLanguageNote } : {}) },
   ];
 }
 
-/** Texto del link, con el aviso de idioma si lo hay (en el idioma de la página). */
+/**
+ * Ícono y texto del link, con el aviso de idioma si lo hay (en el idioma de la
+ * página). El ícono es decorativo: el texto siempre se ve.
+ */
 function NavLabel({ item }: { item: NavItem }) {
+  const Icon = item.icon;
+
   return (
     <>
+      <Icon aria-hidden="true" style={{ flexShrink: 0, fontSize: '1.125em' }} />
       {item.label}
       {item.note && (
         <Box as="span" fontSize="xs" color="fg.muted" ms="1">
@@ -76,11 +87,20 @@ function LanguageSwitch({ locale, ui }: { locale: Locale; ui: SiteContent['ui'] 
   );
 }
 
-function isActive(pathname: string, href: string): boolean {
-  return pathname === href || pathname.startsWith(`${href}/`);
+export function isActive(pathname: string, item: Pick<NavItem, 'href' | 'exact'>): boolean {
+  if (item.exact) {
+    return pathname === item.href;
+  }
+
+  return pathname === item.href || pathname.startsWith(`${item.href}/`);
 }
 
-export function SiteHeader({ locale, ui }: { locale: Locale; ui: SiteContent['ui'] }) {
+/**
+ * Cabecera fija. El nav completo, con «Descargar CV», va desde `lg`; debajo,
+ * un menú desplegable con los mismos links y el botón destacado arriba.
+ * `cvUrl` es el PDF vigente del idioma (el mismo del botón de /cv) o null.
+ */
+export function SiteHeader({ locale, ui, cvUrl }: { locale: Locale; ui: SiteContent['ui']; cvUrl: string | null }) {
   const pathname = usePathname();
   const nav = navItems(locale, ui);
   const home = localizedPath(locale, '/');
@@ -113,7 +133,8 @@ export function SiteHeader({ locale, ui }: { locale: Locale; ui: SiteContent['ui
       backdropFilter={`saturate(${String(HEADER_GLASS.saturate * 100)}%) blur(${String(HEADER_GLASS.blur)}px)`}
       borderBottomWidth="1px"
     >
-      <Container maxW="4xl" px={{ base: '4', md: '6' }} h="16" display="flex" alignItems="center" gap="3">
+      {/* Desde lg, más ancha que el contenido (4xl): cabe el nav con íconos, «Descargar CV», el idioma y el tema. */}
+      <Container maxW={{ base: '4xl', lg: '5xl' }} px={{ base: '4', md: '6' }} h="16" display="flex" alignItems="center" gap="3">
         <Link
           asChild
           display="inline-flex"
@@ -138,21 +159,28 @@ export function SiteHeader({ locale, ui }: { locale: Locale; ui: SiteContent['ui
               priority
               style={{ transition: 'transform 0.2s ease' }}
             />
-            <span aria-hidden="true">{`< ${profile.shortName}/ >`}</span>
+            {/* Por debajo de 360 px solo la imagen: el texto no cabe junto al menú, el idioma y el tema. */}
+            <Box as="span" aria-hidden="true" css={{ '@media (max-width: 359.98px)': { display: 'none' } }}>
+              {`< ${profile.shortName}/ >`}
+            </Box>
           </NextLink>
         </Link>
 
         <Box as="nav" aria-label={ui.primaryNav} ml="auto">
-          <HStack as="ul" listStyleType="none" gap="1" display={{ base: 'none', md: 'flex' }}>
+          <HStack as="ul" listStyleType="none" gap="0.5" display={{ base: 'none', lg: 'flex' }}>
             {nav.map((item) => {
               const { href } = item;
-              const active = isActive(pathname, href);
+              const active = isActive(pathname, item);
 
               return (
                 <li key={href}>
                   <Link
                     asChild
-                    px="3"
+                    display="inline-flex"
+                    alignItems="center"
+                    gap="1.5"
+                    whiteSpace="nowrap"
+                    px="2.5"
                     py="2"
                     borderRadius="md"
                     fontWeight="medium"
@@ -171,7 +199,7 @@ export function SiteHeader({ locale, ui }: { locale: Locale; ui: SiteContent['ui
             })}
           </HStack>
 
-          <Box display={{ base: 'block', md: 'none' }}>
+          <Box display={{ base: 'block', lg: 'none' }}>
             <IconButton
               variant="ghost"
               size="sm"
@@ -198,15 +226,22 @@ export function SiteHeader({ locale, ui }: { locale: Locale; ui: SiteContent['ui
               py="2"
               shadow="md"
             >
-              {[{ href: home, label: ui.nav.home } as NavItem, ...nav].map((item) => {
+              {cvUrl && (
+                <Box as="li" pt="2" pb="3">
+                  <CvDownloadButton href={cvUrl} label={ui.cvButton} block />
+                </Box>
+              )}
+              {nav.map((item) => {
                 const { href } = item;
-                const active = href === home ? pathname === home : isActive(pathname, href);
+                const active = isActive(pathname, item);
 
                 return (
                   <li key={href}>
                     <Link
                       asChild
-                      display="block"
+                      display="flex"
+                      alignItems="center"
+                      gap="2"
                       py="3"
                       fontWeight="medium"
                       color={active ? 'brand.accent' : 'fg'}
@@ -228,6 +263,11 @@ export function SiteHeader({ locale, ui }: { locale: Locale; ui: SiteContent['ui
           </Box>
         </Box>
 
+        {cvUrl && (
+          <Box display={{ base: 'none', lg: 'block' }} flexShrink={0}>
+            <CvDownloadButton href={cvUrl} label={ui.cvButton} />
+          </Box>
+        )}
         <LanguageSwitch locale={locale} ui={ui} />
         <ColorModeToggle labels={ui.colorMode} />
       </Container>

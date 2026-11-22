@@ -96,6 +96,8 @@ export interface SiteContent {
     nav: { home: string; works: string; cv: string; blog: string };
     /** Aviso junto al link al blog, que solo existe en español (ADR-024, punto 1). */
     blogLanguageNote: string;
+    /** Botón de la cabecera que descarga el PDF vigente del CV (BLOG-152). */
+    cvButton: string;
     menuLabel: string;
     colorMode: {
       group: string;

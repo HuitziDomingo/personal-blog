@@ -84,3 +84,40 @@ export const RssIcon = (props: IconProps) => (
     <circle cx="5" cy="19" r="1" />
   </Svg>
 );
+
+export const HomeIcon = (props: IconProps) => (
+  <Svg {...props}>
+    <path d="M3 10.5 12 3l9 7.5" />
+    <path d="M5 9.5V20a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1V9.5" />
+  </Svg>
+);
+
+export const BriefcaseIcon = (props: IconProps) => (
+  <Svg {...props}>
+    <rect x="2" y="7" width="20" height="14" rx="2" />
+    <path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2M2 13h20" />
+  </Svg>
+);
+
+export const FileUserIcon = (props: IconProps) => (
+  <Svg {...props}>
+    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z" />
+    <path d="M14 2v6h6" />
+    <circle cx="12" cy="13" r="2" />
+    <path d="M8 19a4 4 0 0 1 8 0" />
+  </Svg>
+);
+
+export const PenLineIcon = (props: IconProps) => (
+  <Svg {...props}>
+    <path d="M12 20h9" />
+    <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
+  </Svg>
+);
+
+export const DownloadIcon = (props: IconProps) => (
+  <Svg {...props}>
+    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+    <path d="m7 10 5 5 5-5M12 15V3" />
+  </Svg>
+);

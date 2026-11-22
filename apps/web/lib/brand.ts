@@ -50,3 +50,10 @@ export function contrastRatio(a: string, b: string): number {
 
   return (hi + 0.05) / (lo + 0.05);
 }
+
+/**
+ * Texto del botón relleno con el acento («Descargar CV», BLOG-152): blanco
+ * sobre el turquesa oscuro del modo claro y carbón sobre el turquesa claro del
+ * modo oscuro. El test de brand.test.ts mide el AA con `palette`.
+ */
+export const accentButtonText = { light: '#ffffff', dark: palette.dark.bg } as const;
