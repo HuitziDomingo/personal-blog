@@ -4,11 +4,18 @@
  * build no compila.
  */
 
-export const LOCALES = ['es', 'en'] as const;
+export const LOCALES = ["es", "en"] as const;
 export type Locale = (typeof LOCALES)[number];
 
 /** Ids de los trabajos; cada idioma tiene que traer el texto de todos. */
-export const WORK_IDS = ['santo-sazon', 'huitzi-xyz', 'debred', 'youtube', 'dalyza', 'aum'] as const;
+export const WORK_IDS = [
+  "santo-sazon",
+  "huitzi-xyz",
+  "debred",
+  "youtube",
+  "dalyza",
+  "aum",
+] as const;
 export type WorkId = (typeof WORK_IDS)[number];
 
 export interface BioEntry {
@@ -25,6 +32,36 @@ export interface WorkText {
   sections: readonly (readonly string[])[];
   /** Texto alternativo de cada imagen, en el mismo orden. */
   imageAlts: readonly string[];
+}
+
+/** Un puesto del CV (ADR-028, punto 2). */
+export interface CvJob {
+  role: string;
+  company: string;
+  place: string;
+  period: string;
+  /** Logros, uno por viñeta. */
+  points: readonly string[];
+}
+
+/** Un área del stack del CV y sus tecnologías. */
+export interface CvStackArea {
+  area: string;
+  items: string;
+}
+
+/** Contenido de la página del CV en un idioma (ADR-028, punto 2). Sin teléfono. */
+export interface CvContent {
+  /** Puesto y especialidad, bajo el nombre. */
+  headline: string;
+  summary: string;
+  experience: readonly CvJob[];
+  project: { name: string; meta: string; points: readonly string[] };
+  stack: readonly CvStackArea[];
+  aiEngineering: readonly string[];
+  education: readonly string[];
+  inProgress: readonly string[];
+  languages: readonly string[];
 }
 
 export interface SiteContent {
@@ -50,16 +87,24 @@ export interface SiteContent {
   about: readonly string[];
   bio: readonly BioEntry[];
   works: Readonly<Record<WorkId, WorkText>>;
+  cv: CvContent;
 
   ui: {
     skipLink: string;
     homeLinkLabel: string;
     primaryNav: string;
-    nav: { home: string; works: string; blog: string };
+    nav: { home: string; works: string; cv: string; blog: string };
     /** Aviso junto al link al blog, que solo existe en español (ADR-024, punto 1). */
     blogLanguageNote: string;
     menuLabel: string;
-    colorMode: { group: string; change: string; current: string; light: string; dark: string; system: string };
+    colorMode: {
+      group: string;
+      change: string;
+      current: string;
+      light: string;
+      dark: string;
+      system: string;
+    };
     /** Link a la página equivalente en el otro idioma (ADR-024, punto 7). */
     languageSwitch: { label: string; hrefLang: Locale; lang: string };
     footer: { social: string; rss: string };
@@ -87,7 +132,31 @@ export interface SiteContent {
       worksButton: string;
       onTheWeb: string;
     };
-    works: { title: string; description: string; breadcrumb: string; website: string };
+    works: {
+      title: string;
+      description: string;
+      breadcrumb: string;
+      website: string;
+    };
+    /** Página del CV (ADR-028). */
+    cv: {
+      title: string;
+      description: string;
+      download: string;
+      /** Aclaración del botón para lectores de pantalla: idioma y formato del archivo. */
+      downloadDetail: string;
+      headings: {
+        summary: string;
+        experience: string;
+        project: string;
+        stack: string;
+        aiEngineering: string;
+        education: string;
+        inProgress: string;
+        languages: string;
+        contact: string;
+      };
+    };
     error: { title: string; body: string; retry: string };
   };
 }
