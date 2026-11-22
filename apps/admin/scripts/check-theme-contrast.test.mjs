@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 
 import { ACCENTS } from '../src/app/core/theme/theme.ts';
-import { checks, composite, contrast, luminance, oklchToLinearSrgb, themes, variablesOf } from './check-theme-contrast.mjs';
+import { cardAlphas, cardRows, checks, composite, contrast, luminance, oklchAlpha, oklchToLinearSrgb, themes, variablesOf } from './check-theme-contrast.mjs';
 
 const STYLES = readFileSync(new URL('../src/styles.css', import.meta.url), 'utf8');
 
@@ -44,7 +44,7 @@ test('la paleta neutral repite el tema de :root, para que su muestra se vea neut
 test('cada paleta cumple WCAG AA en claro y en oscuro', () => {
   const failures = themes(STYLES)
     .themes.flatMap((theme) =>
-      checks(theme)
+      checks(theme, STYLES)
         .filter((row) => row.ratio < row.min)
         .map((row) => `${theme.accent}/${theme.mode}: ${row.pair} ${row.ratio.toFixed(2)} < ${row.min}`),
     );
@@ -62,7 +62,7 @@ test('cada paleta define sus variables en claro y en oscuro', () => {
 test('detecta una paleta sin contraste suficiente', () => {
   const css = `${STYLES}\n[data-accent='bad'] { --primary: oklch(0.8 0.1 90); --primary-foreground: oklch(1 0 0); }`;
   const bad = themes(css).themes.find((theme) => theme.accent === 'bad' && theme.mode === 'light');
-  const button = checks(bad).find((row) => row.pair.startsWith('Botón'));
+  const button = checks(bad, css).find((row) => row.pair.startsWith('Botón'));
   assert.ok(button.ratio < button.min);
 });
 
@@ -76,6 +76,32 @@ test('el panel elevado es más oscuro que el fondo en claro y más claro en oscu
 test('detecta un color de veredicto sin contraste sobre su tinte', () => {
   const css = `${STYLES}\n[data-accent='bad'] { --verdict-approve: oklch(0.8 0.1 150); }`;
   const bad = themes(css).themes.find((theme) => theme.accent === 'bad' && theme.mode === 'light');
-  const verdict = checks(bad).find((row) => row.pair.startsWith('Veredicto approve'));
+  const verdict = checks(bad, css).find((row) => row.pair.startsWith('Veredicto approve'));
   assert.ok(verdict.ratio < verdict.min);
+});
+
+test('lee la opacidad de un oklch con alfa', () => {
+  assert.equal(oklchAlpha('oklch(1 0 0 / 15%)'), 0.15);
+  assert.equal(oklchAlpha('oklch(1 0 0)'), 1);
+  assert.deepEqual(oklchToLinearSrgb('oklch(1 0 0 / 15%)').map((c) => Math.round(c * 1000)), [1000, 1000, 1000]);
+});
+
+test('el tinte de respaldo de cada modo es el mayor de sus fondos (BLOG-143)', () => {
+  for (const { fallback, backdrops } of Object.values(cardAlphas(STYLES))) {
+    assert.equal(fallback, Math.max(...Object.values(backdrops)));
+  }
+});
+
+test('detecta un fondo con un tinte de card que no llega a AA (BLOG-143)', () => {
+  const css = `${STYLES}\n:root:not(.dark)[data-glass-backdrop='fold-light'] { --glass-card-alpha: 10%; }`;
+  const light = themes(css).themes.find((theme) => theme.accent === 'neutral' && theme.mode === 'light');
+  const fold = checks(light, css).find((row) => row.pair.startsWith('Card de vidrio, fold '));
+  assert.ok(fold.ratio < fold.min);
+});
+
+test('mide cada fondo con el texto, el secundario y el error sobre cada superficie (BLOG-143)', () => {
+  const dark = themes(STYLES).themes.find((theme) => theme.accent === 'neutral' && theme.mode === 'dark');
+  const rows = cardRows(dark, STYLES).filter((row) => row.backdrop === 'fold' && row.orientation === 'landscape' && row.zone === 'lightest');
+  assert.equal(new Set(rows.map((row) => row.text)).size, 3);
+  assert.deepEqual([...new Set(rows.map((row) => row.surface))], ['card', 'fila con hover', 'campo o botón outline']);
 });

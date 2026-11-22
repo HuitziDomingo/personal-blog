@@ -63,14 +63,17 @@
    * scripts/check-theme-contrast.mjs los mide.
    */
   /*
-   * Cards de vidrio sobre el fondo de pantalla (BLOG-121): tinte al 80 %
-   * (CARD_GLASS_ALPHA) con desenfoque. El texto secundario y los errores
-   * llevan tonos propios: check-theme-contrast.mjs los mide sobre la zona más
-   * oscura y la más clara de cada fondo (background-extremes.json).
+   * Cards de vidrio sobre el fondo de pantalla (BLOG-121, BLOG-143): tinte con
+   * desenfoque y saturación. Su opacidad (--glass-card-alpha) cambia con el
+   * fondo visible: ver «Tinte de las cards por fondo» más abajo. El texto
+   * secundario y los errores llevan tonos propios, más contrastados que los
+   * normales: check-theme-contrast.mjs los mide sobre la zona más oscura y la
+   * más clara de cada fondo (background-extremes.json).
    */
   --glass-tint: oklch(1 0 0);
-  --glass-muted-foreground: oklch(0.4 0 0);
-  --glass-destructive: oklch(0.45 0.18 27);
+  --glass-card-alpha: 70%;
+  --glass-muted-foreground: oklch(0.34 0 0);
+  --glass-destructive: oklch(0.4 0.15 27);
 
   --verdict-approve: oklch(0.45 0.12 150);
   --verdict-reject: oklch(0.48 0.17 25);
@@ -118,8 +121,9 @@
   --panel-code: oklch(0.18 0 0);
 
   --glass-tint: oklch(0.145 0 0);
-  --glass-muted-foreground: oklch(0.75 0 0);
-  --glass-destructive: oklch(0.78 0.13 22);
+  --glass-card-alpha: 75%;
+  --glass-muted-foreground: oklch(0.84 0 0);
+  --glass-destructive: oklch(0.85 0.09 22);
 
   --verdict-approve: oklch(0.82 0.14 152);
   --verdict-reject: oklch(0.78 0.13 20);
@@ -248,28 +252,30 @@
 }
 
 /*
- * Cards de vidrio (BLOG-121): el contenido principal (lista de posts, editor,
- * cola de comentarios y login) sobre el fondo de pantalla. Dentro, el texto
- * secundario y los errores usan los tonos medidos para el vidrio. Sin
- * backdrop-filter, o con prefers-reduced-transparency, son superficies
- * sólidas con --background, donde los tonos normales ya cumplen AA.
+ * Cards de vidrio (BLOG-121, BLOG-143): el contenido principal (lista de
+ * posts, editor, cola de comentarios, ajustes, CV, créditos y login) sobre el
+ * fondo de pantalla. Tinte poco opaco con mucho desenfoque y saturación, y un
+ * borde claro de 1 px. Dentro, el texto secundario y los errores usan los
+ * tonos medidos para el vidrio. Sin backdrop-filter, o con
+ * prefers-reduced-transparency, son superficies sólidas con --background y el
+ * borde de antes, donde los tonos normales ya cumplen AA.
  */
 .glass-card {
   border-radius: var(--radius-xl, 0.75rem);
   color: var(--foreground);
-  background: color-mix(in srgb, var(--glass-tint) 80%, transparent);
-  -webkit-backdrop-filter: blur(24px) saturate(1.4);
-  backdrop-filter: blur(24px) saturate(1.4);
+  background: color-mix(in srgb, var(--glass-tint) var(--glass-card-alpha), transparent);
+  -webkit-backdrop-filter: blur(40px) saturate(1.8);
+  backdrop-filter: blur(40px) saturate(1.8);
   box-shadow:
-    0 0 0 1px color-mix(in oklab, var(--foreground) 10%, transparent),
-    inset 0 1px 0 color-mix(in oklab, white 45%, transparent),
+    0 0 0 1px rgb(255 255 255 / 0.4),
+    inset 0 1px 0 rgb(255 255 255 / 0.5),
     0 16px 40px -16px rgb(0 0 0 / 0.3);
 }
 
 .dark .glass-card {
   box-shadow:
-    0 0 0 1px color-mix(in oklab, var(--foreground) 12%, transparent),
-    inset 0 1px 0 color-mix(in oklab, white 10%, transparent),
+    0 0 0 1px rgb(255 255 255 / 0.14),
+    inset 0 1px 0 rgb(255 255 255 / 0.12),
     0 16px 40px -16px rgb(0 0 0 / 0.6);
 }
 
@@ -281,17 +287,53 @@
   color: var(--glass-destructive);
 }
 
+/*
+ * Tinte de las cards por fondo (BLOG-143): el mínimo que da AA a todo el texto
+ * de las cards sobre la zona más oscura y la más clara de ese fondo, con
+ * margen (node scripts/check-theme-contrast.mjs --suggest lo calcula y la
+ * comprobación de make admin-test lo exige). AppBackdrop pone en <html>
+ * data-glass-backdrop con el fondo visible (<id>-<light|dark>). Mientras no lo
+ * hay, o si el fondo visible es del otro modo (al cambiar de tema, hasta que
+ * carga la imagen nueva), vale el --glass-card-alpha de :root o :root.dark: el
+ * mayor de su modo.
+ */
+:root:not(.dark)[data-glass-backdrop='fold-light'] { --glass-card-alpha: 70%; }
+:root:not(.dark)[data-glass-backdrop='map-light'] { --glass-card-alpha: 35%; }
+:root:not(.dark)[data-glass-backdrop='sheet-light'] { --glass-card-alpha: 65%; }
+:root:not(.dark)[data-glass-backdrop='blobs-light'] { --glass-card-alpha: 65%; }
+:root:not(.dark)[data-glass-backdrop='glass-chip-light'] { --glass-card-alpha: 65%; }
+:root:not(.dark)[data-glass-backdrop='tarka-light'] { --glass-card-alpha: 50%; }
+:root:not(.dark)[data-glass-backdrop='curvy-light'] { --glass-card-alpha: 55%; }
+:root:not(.dark)[data-glass-backdrop='symbolic-light'] { --glass-card-alpha: 40%; }
+:root:not(.dark)[data-glass-backdrop='dithered-sun-light'] { --glass-card-alpha: 45%; }
+:root.dark[data-glass-backdrop='fold-dark'] { --glass-card-alpha: 60%; }
+:root.dark[data-glass-backdrop='map-dark'] { --glass-card-alpha: 45%; }
+:root.dark[data-glass-backdrop='sheet-dark'] { --glass-card-alpha: 40%; }
+:root.dark[data-glass-backdrop='blobs-dark'] { --glass-card-alpha: 45%; }
+:root.dark[data-glass-backdrop='glass-chip-dark'] { --glass-card-alpha: 70%; }
+:root.dark[data-glass-backdrop='tarka-dark'] { --glass-card-alpha: 75%; }
+:root.dark[data-glass-backdrop='curvy-dark'] { --glass-card-alpha: 35%; }
+:root.dark[data-glass-backdrop='symbolic-dark'] { --glass-card-alpha: 35%; }
+:root.dark[data-glass-backdrop='dithered-sun-dark'] { --glass-card-alpha: 75%; }
+
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
   .glass-card {
     background: var(--background);
+    box-shadow:
+      0 0 0 1px color-mix(in oklab, var(--foreground) 10%, transparent),
+      0 16px 40px -16px rgb(0 0 0 / 0.3);
   }
 }
 
 @media (prefers-reduced-transparency: reduce) {
-  .glass-card {
+  .glass-card,
+  .dark .glass-card {
     background: var(--background);
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
+    box-shadow:
+      0 0 0 1px color-mix(in oklab, var(--foreground) 10%, transparent),
+      0 16px 40px -16px rgb(0 0 0 / 0.3);
   }
 }
 

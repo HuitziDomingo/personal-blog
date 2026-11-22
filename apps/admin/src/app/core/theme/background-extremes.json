@@ -1,146 +1,146 @@
 {
   "fold-light-landscape": {
-    "darkest": "#331034",
-    "lightest": "#fdefa0"
+    "darkest": "#6d0c52",
+    "lightest": "#ffed48"
   },
   "fold-light-portrait": {
-    "darkest": "#100623",
-    "lightest": "#fbe4a7"
+    "darkest": "#2b063f",
+    "lightest": "#ffdb61"
   },
   "fold-dark-landscape": {
-    "darkest": "#5b142e",
-    "lightest": "#ef969c"
+    "darkest": "#920738",
+    "lightest": "#ff797c"
   },
   "fold-dark-portrait": {
-    "darkest": "#250918",
-    "lightest": "#d1569a"
+    "darkest": "#480623",
+    "lightest": "#ff37b0"
   },
   "map-light-landscape": {
-    "darkest": "#7991b3",
-    "lightest": "#eff6ff"
+    "darkest": "#91afdc",
+    "lightest": "#eaf7ff"
   },
   "map-light-portrait": {
-    "darkest": "#829cbf",
-    "lightest": "#eff6ff"
+    "darkest": "#9db8de",
+    "lightest": "#eaf7ff"
   },
   "map-dark-landscape": {
-    "darkest": "#1a202c",
-    "lightest": "#bfbdc0"
+    "darkest": "#162036",
+    "lightest": "#7d7b79"
   },
   "map-dark-portrait": {
-    "darkest": "#1a202c",
-    "lightest": "#a5a5a7"
+    "darkest": "#162036",
+    "lightest": "#736c58"
   },
   "sheet-light-landscape": {
-    "darkest": "#022e75",
-    "lightest": "#9565f3"
+    "darkest": "#0035c2",
+    "lightest": "#974cff"
   },
   "sheet-light-portrait": {
-    "darkest": "#012e73",
-    "lightest": "#9161f0"
+    "darkest": "#0035be",
+    "lightest": "#8c4aff"
   },
   "sheet-dark-landscape": {
-    "darkest": "#021a3f",
-    "lightest": "#9352be"
+    "darkest": "#011e6d",
+    "lightest": "#a437f0"
   },
   "sheet-dark-portrait": {
-    "darkest": "#011a3e",
-    "lightest": "#8f4fb9"
+    "darkest": "#001e6a",
+    "lightest": "#9a35e7"
   },
   "blobs-light-landscape": {
-    "darkest": "#2d263d",
-    "lightest": "#d54a29"
+    "darkest": "#30234d",
+    "lightest": "#ff3400"
   },
   "blobs-light-portrait": {
-    "darkest": "#2d263d",
-    "lightest": "#cc4028"
+    "darkest": "#32234d",
+    "lightest": "#ff1071"
   },
   "blobs-dark-landscape": {
-    "darkest": "#242031",
-    "lightest": "#c2381e"
+    "darkest": "#261e3d",
+    "lightest": "#ff2200"
   },
   "blobs-dark-portrait": {
-    "darkest": "#242031",
-    "lightest": "#c1371e"
+    "darkest": "#261e3d",
+    "lightest": "#ff1a06"
   },
   "glass-chip-light-landscape": {
-    "darkest": "#0a2d47",
-    "lightest": "#cfe3e6"
+    "darkest": "#003063",
+    "lightest": "#bcdce0"
   },
   "glass-chip-light-portrait": {
-    "darkest": "#0a2d47",
-    "lightest": "#97eaf3"
+    "darkest": "#003063",
+    "lightest": "#20f8ff"
   },
   "glass-chip-dark-landscape": {
     "darkest": "#000000",
-    "lightest": "#d6d6c6"
+    "lightest": "#cfd7ba"
   },
   "glass-chip-dark-portrait": {
     "darkest": "#000000",
-    "lightest": "#bdd4c8"
+    "lightest": "#a2d7c5"
   },
   "tarka-light-landscape": {
-    "darkest": "#465583",
-    "lightest": "#e5e9f4"
+    "darkest": "#3a65bd",
+    "lightest": "#dae3f9"
   },
   "tarka-light-portrait": {
-    "darkest": "#485988",
-    "lightest": "#ede0df"
+    "darkest": "#3d6ac1",
+    "lightest": "#f6dddb"
   },
   "tarka-dark-landscape": {
-    "darkest": "#2b1c34",
-    "lightest": "#eceffb"
+    "darkest": "#3a224f",
+    "lightest": "#eae5fc"
   },
   "tarka-dark-portrait": {
-    "darkest": "#2d1f37",
-    "lightest": "#ebeefa"
+    "darkest": "#492548",
+    "lightest": "#eee0f9"
   },
   "curvy-light-landscape": {
-    "darkest": "#585856",
-    "lightest": "#dcdcdc"
+    "darkest": "#61615e",
+    "lightest": "#d9d9d9"
   },
   "curvy-light-portrait": {
-    "darkest": "#5b5b5b",
-    "lightest": "#dbdbdb"
+    "darkest": "#626260",
+    "lightest": "#d9d9d9"
   },
   "curvy-dark-landscape": {
-    "darkest": "#090a0c",
-    "lightest": "#55565a"
+    "darkest": "#111317",
+    "lightest": "#4f5158"
   },
   "curvy-dark-portrait": {
-    "darkest": "#131416",
-    "lightest": "#505157"
+    "darkest": "#17191e",
+    "lightest": "#4b4d54"
   },
   "symbolic-light-landscape": {
-    "darkest": "#0c7bcd",
-    "lightest": "#2d88cd"
+    "darkest": "#008aff",
+    "lightest": "#008fff"
   },
   "symbolic-light-portrait": {
-    "darkest": "#0f7ccd",
-    "lightest": "#2084cf"
+    "darkest": "#008aff",
+    "lightest": "#0090ff"
   },
   "symbolic-dark-landscape": {
-    "darkest": "#114ba1",
-    "lightest": "#235ba5"
+    "darkest": "#0052eb",
+    "lightest": "#005aeb"
   },
   "symbolic-dark-portrait": {
-    "darkest": "#124da2",
-    "lightest": "#1d58a5"
+    "darkest": "#0054eb",
+    "lightest": "#005beb"
   },
   "dithered-sun-light-landscape": {
-    "darkest": "#ff50a7",
-    "lightest": "#fffffd"
+    "darkest": "#ff37c0",
+    "lightest": "#fffff8"
   },
   "dithered-sun-light-portrait": {
-    "darkest": "#ff52a6",
-    "lightest": "#fffffc"
+    "darkest": "#ff3cbc",
+    "lightest": "#fffff5"
   },
   "dithered-sun-dark-landscape": {
-    "darkest": "#5b0010",
-    "lightest": "#fad1f4"
+    "darkest": "#95000c",
+    "lightest": "#fec7ff"
   },
   "dithered-sun-dark-portrait": {
-    "darkest": "#5a0010",
-    "lightest": "#f9d0f4"
+    "darkest": "#95000e",
+    "lightest": "#fdc3ff"
   }
 }
