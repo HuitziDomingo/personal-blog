@@ -72,6 +72,13 @@ export const BACKGROUND_STORAGE_KEY = 'admin-background';
 /** Atributo de <html> con el fondo que eligió el script de index.html (el del login es aleatorio). */
 export const BACKGROUND_ATTRIBUTE = 'data-background';
 
+/**
+ * Atributo de <html> con el fondo visible, `<id>-<light|dark>`, que pone
+ * AppBackdrop: styles.css elige con él el tinte de las cards de vidrio
+ * (BLOG-143).
+ */
+export const GLASS_BACKDROP_ATTRIBUTE = 'data-glass-backdrop';
+
 /** Ruta del archivo dentro de public/ (sin barra inicial: va relativa al <base href>). */
 export function backgroundPath(id: BackgroundId, variant: BackgroundVariant, orientation: BackgroundOrientation): string {
   return `backgrounds/${id}-${variant}-${orientation}.avif`;

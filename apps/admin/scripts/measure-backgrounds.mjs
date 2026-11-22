@@ -7,18 +7,20 @@
 // AVIF en el CI.
 //
 // Decodifica con Chrome (canvas), así que usa el Playwright de e2e/ y no
-// agrega dependencias al admin. El desenfoque medido (GLASS_BLUR_MEASURED) es
-// menor que el del CSS: menos desenfoque deja extremos más extremos, así que
-// el resultado es conservador.
+// agrega dependencias al admin. Aplica el mismo filtro que el backdrop-filter
+// de .glass-card (blur y luego saturate, BLOG-143), pero con un desenfoque
+// menor (CARD_GLASS_BLUR_MEASURED): menos desenfoque deja extremos más
+// extremos, así que el resultado es conservador. Cada píxel desenfocado es el
+// promedio local de su zona, que es lo que queda detrás del texto de la card.
 //
 // Uso: CHROME=/ruta/a/chrome node scripts/measure-backgrounds.mjs
 import { readFileSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 
+import { CARD_GLASS_BLUR_MEASURED, CARD_GLASS_SATURATE } from './check-theme-contrast.mjs';
 import { BACKGROUND_ORIENTATIONS, BACKGROUND_VARIANTS, BACKGROUNDS, backgroundPath } from '../src/app/core/theme/backgrounds.ts';
 
-const GLASS_BLUR_MEASURED = 16;
 const PUBLIC = new URL('../public/', import.meta.url);
 const OUT = fileURLToPath(new URL('../src/app/core/theme/background-extremes.json', import.meta.url));
 
@@ -35,7 +37,7 @@ try {
         const path = backgroundPath(id, variant, orientation);
         const data = `data:image/avif;base64,${readFileSync(new URL(path, PUBLIC)).toString('base64')}`;
         const extremes = await page.evaluate(
-          async ({ data, blur }) => {
+          async ({ data, blur, saturate }) => {
             const image = new Image();
             image.src = data;
             await image.decode();
@@ -43,7 +45,7 @@ try {
             canvas.width = image.naturalWidth;
             canvas.height = image.naturalHeight;
             const context = canvas.getContext('2d', { willReadFrequently: true });
-            context.filter = `blur(${blur}px)`;
+            context.filter = `blur(${blur}px) saturate(${saturate})`;
             context.drawImage(image, 0, 0);
             // Sin los bordes: el desenfoque del canvas los mezcla con transparente.
             const margin = blur * 3;
@@ -63,7 +65,7 @@ try {
             const hex = (rgb) => `#${rgb.map((channel) => channel.toString(16).padStart(2, '0')).join('')}`;
             return { darkest: hex(darkest.rgb), lightest: hex(lightest.rgb), width };
           },
-          { data, blur: GLASS_BLUR_MEASURED },
+          { data, blur: CARD_GLASS_BLUR_MEASURED, saturate: CARD_GLASS_SATURATE },
         );
         result[`${id}-${variant}-${orientation}`] = { darkest: extremes.darkest, lightest: extremes.lightest };
         console.log(path, extremes.darkest, extremes.lightest);
