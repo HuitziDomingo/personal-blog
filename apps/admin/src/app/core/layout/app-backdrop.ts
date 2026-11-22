@@ -81,7 +81,7 @@ export class AppBackdrop {
     effect(() => {
       const key = this.shown();
       if (key) {
-        this.document.documentElement.setAttribute(GLASS_BACKDROP_ATTRIBUTE, key.replace('|', '-'));
+        this.document.documentElement.setAttribute(GLASS_BACKDROP_ATTRIBUTE, key.replaceAll('|', '-'));
       }
     });
   }
