@@ -76,8 +76,7 @@ func TestInspectDetectsTheFormatBySignature(t *testing.T) {
 
 			require.NoError(t, err)
 			assert.Equal(t, tt.want, info.Format)
-			assert.GreaterOrEqual(t, info.Width, MinWidth)
-			assert.GreaterOrEqual(t, info.Height, MinHeight)
+			assert.GreaterOrEqual(t, min(info.Width, info.Height), MinCoverShortSide)
 		})
 	}
 }
@@ -90,6 +89,22 @@ func TestInspectReportsTheRealSize(t *testing.T) {
 	assert.Equal(t, 1024, info.Height)
 }
 
+func TestInspectAcceptsTheMinimumShortSideInAnyOrientation(t *testing.T) {
+	for name, size := range map[string][2]int{
+		"cuadrada":   {MinCoverShortSide, MinCoverShortSide},
+		"horizontal": {1024, MinCoverShortSide},
+		"vertical":   {MinCoverShortSide, 1024},
+	} {
+		t.Run(name, func(t *testing.T) {
+			info, err := Inspect(encodePNG(t, image.NewGray(image.Rect(0, 0, size[0], size[1]))))
+
+			require.NoError(t, err)
+			assert.Equal(t, size[0], info.Width)
+			assert.Equal(t, size[1], info.Height)
+		})
+	}
+}
+
 func TestInspectRejects(t *testing.T) {
 	jpegBytes := encodeJPEG(t, halves(1024, 576))
 
@@ -100,6 +115,8 @@ func TestInspectRejects(t *testing.T) {
 		"firma de jpeg rota":    append([]byte{0xff, 0xd8, 0xff}, bytes.Repeat([]byte{0}, 64)...),
 		"riff que no es webp":   []byte("RIFF\x00\x00\x00\x00WAVEfmt "),
 		"demasiado chica":       encodePNG(t, halves(800, 450)),
+		"alto bajo el mínimo":   encodePNG(t, image.NewGray(image.Rect(0, 0, 1024, MinCoverShortSide-1))),
+		"ancho bajo el mínimo":  encodePNG(t, image.NewGray(image.Rect(0, 0, MinCoverShortSide-1, 1024))),
 		"demasiado grande":      encodePNG(t, image.NewGray(image.Rect(0, 0, maxSide+1, 600))),
 		"más de MaxBytes":       append(jpegBytes, make([]byte, MaxBytes)...),
 		"jpeg con firma de png": append([]byte("\x89PNG\r\n\x1a\n"), jpegBytes...),

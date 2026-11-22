@@ -287,7 +287,7 @@ func TestCoverPreviewFailures(t *testing.T) {
 		},
 		{
 			name:       "imagen más chica que la portada",
-			setup:      func(t *testing.T, f coverFixture) { f.generator.image = testJPEG(t, 512, 512) },
+			setup:      func(t *testing.T, f coverFixture) { f.generator.image = testJPEG(t, 1024, imaging.MinCoverShortSide-1) },
 			wantErr:    domain.ErrImagesUnavailable,
 			wantResult: "invalid_output",
 			generated:  true,
@@ -409,7 +409,7 @@ func TestAcceptCoverDoesNotTrustTheClient(t *testing.T) {
 // clave se filtrara) tampoco pasa: los bytes se verifican de nuevo.
 func TestAcceptCoverVerifiesTheBytes(t *testing.T) {
 	f := newCoverFixture(t)
-	notACover := testJPEG(t, 800, 600)
+	notACover := testJPEG(t, imaging.MinCoverShortSide-1, 1024)
 	token := f.service.signer.sign(testCoverUser, f.postID, notACover, f.clock.Now().Add(time.Minute))
 
 	_, err := f.service.Accept(t.Context(), testCoverUser, f.postID, CoverAcceptance{Image: notACover, Token: token, Alt: testCoverAlt})

@@ -335,7 +335,7 @@ export interface paths {
         get?: never;
         /**
          * Acepta la vista previa de la portada de un post.
-         * @description Guarda en el almacén de portadas la imagen de una vista previa de generateCoverPreview y la asigna al post como portada generada con IA (ADR-026, puntos 4 y 5). La API no confía en el cliente: `token` es una firma de la propia API sobre la imagen exacta, el post, el usuario y el vencimiento, y además comprueba por sus bytes que la imagen es un JPEG, PNG o WebP de al menos 1024 × 576. La guarda tal cual, con su formato, y genera `blurDataUrl`. Un token inválido o vencido, o una imagen distinta de la generada, responde 400. El texto alternativo se puede editar. Esta ruta acepta un cuerpo de hasta 2,7 MiB aunque `MAX_BODY_BYTES` sea menor: la imagen viaja en base64.
+         * @description Guarda en el almacén de portadas la imagen de una vista previa de generateCoverPreview y la asigna al post como portada generada con IA (ADR-026, puntos 4 y 5). La API no confía en el cliente: `token` es una firma de la propia API sobre la imagen exacta, el post, el usuario y el vencimiento, y además comprueba por sus bytes que la imagen es un JPEG, PNG o WebP con al menos 512 px en su lado más corto. La guarda tal cual, con su formato, y genera `blurDataUrl`. Un token inválido o vencido, o una imagen distinta de la generada, responde 400. El texto alternativo se puede editar. Esta ruta acepta un cuerpo de hasta 2,7 MiB aunque `MAX_BODY_BYTES` sea menor: la imagen viaja en base64.
          */
         put: operations["acceptCover"];
         post?: never;
@@ -684,7 +684,7 @@ export interface components {
         Cover: {
             /**
              * Format: uri
-             * @description URL pública de la imagen, tal como la generó el proveedor (JPEG, PNG o WebP de al menos 1024 × 576). La web la recorta a 16:9.
+             * @description URL pública de la imagen, tal como la generó el proveedor (JPEG, PNG o WebP con al menos 512 px en su lado más corto). La web la recorta a 16:9.
              */
             url: string;
             /** @description Texto alternativo de la imagen. */
@@ -705,12 +705,12 @@ export interface components {
             contentType: string;
             /**
              * Format: int32
-             * @description Ancho en píxeles de la imagen del proveedor (al menos 1024).
+             * @description Ancho en píxeles de la imagen del proveedor.
              */
             width: number;
             /**
              * Format: int32
-             * @description Alto en píxeles de la imagen del proveedor (al menos 576).
+             * @description Alto en píxeles de la imagen del proveedor. El lado más corto mide al menos 512.
              */
             height: number;
             /** @description Tema que propuso Gemini y que se usó en la plantilla, en inglés. */
