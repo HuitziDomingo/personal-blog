@@ -2,10 +2,27 @@
 // theme.ts, este archivo no importa nada: lo leen con Node los scripts que
 // generan y miden las imágenes, y el test del script de index.html.
 //
-// Todos vienen de gnome-backgrounds 51.0.1 y son CC BY-SA 3.0; autor y
-// licencia, verificados en los metadatos XMP de cada archivo (CREDITS.md).
+// Vienen de gnome-backgrounds 51.0.1 (CC BY-SA 3.0) y de los paquetes de
+// fondos de Fedora 42, 43 y 44 (CC BY-SA 4.0). Autor y licencia de cada uno,
+// verificados en su fuente: CREDITS.md (BLOG-146).
 
-export const BACKGROUNDS = ['fold', 'map', 'sheet', 'blobs', 'glass-chip', 'tarka', 'curvy', 'symbolic', 'dithered-sun'] as const;
+export const BACKGROUNDS = [
+  'fold',
+  'map',
+  'sheet',
+  'blobs',
+  'glass-chip',
+  'tarka',
+  'curvy',
+  'symbolic',
+  'dithered-sun',
+  'balls',
+  'blendpills',
+  'lcd-rainbow',
+  'fedora-42',
+  'fedora-43',
+  'fedora-44',
+] as const;
 export type BackgroundId = (typeof BACKGROUNDS)[number];
 
 /** Fondo del menú cuando no hay uno guardado. */
@@ -18,55 +35,148 @@ export type BackgroundVariant = (typeof BACKGROUND_VARIANTS)[number];
 export const BACKGROUND_ORIENTATIONS = ['landscape', 'portrait'] as const;
 export type BackgroundOrientation = (typeof BACKGROUND_ORIENTATIONS)[number];
 
-export const BACKGROUND_SIZES: Readonly<Record<BackgroundOrientation, { width: number; height: number }>> = {
-  landscape: { width: 1920, height: 1200 },
-  portrait: { width: 900, height: 1600 },
+/** Proporción (ancho / alto) de cada recorte: 16:10 apaisado y 9:16 vertical. */
+export const BACKGROUND_ASPECTS: Readonly<Record<BackgroundOrientation, number>> = {
+  landscape: 16 / 10,
+  portrait: 9 / 16,
 };
+
+/**
+ * Anchos de cada recorte (BLOG-146). Sin ampliar: si el recorte del original
+ * es más angosto que uno de estos anchos, ese y los mayores se omiten y el
+ * mayor pasa a ser el ancho del original (backgroundWidths).
+ */
+export const BACKGROUND_WIDTHS = [1280, 1920, 2560, 3840] as const;
+
+export const BACKGROUND_FORMATS = ['avif', 'webp'] as const;
+export type BackgroundFormat = (typeof BACKGROUND_FORMATS)[number];
 
 /** Media query del recorte vertical. El apaisado es el que queda. */
 export const PORTRAIT_QUERY = '(orientation: portrait)';
 
+/**
+ * Ancho con el que se dibuja cada recorte, para el atributo sizes: con
+ * object-fit: cover llena el viewport, así que mide el ancho del viewport o
+ * el alto por la proporción, el mayor de los dos.
+ */
+export const BACKGROUND_SIZES_ATTRIBUTE: Readonly<Record<BackgroundOrientation, string>> = {
+  landscape: 'max(100vw, 160vh)',
+  portrait: 'max(100vw, 56.25vh)',
+};
+
+export interface BackgroundSource {
+  name: string;
+  /** Proyecto o paquete. */
+  projectUrl: string;
+  /** Descarga exacta de la versión usada. */
+  releaseUrl: string;
+  license: string;
+  licenseUrl: string;
+}
+
+export const BACKGROUND_SOURCES = {
+  'gnome-51': {
+    name: 'gnome-backgrounds 51.0.1',
+    projectUrl: 'https://gitlab.gnome.org/GNOME/gnome-backgrounds',
+    releaseUrl: 'https://download.gnome.org/sources/gnome-backgrounds/51/gnome-backgrounds-51.0.1.tar.xz',
+    license: 'CC BY-SA 3.0',
+    licenseUrl: 'https://creativecommons.org/licenses/by-sa/3.0/',
+  },
+  'fedora-42': {
+    name: 'f42-backgrounds 42.0.0 (Fedora 42)',
+    projectUrl: 'https://src.fedoraproject.org/rpms/f42-backgrounds',
+    releaseUrl: 'https://github.com/fedoradesign/backgrounds/releases/download/v42.0.0/f42-backgrounds-42.0.0.tar.xz',
+    license: 'CC BY-SA 4.0',
+    licenseUrl: 'https://creativecommons.org/licenses/by-sa/4.0/',
+  },
+  'fedora-43': {
+    name: 'f43-backgrounds 43.0.4 (Fedora 43)',
+    projectUrl: 'https://src.fedoraproject.org/rpms/f43-backgrounds',
+    releaseUrl: 'https://github.com/fedoradesign/backgrounds/releases/download/v43.0.4/f43-backgrounds-43.0.4.tar.xz',
+    license: 'CC BY-SA 4.0',
+    licenseUrl: 'https://creativecommons.org/licenses/by-sa/4.0/',
+  },
+  'fedora-44': {
+    name: 'f44-backgrounds 44.0.0 (Fedora 44)',
+    projectUrl: 'https://src.fedoraproject.org/rpms/f44-backgrounds',
+    releaseUrl: 'https://forge.fedoraproject.org/design/backgrounds/releases/download/v44.0.0/f44-backgrounds-44.0.0.tar.xz',
+    license: 'CC BY-SA 4.0',
+    licenseUrl: 'https://creativecommons.org/licenses/by-sa/4.0/',
+  },
+} as const satisfies Record<string, BackgroundSource>;
+export type BackgroundSourceId = keyof typeof BACKGROUND_SOURCES;
+
 export interface BackgroundInfo {
   label: string;
   author: string;
-  license: string;
-  licenseUrl: string;
-  /** Archivos de origen en gnome-backgrounds 51.0.1 (backgrounds/). */
+  source: BackgroundSourceId;
+  /** Archivos de origen, relativos a la raíz del tarball de su fuente. */
   files: Readonly<Record<BackgroundVariant, string>>;
+  /** Tamaño del original en píxeles (los SVG se rasterizan a este tamaño). */
+  size: { width: number; height: number };
 }
 
-const CC_BY_SA_3 = { license: 'CC BY-SA 3.0', licenseUrl: 'https://creativecommons.org/licenses/by-sa/3.0/' };
+const GNOME = { source: 'gnome-51', size: { width: 4096, height: 4096 } } as const;
+
+function gnome(label: string, author: string, name: string, extension = 'jxl'): BackgroundInfo {
+  return {
+    label,
+    author,
+    ...GNOME,
+    files: { light: `backgrounds/${name}-l.${extension}`, dark: `backgrounds/${name}-d.${extension}` },
+  };
+}
+
+function fedora(label: string, release: 42 | 43 | 44, size: { width: number; height: number }): BackgroundInfo {
+  return {
+    label,
+    author: 'Fedora Design Team',
+    source: `fedora-${release}`,
+    files: { light: `default/f${release}-01-day.jxl`, dark: `default/f${release}-01-night.jxl` },
+    size,
+  };
+}
 
 export const BACKGROUND_INFO: Readonly<Record<BackgroundId, BackgroundInfo>> = {
-  fold: { label: 'Pliegue', author: 'Jakub Steiner', ...CC_BY_SA_3, files: { light: 'fold-l.jxl', dark: 'fold-d.jxl' } },
-  map: { label: 'Mapa', author: 'Dominik Baran', ...CC_BY_SA_3, files: { light: 'map-l.svg', dark: 'map-d.svg' } },
-  sheet: { label: 'Lámina', author: 'Jakub Steiner', ...CC_BY_SA_3, files: { light: 'sheet-l.jxl', dark: 'sheet-d.jxl' } },
-  blobs: { label: 'Burbujas', author: 'Jakub Steiner', ...CC_BY_SA_3, files: { light: 'blobs-l.svg', dark: 'blobs-d.svg' } },
-  'glass-chip': {
-    label: 'Chip de vidrio',
-    author: 'Jakub Steiner',
-    ...CC_BY_SA_3,
-    files: { light: 'glass-chip-l.jxl', dark: 'glass-chip-d.jxl' },
-  },
-  tarka: { label: 'Tarka', author: 'Jakub Steiner', ...CC_BY_SA_3, files: { light: 'tarka-l.jxl', dark: 'tarka-d.jxl' } },
-  curvy: { label: 'Curvas', author: 'Jakub Steiner', ...CC_BY_SA_3, files: { light: 'curvy-l.jxl', dark: 'curvy-d.jxl' } },
-  symbolic: { label: 'Símbolos', author: 'Jakub Steiner', ...CC_BY_SA_3, files: { light: 'symbolic-l.jxl', dark: 'symbolic-d.jxl' } },
-  'dithered-sun': {
-    label: 'Sol tramado',
-    author: 'Tobias Bernard',
-    ...CC_BY_SA_3,
-    files: { light: 'dithered-sun-l.jxl', dark: 'dithered-sun-d.jxl' },
-  },
+  fold: gnome('Pliegue', 'Jakub Steiner', 'fold'),
+  map: gnome('Mapa', 'Dominik Baran', 'map', 'svg'),
+  sheet: gnome('Lámina', 'Jakub Steiner', 'sheet'),
+  blobs: gnome('Burbujas', 'Jakub Steiner', 'blobs', 'svg'),
+  'glass-chip': gnome('Chip de vidrio', 'Jakub Steiner', 'glass-chip'),
+  tarka: gnome('Tarka', 'Jakub Steiner', 'tarka'),
+  curvy: gnome('Curvas', 'Jakub Steiner', 'curvy'),
+  symbolic: gnome('Símbolos', 'Jakub Steiner', 'symbolic'),
+  'dithered-sun': gnome('Sol tramado', 'Tobias Bernard', 'dithered-sun'),
+  balls: gnome('Esferas', 'Jakub Steiner', 'balls'),
+  blendpills: gnome('Píldoras de colores', 'Jakub Steiner', 'blendpills'),
+  'lcd-rainbow': gnome('Arcoíris LCD', 'Jakub Steiner', 'lcd-rainbow'),
+  'fedora-42': fedora('Bosque (Fedora 42)', 42, { width: 4032, height: 3024 }),
+  'fedora-43': fedora('Despegue (Fedora 43)', 43, { width: 4032, height: 3024 }),
+  'fedora-44': fedora('Ciudad (Fedora 44)', 44, { width: 4096, height: 4096 }),
 };
 
-/** De dónde salen los fondos: la página de créditos lo cita (BLOG-130). */
-export const BACKGROUNDS_SOURCE = {
-  name: 'gnome-backgrounds 51.0.1',
-  projectUrl: 'https://gitlab.gnome.org/GNOME/gnome-backgrounds',
-  releaseUrl: 'https://download.gnome.org/sources/gnome-backgrounds/51/',
-} as const;
+/** Ancho del mayor recorte centrado con la proporción de `orientation` que cabe en el original. */
+export function maxCropWidth(id: BackgroundId, orientation: BackgroundOrientation): number {
+  const { width, height } = BACKGROUND_INFO[id].size;
+  return Math.min(width, Math.floor(height * BACKGROUND_ASPECTS[orientation]));
+}
 
-/** Clave de localStorage. El script de index.html usa la misma. */
+/**
+ * Anchos de un recorte: los de BACKGROUND_WIDTHS que caben en el original y,
+ * si alguno no cabe, el ancho del original en su lugar (sin ampliar).
+ */
+export function backgroundWidths(id: BackgroundId, orientation: BackgroundOrientation): number[] {
+  const max = maxCropWidth(id, orientation);
+  const fitting = BACKGROUND_WIDTHS.filter((width) => width <= max);
+  return fitting.length === BACKGROUND_WIDTHS.length || fitting.at(-1) === max ? fitting : [...fitting, max];
+}
+
+/** Alto de un recorte de ese ancho. */
+export function backgroundHeight(orientation: BackgroundOrientation, width: number): number {
+  return Math.round(width / BACKGROUND_ASPECTS[orientation]);
+}
+
+/** Clave de localStorage del fondo elegido. */
 export const BACKGROUND_STORAGE_KEY = 'admin-background';
 
 /** Atributo de <html> con el fondo que eligió el script de index.html (el del login es aleatorio). */
@@ -79,9 +189,27 @@ export const BACKGROUND_ATTRIBUTE = 'data-background';
  */
 export const GLASS_BACKDROP_ATTRIBUTE = 'data-glass-backdrop';
 
-/** Ruta del archivo dentro de public/ (sin barra inicial: va relativa al <base href>). */
-export function backgroundPath(id: BackgroundId, variant: BackgroundVariant, orientation: BackgroundOrientation): string {
-  return `backgrounds/${id}-${variant}-${orientation}.avif`;
+/** Ruta de una variante dentro de public/ (sin barra inicial: va relativa al <base href>). */
+export function backgroundPath(
+  id: BackgroundId,
+  variant: BackgroundVariant,
+  orientation: BackgroundOrientation,
+  width: number,
+  format: BackgroundFormat,
+): string {
+  return `backgrounds/${id}-${variant}-${orientation}-${width}.${format}`;
+}
+
+/** srcset de un recorte en un formato, con todos sus anchos. */
+export function backgroundSrcset(
+  id: BackgroundId,
+  variant: BackgroundVariant,
+  orientation: BackgroundOrientation,
+  format: BackgroundFormat,
+): string {
+  return backgroundWidths(id, orientation)
+    .map((width) => `${backgroundPath(id, variant, orientation, width, format)} ${width}w`)
+    .join(', ');
 }
 
 /** Miniatura del selector del menú: webp pequeño, uno por fondo y versión. */

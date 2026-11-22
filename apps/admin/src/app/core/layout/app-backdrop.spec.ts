@@ -1,7 +1,13 @@
 import { Component, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 
-import { BackgroundId, BackgroundVariant, GLASS_BACKDROP_ATTRIBUTE } from '../theme/backgrounds';
+import {
+  BACKGROUND_SIZES_ATTRIBUTE,
+  BackgroundId,
+  backgroundSrcset,
+  BackgroundVariant,
+  GLASS_BACKDROP_ATTRIBUTE,
+} from '../theme/backgrounds';
 import { AppBackdrop } from './app-backdrop';
 
 @Component({
@@ -32,13 +38,44 @@ describe('AppBackdrop', () => {
   it('pide solo la imagen del fondo y tema actuales, con el recorte vertical para móvil', () => {
     const { element, images } = setup();
 
-    expect(images().map((image) => image.getAttribute('src'))).toEqual(['backgrounds/fold-light-landscape.avif']);
-    const source = element.querySelector('source');
-    expect(source?.getAttribute('srcset')).toBe('backgrounds/fold-light-portrait.avif');
-    expect(source?.getAttribute('media')).toBe('(orientation: portrait)');
-    expect(source?.getAttribute('type')).toBe('image/avif');
+    expect(images().map((image) => image.getAttribute('src'))).toEqual(['backgrounds/fold-light-landscape-1920.webp']);
+    const sources = [...element.querySelectorAll('source')].map((source) => ({
+      type: source.getAttribute('type'),
+      media: source.getAttribute('media'),
+      sizes: source.getAttribute('sizes'),
+      srcset: source.getAttribute('srcset'),
+    }));
+    expect(sources).toEqual([
+      {
+        type: 'image/avif',
+        media: '(orientation: portrait)',
+        sizes: BACKGROUND_SIZES_ATTRIBUTE.portrait,
+        srcset: backgroundSrcset('fold', 'light', 'portrait', 'avif'),
+      },
+      {
+        type: 'image/webp',
+        media: '(orientation: portrait)',
+        sizes: BACKGROUND_SIZES_ATTRIBUTE.portrait,
+        srcset: backgroundSrcset('fold', 'light', 'portrait', 'webp'),
+      },
+      { type: 'image/avif', media: null, sizes: BACKGROUND_SIZES_ATTRIBUTE.landscape, srcset: backgroundSrcset('fold', 'light', 'landscape', 'avif') },
+    ]);
+    expect(images()[0]?.getAttribute('srcset')).toBe(backgroundSrcset('fold', 'light', 'landscape', 'webp'));
+    expect(images()[0]?.getAttribute('sizes')).toBe(BACKGROUND_SIZES_ATTRIBUTE.landscape);
     expect(element.querySelector('app-backdrop')?.getAttribute('aria-hidden')).toBe('true');
     expect(images()[0]?.getAttribute('alt')).toBe('');
+  });
+
+  it('cada srcset lista los anchos con su descriptor w, de 1280 a 3840 sin ampliar (BLOG-146)', () => {
+    expect(backgroundSrcset('fold', 'light', 'landscape', 'avif')).toBe(
+      [1280, 1920, 2560, 3840].map((width) => `backgrounds/fold-light-landscape-${width}.avif ${width}w`).join(', '),
+    );
+    expect(backgroundSrcset('fold', 'dark', 'portrait', 'webp')).toBe(
+      [1280, 1920, 2304].map((width) => `backgrounds/fold-dark-portrait-${width}.webp ${width}w`).join(', '),
+    );
+    expect(backgroundSrcset('fedora-42', 'light', 'portrait', 'avif')).toBe(
+      'backgrounds/fedora-42-light-portrait-1280.avif 1280w, backgrounds/fedora-42-light-portrait-1701.avif 1701w',
+    );
   });
 
   it('la imagen aparece cuando carga', () => {
@@ -56,8 +93,8 @@ describe('AppBackdrop', () => {
     fixture.componentInstance.variant.set('dark');
     fixture.detectChanges();
     expect(images().map((image) => image.getAttribute('src'))).toEqual([
-      'backgrounds/fold-light-landscape.avif',
-      'backgrounds/fold-dark-landscape.avif',
+      'backgrounds/fold-light-landscape-1920.webp',
+      'backgrounds/fold-dark-landscape-1920.webp',
     ]);
     expect(images()[0]?.classList.contains('is-shown')).toBe(true);
     expect(images()[1]?.classList.contains('is-shown')).toBe(false);
@@ -77,8 +114,8 @@ describe('AppBackdrop', () => {
     fixture.componentInstance.background.set('fold');
     fixture.detectChanges();
     expect(images().map((image) => image.getAttribute('src'))).toEqual([
-      'backgrounds/map-light-landscape.avif',
-      'backgrounds/fold-light-landscape.avif',
+      'backgrounds/map-light-landscape-1920.webp',
+      'backgrounds/fold-light-landscape-1920.webp',
     ]);
     expect(images()[1]?.classList.contains('is-shown')).toBe(true);
   });

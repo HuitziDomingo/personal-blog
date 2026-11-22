@@ -1,146 +1,242 @@
 {
   "fold-light-landscape": {
-    "darkest": "#6d0c52",
-    "lightest": "#ffed48"
+    "darkest": "#6e0b52",
+    "lightest": "#ffed49"
   },
   "fold-light-portrait": {
-    "darkest": "#2b063f",
-    "lightest": "#ffdb61"
+    "darkest": "#1e0530",
+    "lightest": "#ffe26b"
   },
   "fold-dark-landscape": {
-    "darkest": "#920738",
-    "lightest": "#ff797c"
+    "darkest": "#940738",
+    "lightest": "#ff787c"
   },
   "fold-dark-portrait": {
-    "darkest": "#480623",
-    "lightest": "#ff37b0"
+    "darkest": "#3d051e",
+    "lightest": "#ff3aba"
   },
   "map-light-landscape": {
     "darkest": "#91afdc",
-    "lightest": "#eaf7ff"
+    "lightest": "#ecf7ff"
   },
   "map-light-portrait": {
-    "darkest": "#9db8de",
-    "lightest": "#eaf7ff"
+    "darkest": "#80a8de",
+    "lightest": "#ebf8ff"
   },
   "map-dark-landscape": {
-    "darkest": "#162036",
-    "lightest": "#7d7b79"
+    "darkest": "#132232",
+    "lightest": "#7c7c77"
   },
   "map-dark-portrait": {
-    "darkest": "#162036",
-    "lightest": "#736c58"
+    "darkest": "#132232",
+    "lightest": "#8d8d8d"
   },
   "sheet-light-landscape": {
-    "darkest": "#0035c2",
-    "lightest": "#974cff"
+    "darkest": "#0036c4",
+    "lightest": "#994cff"
   },
   "sheet-light-portrait": {
-    "darkest": "#0035be",
-    "lightest": "#8c4aff"
+    "darkest": "#0031b5",
+    "lightest": "#a34dff"
   },
   "sheet-dark-landscape": {
-    "darkest": "#011e6d",
-    "lightest": "#a437f0"
+    "darkest": "#001f6e",
+    "lightest": "#a636f2"
   },
   "sheet-dark-portrait": {
-    "darkest": "#001e6a",
-    "lightest": "#9a35e7"
+    "darkest": "#001c62",
+    "lightest": "#ac3af7"
   },
   "blobs-light-landscape": {
     "darkest": "#30234d",
     "lightest": "#ff3400"
   },
   "blobs-light-portrait": {
-    "darkest": "#32234d",
-    "lightest": "#ff1071"
+    "darkest": "#2e254c",
+    "lightest": "#ff1070"
   },
   "blobs-dark-landscape": {
-    "darkest": "#261e3d",
+    "darkest": "#261d3e",
     "lightest": "#ff2200"
   },
   "blobs-dark-portrait": {
-    "darkest": "#261e3d",
-    "lightest": "#ff1a06"
+    "darkest": "#261d3e",
+    "lightest": "#ff1f00"
   },
   "glass-chip-light-landscape": {
-    "darkest": "#003063",
-    "lightest": "#bcdce0"
+    "darkest": "#003261",
+    "lightest": "#bfdce1"
   },
   "glass-chip-light-portrait": {
-    "darkest": "#003063",
-    "lightest": "#20f8ff"
+    "darkest": "#003164",
+    "lightest": "#44faff"
   },
   "glass-chip-dark-landscape": {
     "darkest": "#000000",
-    "lightest": "#cfd7ba"
+    "lightest": "#d0d8bb"
   },
   "glass-chip-dark-portrait": {
     "darkest": "#000000",
-    "lightest": "#a2d7c5"
+    "lightest": "#aed8c4"
   },
   "tarka-light-landscape": {
-    "darkest": "#3a65bd",
-    "lightest": "#dae3f9"
+    "darkest": "#3c65bd",
+    "lightest": "#dae4f8"
   },
   "tarka-light-portrait": {
-    "darkest": "#3d6ac1",
-    "lightest": "#f6dddb"
+    "darkest": "#3d5fb8",
+    "lightest": "#f7dedf"
   },
   "tarka-dark-landscape": {
-    "darkest": "#3a224f",
-    "lightest": "#eae5fc"
+    "darkest": "#3b224c",
+    "lightest": "#e8e6fa"
   },
   "tarka-dark-portrait": {
-    "darkest": "#492548",
-    "lightest": "#eee0f9"
+    "darkest": "#381f49",
+    "lightest": "#e9ebfe"
   },
   "curvy-light-landscape": {
-    "darkest": "#61615e",
-    "lightest": "#d9d9d9"
+    "darkest": "#60625f",
+    "lightest": "#dadada"
   },
   "curvy-light-portrait": {
-    "darkest": "#626260",
-    "lightest": "#d9d9d9"
+    "darkest": "#60605d",
+    "lightest": "#dadada"
   },
   "curvy-dark-landscape": {
-    "darkest": "#111317",
-    "lightest": "#4f5158"
+    "darkest": "#111418",
+    "lightest": "#505259"
   },
   "curvy-dark-portrait": {
-    "darkest": "#17191e",
-    "lightest": "#4b4d54"
+    "darkest": "#14171b",
+    "lightest": "#4d5056"
   },
   "symbolic-light-landscape": {
     "darkest": "#008aff",
-    "lightest": "#008fff"
+    "lightest": "#0090ff"
   },
   "symbolic-light-portrait": {
     "darkest": "#008aff",
-    "lightest": "#0090ff"
+    "lightest": "#0091ff"
   },
   "symbolic-dark-landscape": {
-    "darkest": "#0052eb",
-    "lightest": "#005aeb"
+    "darkest": "#0053ec",
+    "lightest": "#005aed"
   },
   "symbolic-dark-portrait": {
-    "darkest": "#0054eb",
-    "lightest": "#005beb"
+    "darkest": "#0053ef",
+    "lightest": "#005cea"
   },
   "dithered-sun-light-landscape": {
-    "darkest": "#ff37c0",
+    "darkest": "#ff38be",
     "lightest": "#fffff8"
   },
   "dithered-sun-light-portrait": {
-    "darkest": "#ff3cbc",
-    "lightest": "#fffff5"
+    "darkest": "#ff33c3",
+    "lightest": "#fffffa"
   },
   "dithered-sun-dark-landscape": {
-    "darkest": "#95000c",
+    "darkest": "#970010",
     "lightest": "#fec7ff"
   },
   "dithered-sun-dark-portrait": {
-    "darkest": "#95000e",
-    "lightest": "#fdc3ff"
+    "darkest": "#950010",
+    "lightest": "#ffc9ff"
+  },
+  "balls-light-landscape": {
+    "darkest": "#060721",
+    "lightest": "#ffe83e"
+  },
+  "balls-light-portrait": {
+    "darkest": "#000320",
+    "lightest": "#ffee6a"
+  },
+  "balls-dark-landscape": {
+    "darkest": "#020911",
+    "lightest": "#00bb65"
+  },
+  "balls-dark-portrait": {
+    "darkest": "#00040a",
+    "lightest": "#cba900"
+  },
+  "blendpills-light-landscape": {
+    "darkest": "#9c2aaa",
+    "lightest": "#fdeb80"
+  },
+  "blendpills-light-portrait": {
+    "darkest": "#6714a6",
+    "lightest": "#b6eea0"
+  },
+  "blendpills-dark-landscape": {
+    "darkest": "#431f23",
+    "lightest": "#4fee5f"
+  },
+  "blendpills-dark-portrait": {
+    "darkest": "#361b1b",
+    "lightest": "#66e61c"
+  },
+  "lcd-rainbow-light-landscape": {
+    "darkest": "#c2b1d5",
+    "lightest": "#e9e9e9"
+  },
+  "lcd-rainbow-light-portrait": {
+    "darkest": "#ff94aa",
+    "lightest": "#e9e9e9"
+  },
+  "lcd-rainbow-dark-landscape": {
+    "darkest": "#050505",
+    "lightest": "#8d7200"
+  },
+  "lcd-rainbow-dark-portrait": {
+    "darkest": "#050505",
+    "lightest": "#ac5b08"
+  },
+  "fedora-42-light-landscape": {
+    "darkest": "#60311d",
+    "lightest": "#cfe1db"
+  },
+  "fedora-42-light-portrait": {
+    "darkest": "#4d4542",
+    "lightest": "#cfe1db"
+  },
+  "fedora-42-dark-landscape": {
+    "darkest": "#12205c",
+    "lightest": "#436987"
+  },
+  "fedora-42-dark-portrait": {
+    "darkest": "#14205a",
+    "lightest": "#466a81"
+  },
+  "fedora-43-light-landscape": {
+    "darkest": "#131a42",
+    "lightest": "#ffffff"
+  },
+  "fedora-43-light-portrait": {
+    "darkest": "#1c1c1c",
+    "lightest": "#ffffff"
+  },
+  "fedora-43-dark-landscape": {
+    "darkest": "#12193f",
+    "lightest": "#ffffff"
+  },
+  "fedora-43-dark-portrait": {
+    "darkest": "#1c1c1c",
+    "lightest": "#ffffff"
+  },
+  "fedora-44-light-landscape": {
+    "darkest": "#2987e4",
+    "lightest": "#c4d5b6"
+  },
+  "fedora-44-light-portrait": {
+    "darkest": "#2380ff",
+    "lightest": "#c4d3ad"
+  },
+  "fedora-44-dark-landscape": {
+    "darkest": "#061836",
+    "lightest": "#24a2ff"
+  },
+  "fedora-44-dark-portrait": {
+    "darkest": "#000309",
+    "lightest": "#1e8cff"
   }
 }

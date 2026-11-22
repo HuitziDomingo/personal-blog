@@ -13,6 +13,11 @@
 // extremos, así que el resultado es conservador. Cada píxel desenfocado es el
 // promedio local de su zona, que es lo que queda detrás del texto de la card.
 //
+// Mide el AVIF apaisado de 1920 y el vertical de 1280 (BLOG-146). Las
+// variantes mayores solo se eligen en pantallas más densas o más grandes,
+// donde los 40 px CSS del desenfoque abarcan todavía más píxeles de la
+// imagen, así que medir estas sigue del lado seguro.
+//
 // Uso: CHROME=/ruta/a/chrome node scripts/measure-backgrounds.mjs
 import { readFileSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
@@ -22,6 +27,8 @@ import { CARD_GLASS_BLUR_MEASURED, CARD_GLASS_SATURATE } from './check-theme-con
 import { BACKGROUND_ORIENTATIONS, BACKGROUND_VARIANTS, BACKGROUNDS, backgroundPath } from '../src/app/core/theme/backgrounds.ts';
 
 const PUBLIC = new URL('../public/', import.meta.url);
+/** Ancho medido de cada recorte. */
+const MEASURED_WIDTHS = { landscape: 1920, portrait: 1280 };
 const OUT = fileURLToPath(new URL('../src/app/core/theme/background-extremes.json', import.meta.url));
 
 const require = createRequire(new URL('../../../e2e/package.json', import.meta.url));
@@ -34,7 +41,7 @@ try {
   for (const id of BACKGROUNDS) {
     for (const variant of BACKGROUND_VARIANTS) {
       for (const orientation of BACKGROUND_ORIENTATIONS) {
-        const path = backgroundPath(id, variant, orientation);
+        const path = backgroundPath(id, variant, orientation, MEASURED_WIDTHS[orientation], 'avif');
         const data = `data:image/avif;base64,${readFileSync(new URL(path, PUBLIC)).toString('base64')}`;
         const extremes = await page.evaluate(
           async ({ data, blur, saturate }) => {
