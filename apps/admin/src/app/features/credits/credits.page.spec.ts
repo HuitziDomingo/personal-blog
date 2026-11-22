@@ -71,7 +71,7 @@ describe('CreditsPage', () => {
     }
     expect(screen.getByText(/1280, 1920, 2560 y 3840 px de ancho, sin ampliar/)).toBeTruthy();
     expect(screen.getByText(/1701 px en el vertical de los originales de 4032 × 3024/)).toBeTruthy();
-    expect(screen.getByText(/convirtió a AVIF y WebP/)).toBeTruthy();
+    expect(screen.getByText(/convirtió a AVIF y, hasta 2560 px, a WebP/)).toBeTruthy();
   });
 
   it('las miniaturas son decorativas: el nombre ya está en el encabezado', async () => {

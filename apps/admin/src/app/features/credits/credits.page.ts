@@ -6,8 +6,8 @@ import { AppBackdrop } from '../../core/layout/app-backdrop';
 import { SessionService } from '../../core/session/session.service';
 import { BackgroundService } from '../../core/theme/background.service';
 import {
-  BACKGROUND_FORMATS,
   BACKGROUND_INFO,
+  BACKGROUND_MAX_WIDTHS,
   BACKGROUND_SOURCES,
   BACKGROUND_WIDTHS,
   BACKGROUNDS,
@@ -16,8 +16,6 @@ import {
   THUMBNAIL_SIZE,
   thumbnailPath,
 } from '../../core/theme/backgrounds';
-
-const FORMAT_NAMES = { avif: 'AVIF', webp: 'WebP' } as const;
 
 const LINK =
   'underline underline-offset-2 rounded-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/50';
@@ -120,7 +118,7 @@ const LINK =
           <p class="text-sm">
             Cada fondo se recortó al centro en dos proporciones, 16:10 apaisado y 9:16 vertical, y se escaló a
             {{ widths }} px de ancho, sin ampliar: si el original no alcanza un ancho, la variante mayor queda del ancho
-            del original ({{ narrow }}). Cada variante se convirtió a {{ formats }}, y la miniatura del selector, de
+            del original ({{ narrow }}). Cada variante se convirtió a AVIF y, hasta {{ webpMax }} px, a WebP, y la miniatura del selector, de
             {{ thumbnailSize.width }} × {{ thumbnailSize.height }}, a WebP. Las versiones claras y oscuras son las de cada
             fuente: no hay variantes oscuras derivadas. Estas imágenes derivadas se distribuyen con la misma licencia
             que su original, que no se extiende al código del admin.
@@ -151,7 +149,7 @@ export class CreditsPage {
   }));
   protected readonly thumbnailSize = THUMBNAIL_SIZE;
   protected readonly widths = listFormat(BACKGROUND_WIDTHS.map(String));
-  protected readonly formats = listFormat(BACKGROUND_FORMATS.map((format) => FORMAT_NAMES[format]));
+  protected readonly webpMax = BACKGROUND_MAX_WIDTHS.webp;
   /** Los recortes verticales que no llegan a 3840: el ancho de su original. */
   protected readonly narrow = listFormat([
     ...new Set(

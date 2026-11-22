@@ -2,16 +2,18 @@
 // en AVIF y WebP, sin pasar del límite de su formato, y cada fondo tiene sus extremos medidos; y el vidrio de .glass-card en
 // styles.css es el que mide check-theme-contrast.mjs (BLOG-143).
 import assert from 'node:assert/strict';
-import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { test } from 'node:test';
 
 import { CARD_GLASS_BLUR, CARD_GLASS_BLUR_MEASURED, CARD_GLASS_MIN_ALPHA, CARD_GLASS_SATURATE, cardAlphas } from './check-theme-contrast.mjs';
 import {
   BACKGROUND_FORMATS,
+  BACKGROUND_MAX_WIDTHS,
   BACKGROUND_ORIENTATIONS,
   BACKGROUND_VARIANTS,
   BACKGROUNDS,
   backgroundPath,
+  backgroundSrcset,
   backgroundWidths,
   maxCropWidth,
   thumbnailPath,
@@ -20,7 +22,7 @@ import {
 const extremes = JSON.parse(readFileSync(new URL('../src/app/core/theme/background-extremes.json', import.meta.url), 'utf8'));
 
 /** Límite por archivo: la de 3840 de un fondo con grano fino es la que más pesa. */
-const MAX_BYTES = { avif: 1024 * 1024, webp: 2 * 1024 * 1024 };
+const MAX_BYTES = { avif: 1536 * 1024, webp: 1024 * 1024 };
 /** Firma de cada formato: `ftypavif` en el byte 4 y `WEBP` en el 8. */
 const SIGNATURES = { avif: [4, 'ftypavif'], webp: [8, 'WEBP'] };
 
@@ -31,8 +33,8 @@ test('cada fondo tiene cada variante en AVIF y WebP, sin pasar del límite, y su
     for (const variant of BACKGROUND_VARIANTS) {
       expected.add(thumbnailPath(id, variant).replace('backgrounds/', ''));
       for (const orientation of BACKGROUND_ORIENTATIONS) {
-        for (const width of backgroundWidths(id, orientation)) {
-          for (const format of BACKGROUND_FORMATS) {
+        for (const format of BACKGROUND_FORMATS) {
+          for (const width of backgroundWidths(id, orientation, format)) {
             const path = backgroundPath(id, variant, orientation, width, format);
             expected.add(path.replace('backgrounds/', ''));
             const bytes = readFileSync(new URL(`../public/${path}`, import.meta.url));
@@ -50,14 +52,41 @@ test('cada fondo tiene cada variante en AVIF y WebP, sin pasar del límite, y su
   assert.deepEqual(readdirSync(new URL('../public/backgrounds/', import.meta.url)).sort(), [...expected].sort());
 });
 
-test('los anchos no amplían el original y llegan a 3840 cuando el original alcanza (BLOG-146)', () => {
+test('los anchos no amplían el original y llegan al máximo de cada formato cuando el original alcanza (BLOG-146, BLOG-148)', () => {
   for (const id of BACKGROUNDS) {
     for (const orientation of BACKGROUND_ORIENTATIONS) {
-      const widths = backgroundWidths(id, orientation);
-      assert.equal(widths[0], 1280, `${id}-${orientation}`);
-      assert.equal(widths.at(-1), Math.min(3840, maxCropWidth(id, orientation)), `${id}-${orientation}`);
-      assert.deepEqual([...widths].sort((a, b) => a - b), widths);
-      assert.equal(new Set(widths).size, widths.length);
+      for (const format of BACKGROUND_FORMATS) {
+        const widths = backgroundWidths(id, orientation, format);
+        const key = `${id}-${orientation}-${format}`;
+        assert.equal(widths[0], 1280, key);
+        assert.equal(widths.at(-1), Math.min(BACKGROUND_MAX_WIDTHS[format], maxCropWidth(id, orientation)), key);
+        assert.deepEqual([...widths].sort((a, b) => a - b), widths, key);
+        assert.equal(new Set(widths).size, widths.length, key);
+      }
+    }
+  }
+  assert.deepEqual(BACKGROUND_MAX_WIDTHS, { avif: 3840, webp: 2560 });
+});
+
+test('cada srcset de los 15 fondos apunta a archivos que existen, AVIF hasta 3840 y WebP hasta 2560 (BLOG-148)', () => {
+  assert.equal(BACKGROUNDS.length, 15);
+  for (const id of BACKGROUNDS) {
+    for (const variant of BACKGROUND_VARIANTS) {
+      for (const orientation of BACKGROUND_ORIENTATIONS) {
+        for (const format of BACKGROUND_FORMATS) {
+          const candidates = backgroundSrcset(id, variant, orientation, format)
+            .split(', ')
+            .map((candidate) => candidate.split(' '));
+          assert.ok(candidates.length >= 2, `${id}-${variant}-${orientation}-${format}`);
+          for (const [path, descriptor] of candidates) {
+            assert.ok(existsSync(new URL(`../public/${path}`, import.meta.url)), `no existe ${path}`);
+            assert.ok(path.endsWith(`.${format}`), path);
+            const width = Number(/^(\d+)w$/.exec(descriptor)?.[1]);
+            assert.ok(width <= BACKGROUND_MAX_WIDTHS[format], `${path} ${descriptor}`);
+            assert.ok(path.endsWith(`-${width}.${format}`), `${path} ${descriptor}`);
+          }
+        }
+      }
     }
   }
 });

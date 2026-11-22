@@ -66,9 +66,12 @@ describe('AppBackdrop', () => {
     expect(images()[0]?.getAttribute('alt')).toBe('');
   });
 
-  it('cada srcset lista los anchos con su descriptor w, de 1280 a 3840 sin ampliar (BLOG-146)', () => {
+  it('cada srcset lista los anchos con su descriptor w, sin ampliar: AVIF hasta 3840 y WebP hasta 2560 (BLOG-146, BLOG-148)', () => {
     expect(backgroundSrcset('fold', 'light', 'landscape', 'avif')).toBe(
       [1280, 1920, 2560, 3840].map((width) => `backgrounds/fold-light-landscape-${width}.avif ${width}w`).join(', '),
+    );
+    expect(backgroundSrcset('fold', 'light', 'landscape', 'webp')).toBe(
+      [1280, 1920, 2560].map((width) => `backgrounds/fold-light-landscape-${width}.webp ${width}w`).join(', '),
     );
     expect(backgroundSrcset('fold', 'dark', 'portrait', 'webp')).toBe(
       [1280, 1920, 2304].map((width) => `backgrounds/fold-dark-portrait-${width}.webp ${width}w`).join(', '),
