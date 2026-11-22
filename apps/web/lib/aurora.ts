@@ -1,19 +1,21 @@
 /**
- * Fondo «aurora» de la web (BLOG-142; v2 viva en BLOG-150): cinco manchas de
- * color abajo y a los costados que se desplazan, se cruzan y cambian de tono
- * despacio. Los datos viven aquí, sin React ni CSS, para que el test de
+ * Fondo «aurora» de la web (BLOG-142; v2 viva en BLOG-150, ajustada en
+ * BLOG-151): cinco manchas de color abajo y a los costados (tres en móvil)
+ * que se desplazan y se cruzan despacio. Los datos viven aquí, sin React ni CSS, para que el test de
  * contraste mida exactamente lo que se pinta.
  *
  * - Cada mancha es un `radial-gradient(closest-side, color, transparent)`: ya
  *   nace borrosa, sin `filter`. Su opacidad cae en línea recta del centro
  *   (`alpha`) al borde (0).
- * - Cada mancha tiene dos capas del mismo tamaño con dos tonos (`tones`): la
- *   de abajo se desvanece mientras aparece la de arriba, en un ciclo propio
- *   (`toneDuration`). El cambio de tono es solo `opacity`.
+ * - Cada mancha tiene un solo tono (`tone`): sin cambio de tono, que
+ *   costaba una capa compuesta más por mancha (BLOG-151).
+ * - En móvil (< `AURORA_MOBILE_MAX_PX`) solo se pintan las manchas con
+ *   `mobile: true`.
  * - La mancha entera va y vuelve entre su reposo y su desplazamiento
  *   (`drift`, `rise`, `scale`), con la opacidad de `AURORA_KEYFRAMES`.
- * - Con prefers-reduced-motion se queda quieta en su reposo, con opacidad 1
- *   y solo el primer tono: visible, sin movimiento.
+ * - Con prefers-reduced-motion, y siempre en la portada (la isla 3D ya
+ *   consume GPU), se queda quieta en su reposo con opacidad 1: visible, sin
+ *   movimiento.
  * - `alpha` es por modo y por ancho: en móvil (< `AURORA_MOBILE_MAX_PX`) puede
  *   ser otra.
  */
@@ -29,8 +31,9 @@ export interface AuroraTone {
 
 export interface AuroraBlob {
   name: string;
-  /** Tono de la capa de abajo y de la de arriba; la de arriba aparece y se va. */
-  tones: readonly [AuroraTone, AuroraTone];
+  tone: AuroraTone;
+  /** Si se pinta en móvil (< `AURORA_MOBILE_MAX_PX`). */
+  mobile: boolean;
   /** Opacidad del centro, por modo, en escritorio y en móvil. */
   alpha: { light: number; dark: number; mobileLight: number; mobileDark: number };
   /** Diámetro, en vw, con tope en vh (pantallas muy anchas). */
@@ -46,8 +49,6 @@ export interface AuroraBlob {
   scale: number;
   /** Duración de un ciclo de ida del desplazamiento, en segundos (va y vuelve). */
   duration: number;
-  /** Duración de un ciclo de ida del cambio de tono, en segundos. */
-  toneDuration: number;
 }
 
 export const TONES = {
@@ -60,11 +61,11 @@ export const TONES = {
 const { ambar, coral, magenta, violeta } = TONES;
 
 export const AURORA_BLOBS: readonly AuroraBlob[] = [
-  { name: 'abajo-izquierda', tones: [ambar, coral], alpha: { light: 0.27, dark: 0.45, mobileLight: 0.36, mobileDark: 0.45 }, size: 70, maxSizeVh: 110, x: -2, y: 88, drift: 14, rise: -8, scale: 1.1, duration: 23, toneDuration: 19 },
-  { name: 'izquierda', tones: [coral, magenta], alpha: { light: 0.25, dark: 0.45, mobileLight: 0.36, mobileDark: 0.45 }, size: 52, maxSizeVh: 84, x: 2, y: 48, drift: 12, rise: 10, scale: 1.08, duration: 29, toneDuration: 26 },
-  { name: 'abajo-derecha', tones: [magenta, violeta], alpha: { light: 0.26, dark: 0.45, mobileLight: 0.34, mobileDark: 0.45 }, size: 66, maxSizeVh: 106, x: 102, y: 92, drift: -15, rise: -6, scale: 1.1, duration: 19, toneDuration: 23 },
-  { name: 'derecha', tones: [ambar, magenta], alpha: { light: 0.23, dark: 0.45, mobileLight: 0.31, mobileDark: 0.45 }, size: 50, maxSizeVh: 80, x: 98, y: 50, drift: -12, rise: 8, scale: 1.08, duration: 27, toneDuration: 17 },
-  { name: 'abajo-centro', tones: [violeta, coral], alpha: { light: 0.36, dark: 0.45, mobileLight: 0.44, mobileDark: 0.45 }, size: 62, maxSizeVh: 92, x: 46, y: 112, drift: 10, rise: -10, scale: 1.1, duration: 16, toneDuration: 29 },
+  { name: 'abajo-izquierda', tone: ambar, mobile: true, alpha: { light: 0.5, dark: 0.45, mobileLight: 0.5, mobileDark: 0.45 }, size: 70, maxSizeVh: 110, x: -2, y: 88, drift: 14, rise: -8, scale: 1.1, duration: 23 },
+  { name: 'izquierda', tone: coral, mobile: false, alpha: { light: 0.5, dark: 0.45, mobileLight: 0.5, mobileDark: 0.45 }, size: 52, maxSizeVh: 84, x: 2, y: 48, drift: 12, rise: 10, scale: 1.08, duration: 29 },
+  { name: 'abajo-derecha', tone: magenta, mobile: true, alpha: { light: 0.5, dark: 0.45, mobileLight: 0.5, mobileDark: 0.45 }, size: 66, maxSizeVh: 106, x: 102, y: 92, drift: -15, rise: -6, scale: 1.1, duration: 19 },
+  { name: 'derecha', tone: ambar, mobile: false, alpha: { light: 0.5, dark: 0.45, mobileLight: 0.5, mobileDark: 0.45 }, size: 50, maxSizeVh: 80, x: 98, y: 50, drift: -12, rise: 8, scale: 1.08, duration: 27 },
+  { name: 'abajo-centro', tone: violeta, mobile: true, alpha: { light: 0.5, dark: 0.45, mobileLight: 0.5, mobileDark: 0.45 }, size: 62, maxSizeVh: 92, x: 46, y: 112, drift: 10, rise: -10, scale: 1.1, duration: 16 },
 ];
 
 /** Por debajo de este ancho (el `md` de Chakra, 48em) vale el alfa de móvil. */
@@ -154,49 +155,36 @@ export interface ColorBox {
   hi: Rgb;
 }
 
-const FRACTION_SAMPLES = 6;
-const TONE_SAMPLES = 10;
+/** Las manchas que se pintan en una pantalla de `w` px de ancho. */
+export function visibleBlobs(w: number): readonly AuroraBlob[] {
+  return w < AURORA_MOBILE_MAX_PX ? AURORA_BLOBS.filter((b) => b.mobile) : AURORA_BLOBS;
+}
 
 /**
  * Los colores que puede tener el punto (px, py): el lienzo con cada mancha
- * encima, en el orden del DOM, con cualquier opacidad entre 0 y su máximo en
- * ese punto y en cualquier momento del cambio de tono (las dos capas en
- * fundido cruzado). Las duraciones no tienen un múltiplo común cercano, así
- * que cualquier combinación de fases llega a darse.
+ * visible encima, en el orden del DOM, con cualquier opacidad entre 0 y su
+ * máximo en ese punto. Las duraciones no tienen un múltiplo común cercano,
+ * así que cualquier combinación de fases llega a darse.
  *
- * La composición «over» en sRGB (como la hace el navegador) es creciente en
- * el color de abajo, así que basta seguir el mínimo y el máximo de cada canal.
+ * La composición «over» en sRGB (como la hace el navegador) es lineal en la
+ * opacidad y creciente en el color de abajo: el extremo de cada canal sale de
+ * opacidad 0 o de la máxima, siguiendo el mínimo y el máximo de cada canal.
  * Medir en el extremo de cada canal es del lado seguro: no todas las esquinas
  * de la caja se dan a la vez.
  */
 export function colorBox(bg: string, mode: AuroraMode, px: number, py: number, w: number, h: number): ColorBox {
-  const base = parseHex(bg);
-  let lo = [...base];
-  let hi = [...base];
+  const lo = [...parseHex(bg)];
+  const hi = [...lo];
 
-  for (const blob of AURORA_BLOBS) {
-    const kMax = maxCoverage(blob, px, py, w, h);
-    if (kMax === 0) continue;
-    const alpha = alphaFor(blob, mode, w);
-    const below = parseHex(blob.tones[0][mode]);
-    const above = parseHex(blob.tones[1][mode]);
-    const nextLo = [...lo];
-    const nextHi = [...hi];
-    for (let i = 0; i <= FRACTION_SAMPLES; i++) {
-      const k = (kMax * i) / FRACTION_SAMPLES;
-      for (let j = 0; j <= TONE_SAMPLES; j++) {
-        const s = j / TONE_SAMPLES;
-        const a1 = k * alpha * (1 - s);
-        const a2 = k * alpha * s;
-        for (let c = 0; c < 3; c++) {
-          const over = (v: number) => (v * (1 - a1) + below[c as 0] * a1) * (1 - a2) + above[c as 0] * a2;
-          nextLo[c] = Math.min(nextLo[c] ?? 1, over(lo[c] ?? 1));
-          nextHi[c] = Math.max(nextHi[c] ?? 0, over(hi[c] ?? 0));
-        }
-      }
+  for (const blob of visibleBlobs(w)) {
+    const a = maxCoverage(blob, px, py, w, h) * alphaFor(blob, mode, w);
+    if (a === 0) continue;
+    const tone = parseHex(blob.tone[mode]);
+    for (let c = 0; c < 3; c++) {
+      const over = (v: number) => v * (1 - a) + (tone[c as 0]) * a;
+      lo[c] = Math.min(lo[c] ?? 1, over(lo[c] ?? 1));
+      hi[c] = Math.max(hi[c] ?? 0, over(hi[c] ?? 0));
     }
-    lo = nextLo;
-    hi = nextHi;
   }
 
   return { lo: lo as unknown as Rgb, hi: hi as unknown as Rgb };

@@ -14,9 +14,18 @@ describe('Aurora', () => {
     expect(html).toMatch(/^<div class="aurora" aria-hidden="true">/);
   });
 
-  it('una mancha por blob, con dos capas de tono', () => {
+  it('una capa por mancha, sin capas de tono; las de escritorio marcadas', () => {
     expect(html.match(/<span /g)).toHaveLength(AURORA_BLOBS.length);
-    expect(html.match(/<i><\/i>/g)).toHaveLength(AURORA_BLOBS.length * 2);
+    expect(html).not.toContain('<i>');
+    expect(html.match(/data-desktop=""/g)).toHaveLength(AURORA_BLOBS.filter((b) => !b.mobile).length);
+  });
+
+  it('en móvil no se pintan las manchas de escritorio', () => {
+    expect(css['.aurora > span[data-desktop]']).toEqual({ '@media (max-width: 767.98px)': { display: 'none' } });
+  });
+
+  it('quieta en la portada: sin animación donde está data-aurora-quieta', () => {
+    expect(css['body:has([data-aurora-quieta]) .aurora > span']).toMatchObject({ animation: 'none' });
   });
 
   it('pasa a CSS los tonos y alfas de cada modo y de móvil', () => {
@@ -27,18 +36,19 @@ describe('Aurora', () => {
     expect(html).toContain(`--aurora-alpha-mobile-light:${String(blob.alpha.mobileLight)}`);
     expect(html).toContain(`--aurora-alpha-mobile-dark:${String(blob.alpha.mobileDark)}`);
     expect(html).toContain(`--aurora-dx:${String(blob.drift)}vw`);
-    expect(html).toContain(`--aurora-tone-duration:${String(blob.toneDuration)}s`);
+    expect(html).toContain(`--aurora-tone-light:${[1, 3, 5].map((i) => Number.parseInt(blob.tone.light.slice(i, i + 2), 16)).join(' ')}`);
   });
 
   it('el alfa de móvil vale por debajo del md de Chakra', () => {
-    expect(css['.aurora > span']).toHaveProperty([`@media (max-width: ${String(AURORA_MOBILE_MAX_PX - 0.02)}px)`]);
+    expect(String(AURORA_MOBILE_MAX_PX - 0.02)).toBe('767.98');
+    expect(css['.aurora > span']).toHaveProperty(['@media (max-width: 767.98px)']);
   });
 
   it('el body no tiene fondo propio: taparía la capa de z-index -1', () => {
     expect(system._config.globalCss?.body).toMatchObject({ bg: 'transparent' });
   });
 
-  it.each(['aurora-deriva', 'aurora-tono-sale', 'aurora-tono-entra'])('%s solo anima transform y opacity', (name) => {
+  it.each(['aurora-deriva'])('%s solo anima transform y opacity', (name) => {
     const keyframes = system._config.theme?.keyframes?.[name] ?? {};
     const props = new Set(Object.values(keyframes).flatMap((frame) => Object.keys(frame as object)));
 
@@ -52,11 +62,8 @@ describe('Aurora', () => {
     }
   });
 
-  it('con reduced-motion no hay animación y queda el primer tono', () => {
-    for (const selector of ['.aurora > span', '.aurora > span > i', '.aurora > span > i:first-of-type', '.aurora > span > i:last-of-type']) {
-      const rule = css[selector] ?? {};
-      expect(Object.keys(rule).some((k) => k.startsWith('animation')), selector).toBe(false);
-    }
-    expect(css['.aurora > span > i:last-of-type']).toMatchObject({ opacity: '0' });
+  it('con reduced-motion no hay animación', () => {
+    const rule = css['.aurora > span'] ?? {};
+    expect(Object.keys(rule).some((k) => k.startsWith('animation'))).toBe(false);
   });
 });
