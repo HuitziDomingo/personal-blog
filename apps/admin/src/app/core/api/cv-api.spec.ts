@@ -51,7 +51,7 @@ describe('CvApi', () => {
     const { api, httpMock } = setup();
 
     api.setCurrent('../x').subscribe();
-    const request = httpMock.expectOne(`${CV}/versions/..%2Fx/current`.replace('..', '%2E%2E'));
+    const request = httpMock.expectOne(`${CV}/versions/%2E%2E%2Fx/current`);
     expect(request.request.method).toBe('POST');
     request.flush(aCvVersion());
   });
