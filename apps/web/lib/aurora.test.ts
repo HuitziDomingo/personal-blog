@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   AURORA_BLOBS,
   AURORA_KEYFRAMES,
+  AURORA_MOBILE_MAX_PX,
   AURORA_VIEWPORTS,
   alphaFor,
   blobState,
@@ -11,6 +12,7 @@ import {
   gridPoints,
   maxCoverage,
   parseHex,
+  visibleBlobs,
 } from './aurora';
 import { auditAurora, SURFACES, TEXT_TOKENS, worstContrast } from './aurora-contrast';
 import { palette } from './brand';
@@ -19,13 +21,13 @@ import { palette } from './brand';
 const AA_WITH_MARGIN = 4.6;
 
 describe('fondo aurora v2 (BLOG-150)', () => {
-  it('5 manchas, con ciclos de desplazamiento y de tono de 15 a 30 s', () => {
-    expect(AURORA_BLOBS).toHaveLength(5);
+  it('5 manchas en escritorio y 3 en móvil, con ciclos de 15 a 30 s', () => {
+    expect(visibleBlobs(1440)).toHaveLength(5);
+    expect(visibleBlobs(390)).toHaveLength(3);
+    expect(visibleBlobs(AURORA_MOBILE_MAX_PX)).toHaveLength(5);
     for (const blob of AURORA_BLOBS) {
-      for (const seconds of [blob.duration, blob.toneDuration]) {
-        expect(seconds).toBeGreaterThanOrEqual(15);
-        expect(seconds).toBeLessThanOrEqual(30);
-      }
+      expect(blob.duration).toBeGreaterThanOrEqual(15);
+      expect(blob.duration).toBeLessThanOrEqual(30);
     }
   });
 
@@ -36,18 +38,24 @@ describe('fondo aurora v2 (BLOG-150)', () => {
     }
   });
 
-  it('el tono va entre ámbar, coral, magenta y violeta, y cada mancha cambia de tono', () => {
-    const tones = new Set(AURORA_BLOBS.flatMap((b) => b.tones.map((t) => t.name)));
+  it('los tonos son ámbar, coral, magenta y violeta, sin cambio de tono (BLOG-151)', () => {
+    const tones = new Set(AURORA_BLOBS.map((b) => b.tone.name));
     expect([...tones].sort()).toEqual(['ambar', 'coral', 'magenta', 'violeta']);
+  });
+
+  it('el alfa en claro llega a la meta de 0,30 a 0,50 (BLOG-151)', () => {
     for (const blob of AURORA_BLOBS) {
-      expect(blob.tones[0].name).not.toBe(blob.tones[1].name);
+      for (const alpha of [blob.alpha.light, blob.alpha.mobileLight]) {
+        expect(alpha).toBeGreaterThanOrEqual(0.3);
+        expect(alpha).toBeLessThanOrEqual(0.5);
+      }
     }
   });
 
   it('las manchas se cruzan: al menos un par de lados opuestos se superpone', () => {
     const [w, h] = [1440, 900];
-    const left = AURORA_BLOBS.filter((b) => b.x < 50);
-    const right = AURORA_BLOBS.filter((b) => b.x > 50);
+    const left = visibleBlobs(w).filter((b) => b.x < 50);
+    const right = visibleBlobs(w).filter((b) => b.x > 50);
     const crosses = gridPoints(w, h).some(
       ([px, py]) => left.some((b) => maxCoverage(b, px, py, w, h) > 0) && right.some((b) => maxCoverage(b, px, py, w, h) > 0),
     );
@@ -56,7 +64,7 @@ describe('fondo aurora v2 (BLOG-150)', () => {
 
   /** Suma de alfas que pueden llegar a un punto: una medida de intensidad. */
   function intensity(px: number, py: number, w: number, h: number): number {
-    return AURORA_BLOBS.reduce((sum, b) => sum + maxCoverage(b, px, py, w, h) * alphaFor(b, 'light', w), 0);
+    return visibleBlobs(w).reduce((sum, b) => sum + maxCoverage(b, px, py, w, h) * alphaFor(b, 'light', w), 0);
   }
 
   it.each(AURORA_VIEWPORTS.map(([w, h]) => [`${String(w)}×${String(h)}`, w, h] as const))(

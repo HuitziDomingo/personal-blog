@@ -3,7 +3,8 @@
  * rosa, acento turquesa `glassTeal`), ajustados para contraste AA. El azul
  * original (#3d7aed) da 3,3:1 sobre el crema; este da más de 5:1. El rosa
  * del modo oscuro sube de #ff63c3 a #ff71c8 para pasar AA sobre la aurora v2
- * (BLOG-150).
+ * (BLOG-150). En claro, muted, link y accent se oscurecen un poco (BLOG-151)
+ * para que la aurora pueda ser más intensa.
  */
 export const palette = {
   light: {
@@ -12,9 +13,9 @@ export const palette = {
     code: '#e6dccd',
     border: '#d8ccbc',
     fg: '#202023',
-    muted: '#5c564f',
-    link: '#2559c4',
-    accent: '#1d6b68',
+    muted: '#57514a',
+    link: '#1f4fb0',
+    accent: '#185e5b',
   },
   dark: {
     bg: '#202023',
