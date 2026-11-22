@@ -1,12 +1,21 @@
 import { HttpClient } from '@angular/common/http';
 import { inject, Injectable, Provider } from '@angular/core';
-import { catchError, defer, map, Observable, throwError } from 'rxjs';
+import { catchError, defer, map, Observable, of, throwError } from 'rxjs';
 
-import { AssistantDraft, AssistantMetadata, CoverSuggestion, ImprovedWriting } from '../api/api-types';
+import { AssistantDraft, AssistantMetadata, ContextDraft, ContextualSuggestion, CoverSuggestion, ImprovedWriting, RagStatus } from '../api/api-types';
 import { API_BASE_URL } from '../config/api-config';
 import { ApiError } from '../http/api-error';
 import { API_PATHS } from '../http/api-url';
-import { AssistantError, CoverIdea, DraftInput, MetadataSuggestion, WritingAssistant } from './writing-assistant';
+import {
+  AssistantError,
+  ContextDraftInput,
+  ContextSuggestion,
+  CoverIdea,
+  DraftInput,
+  MetadataSuggestion,
+  toContextSuggestion,
+  WritingAssistant,
+} from './writing-assistant';
 
 /** Máximo de `content` en AssistantDraft (openapi.yaml), en caracteres. */
 export const MAX_ASSISTANT_CONTENT = 50000;
@@ -41,7 +50,27 @@ export class HttpWritingAssistant implements WritingAssistant {
     );
   }
 
-  private post<T>(path: string, draft: DraftInput): Observable<T> {
+  /** El estado del RAG (ADR-027). Si la petición falla, el botón no se muestra. */
+  contextAvailable(): Observable<boolean> {
+    return this.http.get<RagStatus>(`${this.baseUrl}${API_PATHS.ragStatus}`).pipe(
+      map((status) => status.enabled),
+      catchError(() => of(false)),
+    );
+  }
+
+  improveWithContext(draft: ContextDraftInput): Observable<ContextSuggestion> {
+    // Solo título, contenido y el id del post (ADR-021 y ADR-027).
+    const body: ContextDraft = { title: draft.title, content: draft.content };
+    if (draft.postId !== null) {
+      body.postId = draft.postId;
+    }
+
+    return this.post<ContextualSuggestion>(API_PATHS.improveWithContext, draft, body).pipe(
+      map((result) => toContextSuggestion(result.suggestion, result.context, result.internalLinks, result.contradictions)),
+    );
+  }
+
+  private post<T>(path: string, draft: DraftInput, body: AssistantDraft | ContextDraft = { title: draft.title, content: draft.content }): Observable<T> {
     return defer(() => {
       const problem = draftProblem(draft);
       if (problem !== null) {
@@ -49,8 +78,6 @@ export class HttpWritingAssistant implements WritingAssistant {
       }
 
       // Solo el título y el contenido (ADR-021): nada más del formulario.
-      const body: AssistantDraft = { title: draft.title, content: draft.content };
-
       return this.http.post<T>(`${this.baseUrl}${path}`, body);
     }).pipe(
       catchError((error: unknown) =>
