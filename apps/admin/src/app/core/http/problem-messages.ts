@@ -1,6 +1,6 @@
 import { HttpErrorResponse } from '@angular/common/http';
 
-export type ProblemContext = 'login' | 'post' | 'assistant' | 'comment' | 'cv' | 'generic';
+export type ProblemContext = 'login' | 'post' | 'assistant' | 'rag' | 'comment' | 'cv' | 'generic';
 
 const UNEXPECTED = 'Error inesperado del servidor. Inténtalo de nuevo.';
 
@@ -50,9 +50,9 @@ export function problemMessage(error: unknown, context: ProblemContext = 'generi
     case 413:
       return context === 'cv' ? 'El PDF pesa más de 2 MB.' : 'Los datos enviados son demasiado grandes.';
     case 429:
-      return tooManyRequests(error.headers.get('Retry-After'), context === 'assistant');
+      return tooManyRequests(error.headers.get('Retry-After'), context);
     case 503:
-      if (context === 'assistant') {
+      if (context === 'assistant' || context === 'rag') {
         return assistantUnavailable(error);
       }
       if (context === 'cv') {
@@ -66,8 +66,14 @@ export function problemMessage(error: unknown, context: ProblemContext = 'generi
 
 // Retry-After llega en segundos (ADR-010). Si falta, no es un entero positivo
 // o es una fecha HTTP, el mensaje no da el tiempo.
-function tooManyRequests(retryAfter: string | null, assistant = false): string {
-  const prefix = assistant ? 'Pediste demasiadas sugerencias seguidas.' : 'Demasiados intentos.';
+function tooManyRequests(retryAfter: string | null, context: ProblemContext): string {
+  // El reindexado comparte el límite del asistente (ADR-027).
+  const prefix =
+    context === 'assistant'
+      ? 'Pediste demasiadas sugerencias seguidas.'
+      : context === 'rag'
+        ? 'Hiciste demasiadas peticiones al asistente seguidas.'
+        : 'Demasiados intentos.';
   const seconds = retryAfter === null ? Number.NaN : Number(retryAfter);
   if (!Number.isInteger(seconds) || seconds < 1) {
     return `${prefix} Inténtalo de nuevo más tarde.`;
@@ -81,6 +87,8 @@ function tooManyRequests(retryAfter: string | null, assistant = false): string {
 // de «no disponible».
 const ASSISTANT_DISABLED = 'writing assistant is disabled';
 const ASSISTANT_INVALID_OUTPUT = 'writing assistant returned an invalid suggestion, try again';
+// RagUnavailable en openapi.yaml (ADR-027).
+const RAG_DISABLED = 'rag is disabled';
 
 function assistantUnavailable(error: HttpErrorResponse): string {
   switch (detailOf(error)) {
@@ -88,6 +96,8 @@ function assistantUnavailable(error: HttpErrorResponse): string {
       return 'El asistente está desactivado en la API.';
     case ASSISTANT_INVALID_OUTPUT:
       return 'El asistente devolvió una sugerencia que no cumple las reglas. Inténtalo de nuevo.';
+    case RAG_DISABLED:
+      return 'El contexto de tus posts está desactivado en la API (RAG_ENABLED=false).';
     default:
       return 'El asistente no está disponible ahora (el proveedor falló o agotó su cuota). Inténtalo de nuevo en unos minutos.';
   }

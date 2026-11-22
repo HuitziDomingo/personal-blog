@@ -40,6 +40,11 @@ export const routes: Routes = [
         title: 'CV · Admin',
         loadComponent: () => import('./features/cv/cv.page').then((m) => m.CvPage),
       },
+      {
+        path: 'settings',
+        title: 'Ajustes · Admin',
+        loadComponent: () => import('./features/settings/settings.page').then((m) => m.SettingsPage),
+      },
       { path: '', pathMatch: 'full', redirectTo: 'posts' },
     ],
   },
