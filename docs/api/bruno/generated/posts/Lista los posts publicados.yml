@@ -71,6 +71,12 @@ examples:
                 "tags": [],
                 "status": "draft",
                 "publishedAt": "",
+                "cover": {
+                  "url": "",
+                  "alt": "",
+                  "aiGenerated": false,
+                  "blurDataUrl": ""
+                },
                 "createdAt": "",
                 "updatedAt": ""
               }

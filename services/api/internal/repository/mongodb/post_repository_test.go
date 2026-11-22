@@ -72,6 +72,7 @@ func TestPostDocumentRoundTrip(t *testing.T) {
 	}{
 		{name: "draft", post: newPost("draft")},
 		{name: "published", post: newPublishedPost("published", postTestTime)},
+		{name: "with cover", post: withCover(newPost("with-cover"))},
 		{name: "nil lists become empty", post: &domain.Post{Tags: nil, SEO: domain.SEO{Keywords: nil}}},
 	}
 
@@ -176,6 +177,58 @@ func TestPostRepositoryUpdate(t *testing.T) {
 	want.AuthorID = post.AuthorID
 	want.CreatedAt = post.CreatedAt
 	assert.Equal(t, &want, got)
+}
+
+func withCover(post *domain.Post) *domain.Post {
+	post.Cover = &domain.Cover{URL: "https://storage.googleapis.com/bucket/covers/a.jpg", Alt: "Un robot.", AIGenerated: true, BlurDataURL: "data:image/png;base64,iVBORw0KGgo="}
+
+	return post
+}
+
+// La portada se guarda, se cambia y se quita con Update (ADR-026, punto 5).
+func TestPostRepositoryCover(t *testing.T) {
+	repository := newTestPostRepository(t)
+	post := newPost("sin-portada")
+	createPosts(t, repository, post)
+
+	got, err := repository.GetByID(t.Context(), post.ID)
+	require.NoError(t, err)
+	assert.Nil(t, got.Cover, "a post without cover reads as nil")
+
+	withCover(post)
+	require.NoError(t, repository.Update(t.Context(), post))
+
+	got, err = repository.GetByID(t.Context(), post.ID)
+	require.NoError(t, err)
+	assert.Equal(t, post.Cover, got.Cover)
+
+	page, _, err := repository.List(t.Context(), domain.PostFilter{Limit: 10})
+	require.NoError(t, err)
+	require.Len(t, page, 1)
+	assert.Equal(t, post.Cover, page[0].Cover, "listings carry the cover")
+
+	post.Cover = nil
+	require.NoError(t, repository.Update(t.Context(), post))
+
+	got, err = repository.GetByID(t.Context(), post.ID)
+	require.NoError(t, err)
+	assert.Nil(t, got.Cover)
+}
+
+// Los posts guardados antes de BLOG-112 no tienen el campo cover.
+func TestPostRepositoryReadsPostsWithoutTheCoverField(t *testing.T) {
+	repository := newTestPostRepository(t)
+	post := newPost("antiguo")
+	createPosts(t, repository, post)
+
+	objectID, err := bson.ObjectIDFromHex(post.ID)
+	require.NoError(t, err)
+	_, err = repository.posts.UpdateByID(t.Context(), objectID, bson.D{{Key: "$unset", Value: bson.D{{Key: "cover", Value: ""}}}})
+	require.NoError(t, err)
+
+	got, err := repository.GetByID(t.Context(), post.ID)
+	require.NoError(t, err)
+	assert.Nil(t, got.Cover)
 }
 
 func TestPostRepositoryUpdateRejectsDuplicateSlug(t *testing.T) {

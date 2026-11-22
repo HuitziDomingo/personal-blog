@@ -62,6 +62,12 @@ describe('AdminNav', () => {
     expect(screen.getByRole('link', { name: 'Nuevo post' }).getAttribute('href')).toBe('/posts/new');
   });
 
+  it('enlaza a la pantalla del CV (BLOG-138)', async () => {
+    await renderNav();
+
+    expect(screen.getByRole('link', { name: 'CV' }).getAttribute('href')).toBe('/cv');
+  });
+
   it('enlaza a Ajustes (BLOG-133)', async () => {
     await renderNav();
 

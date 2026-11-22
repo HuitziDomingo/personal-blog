@@ -6,6 +6,7 @@ export const API_PATHS = {
   me: '/api/v1/auth/me',
   adminPosts: '/api/v1/admin/posts',
   adminComments: '/api/v1/admin/comments',
+  adminCV: '/api/v1/admin/cv',
   improveWriting: '/api/v1/admin/assistant/improve-writing',
   suggestMetadata: '/api/v1/admin/assistant/suggest-metadata',
   suggestCover: '/api/v1/admin/assistant/suggest-cover',

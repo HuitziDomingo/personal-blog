@@ -1,0 +1,376 @@
+info:
+  name: Acepta la vista previa de la portada de un post
+  type: http
+  seq: 7
+  tags:
+    - admin-posts
+
+http:
+  method: PUT
+  url: "{{baseUrl}}/api/v1/admin/posts/:id/cover"
+  headers:
+    - name: access_token
+      value: "{{apiKey}}"
+      description: Token de acceso JWT, en cookie HttpOnly (ADR-005).
+  params:
+    - name: id
+      value: ""
+      type: path
+      description: Identificador del post.
+  body:
+    type: json
+    data: |-
+      {
+        "image": "",
+        "token": "",
+        "alt": ""
+      }
+  auth:
+    type: apikey
+    key: access_token
+    value: "{{apiKey}}"
+    placement: header
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: true
+
+examples:
+  - name: 200 Response
+    description: Post con su portada nueva.
+    request:
+      url: "{{baseUrl}}/api/v1/admin/posts/:id/cover"
+      method: PUT
+      headers:
+        - name: access_token
+          value: "{{apiKey}}"
+          description: Token de acceso JWT, en cookie HttpOnly (ADR-005).
+      params:
+        - name: id
+          value: ""
+          type: path
+          description: Identificador del post.
+      body:
+        type: json
+        data: |-
+          {
+            "image": "",
+            "token": "",
+            "alt": ""
+          }
+    response:
+      status: 200
+      statusText: OK
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: ""
+  - name: 400 Response
+    description: La petición no cumple el contrato.
+    request:
+      url: "{{baseUrl}}/api/v1/admin/posts/:id/cover"
+      method: PUT
+      headers:
+        - name: access_token
+          value: "{{apiKey}}"
+          description: Token de acceso JWT, en cookie HttpOnly (ADR-005).
+      params:
+        - name: id
+          value: ""
+          type: path
+          description: Identificador del post.
+      body:
+        type: json
+        data: |-
+          {
+            "image": "",
+            "token": "",
+            "alt": ""
+          }
+    response:
+      status: 400
+      statusText: Bad Request
+      headers:
+        - name: Content-Type
+          value: application/problem+json
+      body:
+        type: json
+        data: |-
+          {
+            "type": "",
+            "title": "",
+            "status": 0,
+            "detail": "",
+            "instance": ""
+          }
+  - name: 401 Response
+    description: Faltan credenciales o no son válidas.
+    request:
+      url: "{{baseUrl}}/api/v1/admin/posts/:id/cover"
+      method: PUT
+      headers:
+        - name: access_token
+          value: "{{apiKey}}"
+          description: Token de acceso JWT, en cookie HttpOnly (ADR-005).
+      params:
+        - name: id
+          value: ""
+          type: path
+          description: Identificador del post.
+      body:
+        type: json
+        data: |-
+          {
+            "image": "",
+            "token": "",
+            "alt": ""
+          }
+    response:
+      status: 401
+      statusText: Unauthorized
+      headers:
+        - name: Content-Type
+          value: application/problem+json
+      body:
+        type: json
+        data: |-
+          {
+            "type": "",
+            "title": "",
+            "status": 0,
+            "detail": "",
+            "instance": ""
+          }
+  - name: 403 Response
+    description: Las credenciales no dan permiso, o el Origin está fuera de la allowlist.
+    request:
+      url: "{{baseUrl}}/api/v1/admin/posts/:id/cover"
+      method: PUT
+      headers:
+        - name: access_token
+          value: "{{apiKey}}"
+          description: Token de acceso JWT, en cookie HttpOnly (ADR-005).
+      params:
+        - name: id
+          value: ""
+          type: path
+          description: Identificador del post.
+      body:
+        type: json
+        data: |-
+          {
+            "image": "",
+            "token": "",
+            "alt": ""
+          }
+    response:
+      status: 403
+      statusText: Forbidden
+      headers:
+        - name: Content-Type
+          value: application/problem+json
+      body:
+        type: json
+        data: |-
+          {
+            "type": "",
+            "title": "",
+            "status": 0,
+            "detail": "",
+            "instance": ""
+          }
+  - name: 404 Response
+    description: El recurso no existe.
+    request:
+      url: "{{baseUrl}}/api/v1/admin/posts/:id/cover"
+      method: PUT
+      headers:
+        - name: access_token
+          value: "{{apiKey}}"
+          description: Token de acceso JWT, en cookie HttpOnly (ADR-005).
+      params:
+        - name: id
+          value: ""
+          type: path
+          description: Identificador del post.
+      body:
+        type: json
+        data: |-
+          {
+            "image": "",
+            "token": "",
+            "alt": ""
+          }
+    response:
+      status: 404
+      statusText: Not Found
+      headers:
+        - name: Content-Type
+          value: application/problem+json
+      body:
+        type: json
+        data: |-
+          {
+            "type": "",
+            "title": "",
+            "status": 0,
+            "detail": "",
+            "instance": ""
+          }
+  - name: 413 Response
+    description: El cuerpo supera el tamaño máximo.
+    request:
+      url: "{{baseUrl}}/api/v1/admin/posts/:id/cover"
+      method: PUT
+      headers:
+        - name: access_token
+          value: "{{apiKey}}"
+          description: Token de acceso JWT, en cookie HttpOnly (ADR-005).
+      params:
+        - name: id
+          value: ""
+          type: path
+          description: Identificador del post.
+      body:
+        type: json
+        data: |-
+          {
+            "image": "",
+            "token": "",
+            "alt": ""
+          }
+    response:
+      status: 413
+      statusText: Payload Too Large
+      headers:
+        - name: Content-Type
+          value: application/problem+json
+      body:
+        type: json
+        data: |-
+          {
+            "type": "",
+            "title": "",
+            "status": 0,
+            "detail": "",
+            "instance": ""
+          }
+  - name: 429 Response
+    description: Se superó el límite de peticiones de la IP, o el de logins fallidos del email.
+    request:
+      url: "{{baseUrl}}/api/v1/admin/posts/:id/cover"
+      method: PUT
+      headers:
+        - name: access_token
+          value: "{{apiKey}}"
+          description: Token de acceso JWT, en cookie HttpOnly (ADR-005).
+      params:
+        - name: id
+          value: ""
+          type: path
+          description: Identificador del post.
+      body:
+        type: json
+        data: |-
+          {
+            "image": "",
+            "token": "",
+            "alt": ""
+          }
+    response:
+      status: 429
+      statusText: Too Many Requests
+      headers:
+        - name: Content-Type
+          value: application/problem+json
+      body:
+        type: json
+        data: |-
+          {
+            "type": "",
+            "title": "",
+            "status": 0,
+            "detail": "",
+            "instance": ""
+          }
+  - name: 503 Response
+    description: 'La generación de portadas está desactivada (`detail`: "image generation is disabled"), se agotó la cuota diaria del proveedor ("image generation quota exhausted, try again tomorrow"), el proveedor falló, agotó su tiempo o devolvió una imagen inválida ("image generation is unavailable, try again later"), o no se pudo guardar la portada ("cover storage is unavailable, try again later"). La vista previa también puede responder con los 503 del asistente, que propone el tema.'
+    request:
+      url: "{{baseUrl}}/api/v1/admin/posts/:id/cover"
+      method: PUT
+      headers:
+        - name: access_token
+          value: "{{apiKey}}"
+          description: Token de acceso JWT, en cookie HttpOnly (ADR-005).
+      params:
+        - name: id
+          value: ""
+          type: path
+          description: Identificador del post.
+      body:
+        type: json
+        data: |-
+          {
+            "image": "",
+            "token": "",
+            "alt": ""
+          }
+    response:
+      status: 503
+      statusText: Service Unavailable
+      headers:
+        - name: Content-Type
+          value: application/problem+json
+      body:
+        type: json
+        data: |-
+          {
+            "type": "",
+            "title": "",
+            "status": 0,
+            "detail": "",
+            "instance": ""
+          }
+  - name: default Response
+    description: Error inesperado.
+    request:
+      url: "{{baseUrl}}/api/v1/admin/posts/:id/cover"
+      method: PUT
+      headers:
+        - name: access_token
+          value: "{{apiKey}}"
+          description: Token de acceso JWT, en cookie HttpOnly (ADR-005).
+      params:
+        - name: id
+          value: ""
+          type: path
+          description: Identificador del post.
+      body:
+        type: json
+        data: |-
+          {
+            "image": "",
+            "token": "",
+            "alt": ""
+          }
+    response:
+      headers:
+        - name: Content-Type
+          value: application/problem+json
+      body:
+        type: json
+        data: |-
+          {
+            "type": "",
+            "title": "",
+            "status": 0,
+            "detail": "",
+            "instance": ""
+          }
+
+docs: "Guarda en el almacén de portadas la imagen de una vista previa de generateCoverPreview y la asigna al post como portada generada con IA (ADR-026, puntos 4 y 5). La API no confía en el cliente: `token` es una firma de la propia API sobre la imagen exacta, el post, el usuario y el vencimiento, y además comprueba por sus bytes que la imagen es un JPEG, PNG o WebP de al menos 1024 × 576. La guarda tal cual, con su formato, y genera `blurDataUrl`. Un token inválido o vencido, o una imagen distinta de la generada, responde 400. El texto alternativo se puede editar. Esta ruta acepta un cuerpo de hasta 2,7 MiB aunque `MAX_BODY_BYTES` sea menor: la imagen viaja en base64."

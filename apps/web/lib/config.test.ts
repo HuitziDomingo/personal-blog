@@ -1,6 +1,17 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { API_ANONYMOUS_BURST, apiBaseUrl, buildRequests, commentsApiOrigin, commentsEnabled, isBuildPhase, prerenderLimit, siteUrl } from './config';
+import {
+  API_ANONYMOUS_BURST,
+  apiBaseUrl,
+  buildRequests,
+  commentsApiOrigin,
+  commentsEnabled,
+  coverImagesBaseUrl,
+  coverRemotePatterns,
+  isBuildPhase,
+  prerenderLimit,
+  siteUrl,
+} from './config';
 
 describe('apiBaseUrl', () => {
   it('usa API_BASE_URL sin barra final', () => {
@@ -100,4 +111,31 @@ describe('commentsApiOrigin', () => {
   it('null si se construye sin API', () => {
     expect(commentsApiOrigin({ COMMENTS_ENABLED: 'true', WEB_SKIP_API: '1', NODE_ENV: 'production' })).toBeNull();
   });
+});
+
+describe('portadas (ADR-026, punto 9)', () => {
+  it('sin COVER_IMAGES_BASE_URL no hay portadas ni remotePatterns', () => {
+    expect(coverImagesBaseUrl({})).toBeNull();
+    expect(coverImagesBaseUrl({ COVER_IMAGES_BASE_URL: '' })).toBeNull();
+    expect(coverRemotePatterns({})).toEqual([]);
+  });
+
+  it('remotePatterns solo abre el prefijo del bucket, sin un bucket escrito en el código', () => {
+    expect(coverRemotePatterns({ COVER_IMAGES_BASE_URL: 'https://storage.googleapis.com/test-bucket/covers' })).toEqual([
+      { protocol: 'https', hostname: 'storage.googleapis.com', port: '', pathname: '/test-bucket/covers/**', search: '' },
+    ]);
+  });
+
+  it('en local, la API sirve las portadas en /media/', () => {
+    expect(coverRemotePatterns({ COVER_IMAGES_BASE_URL: 'http://localhost:8080/media/covers/' })).toEqual([
+      { protocol: 'http', hostname: 'localhost', port: '8080', pathname: '/media/covers/**', search: '' },
+    ]);
+  });
+
+  it.each(['storage.googleapis.com/bucket', 'ftp://example.com/covers/', 'https://example.com/covers/?x=1', 'https://user:pass@example.com/covers/'])(
+    'una URL inválida hace fallar el build (%s)',
+    (value) => {
+      expect(() => coverImagesBaseUrl({ COVER_IMAGES_BASE_URL: value })).toThrow('COVER_IMAGES_BASE_URL');
+    },
+  );
 });

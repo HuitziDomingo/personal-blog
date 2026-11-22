@@ -13,6 +13,7 @@ type Posts interface {
 	Create(ctx context.Context, authorID string, input service.PostInput) (*domain.Post, error)
 	Update(ctx context.Context, id string, input service.PostInput) (*domain.Post, error)
 	Archive(ctx context.Context, id string) error
+	RemoveCover(ctx context.Context, id string) error
 	Get(ctx context.Context, id string) (*domain.Post, error)
 	List(ctx context.Context, params service.PostListParams) (service.PostPage, error)
 	GetPublished(ctx context.Context, slug string) (*domain.Post, error)
@@ -169,6 +170,7 @@ func toPost(post *domain.Post) gen.Post {
 		Tags:        nonNil(post.Tags),
 		Status:      gen.PostStatus(post.Status),
 		Seo:         toSeo(post.SEO),
+		Cover:       toCover(post.Cover),
 		PublishedAt: post.PublishedAt,
 		CreatedAt:   post.CreatedAt,
 		UpdatedAt:   post.UpdatedAt,
@@ -184,6 +186,7 @@ func toPostSummary(post *domain.Post) gen.PostSummary {
 		Excerpt:     &post.Excerpt,
 		Tags:        nonNil(post.Tags),
 		Status:      gen.PostStatus(post.Status),
+		Cover:       toCover(post.Cover),
 		PublishedAt: post.PublishedAt,
 		CreatedAt:   post.CreatedAt,
 		UpdatedAt:   post.UpdatedAt,

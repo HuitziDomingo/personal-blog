@@ -235,6 +235,28 @@ func (s *PostService) Archive(ctx context.Context, id string) error {
 	return nil
 }
 
+// RemoveCover deja el post sin portada (ADR-026, punto 5). La imagen no se
+// borra del almacén. Quitar la portada de un post sin portada no hace nada.
+func (s *PostService) RemoveCover(ctx context.Context, id string) error {
+	post, err := s.posts.GetByID(ctx, id)
+	if err != nil {
+		return fmt.Errorf("remove cover: %w", err)
+	}
+
+	if post.Cover == nil {
+		return nil
+	}
+
+	post.Cover = nil
+	post.UpdatedAt = s.timestamp()
+
+	if err := s.posts.Update(ctx, post); err != nil {
+		return fmt.Errorf("remove cover: %w", err)
+	}
+
+	return nil
+}
+
 // Get devuelve un post en cualquier estado.
 func (s *PostService) Get(ctx context.Context, id string) (*domain.Post, error) {
 	post, err := s.posts.GetByID(ctx, id)

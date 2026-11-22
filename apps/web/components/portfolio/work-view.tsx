@@ -1,8 +1,8 @@
 import { Badge, Box, Heading, HStack, Link, Stack, Text } from '@chakra-ui/react';
 import type { Metadata } from 'next';
-import Image from 'next/image';
 import NextLink from 'next/link';
 
+import { BlurImage } from '@/components/blur-image';
 import { ExternalLink } from '@/components/external-link';
 import { ChevronRightIcon } from '@/components/icons';
 import { glassTeal, palette } from '@/lib/brand';
@@ -81,11 +81,11 @@ export function WorkView({ content, work }: { content: SiteContent; work: Work }
               </HStack>
             )}
             {image && (
-              <Image
+              <BlurImage
                 src={image}
                 alt={alt}
-                placeholder="blur"
-                priority={index === 0}
+                wrapperStyle={{ borderRadius: '0.75rem', overflow: 'hidden' }}
+                preload={index === 0}
                 sizes="(min-width: 896px) 848px, 100vw"
                 style={{ width: '100%', height: 'auto', borderRadius: '0.75rem' }}
               />

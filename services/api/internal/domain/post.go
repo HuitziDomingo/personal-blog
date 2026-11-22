@@ -45,6 +45,7 @@ type Post struct {
 	Tags        []string
 	Status      PostStatus
 	SEO         SEO
+	Cover       *Cover     // nil si el post no tiene portada (ADR-026).
 	PublishedAt *time.Time // nil mientras no se haya publicado.
 	CreatedAt   time.Time
 	UpdatedAt   time.Time

@@ -9,6 +9,7 @@ export type PostPage = components['schemas']['PostPage'];
 export type PostSummary = components['schemas']['PostSummary'];
 export type PublicComment = components['schemas']['PublicComment'];
 export type PublicCommentPage = components['schemas']['PublicCommentPage'];
+export type CurrentCVs = components['schemas']['CurrentCVs'];
 
 /** Máximo de `limit` en el contrato. */
 const MAX_LIMIT = 100;
@@ -56,6 +57,7 @@ export interface PostsApi {
   publishedSlugs(): Promise<string[]>;
   getPublished(slug: string): Promise<Post | null>;
   approvedComments(slug: string): Promise<PublicCommentPage>;
+  currentCvPdfs(): Promise<CurrentCVs>;
 }
 
 function retryAfterMs(response: Response): number {
@@ -165,7 +167,20 @@ export function createPostsApi(deps: ApiDeps): PostsApi {
     return (await get<PublicCommentPage>(`/api/v1/posts/${slug}/comments`, { limit: MAX_LIMIT, offset: 0 })) ?? empty;
   }
 
-  return { listPublished, publishedSummaries, publishedSlugs, getPublished, approvedComments };
+  /**
+   * La URL del PDF vigente de cada idioma (ADR-028, punto 8), con la misma
+   * caché que el resto. Sin API o con un 404, ninguno: la página del CV no
+   * muestra el botón de descarga. Los demás errores se lanzan, como siempre.
+   */
+  async function currentCvPdfs(): Promise<CurrentCVs> {
+    if (deps.baseUrl === null) {
+      return {};
+    }
+
+    return (await get<CurrentCVs>('/api/v1/cv')) ?? {};
+  }
+
+  return { listPublished, publishedSummaries, publishedSlugs, getPublished, approvedComments, currentCvPdfs };
 }
 
 /** El cliente de la app, con fetch y la configuración del entorno. */

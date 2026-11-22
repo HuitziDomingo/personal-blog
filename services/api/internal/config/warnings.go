@@ -46,6 +46,14 @@ func (c Config) Warnings() []string {
 		warnings = append(warnings, "GEMINI_API_KEY is set but ASSISTANT_ENABLED is not true: the writing assistant responds 503 and the key is not used")
 	}
 
+	if c.Files.Store == FilesStoreLocal && c.GinMode == GinModeRelease {
+		warnings = append(warnings, "FILES_STORE=local in release mode: the API serves uploaded files from its own origin under /media/; production uses the storage bucket")
+	}
+
+	if !c.Images.Enabled && c.Images.CloudflareAIToken != "" {
+		warnings = append(warnings, "CLOUDFLARE_AI_TOKEN is set but IMAGES_ENABLED is not true: cover generation responds 503 and the token is not used")
+	}
+
 	if c.LogFormat == LogFormatJSON && c.GinMode == GinModeDebug {
 		warnings = append(warnings, "GIN_MODE=debug with LOG_FORMAT=json: Gin writes its debug output as plain text between the JSON lines; use GIN_MODE=release")
 	}

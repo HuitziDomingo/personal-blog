@@ -1,6 +1,6 @@
 import { HttpErrorResponse } from '@angular/common/http';
 
-export type ProblemContext = 'login' | 'post' | 'assistant' | 'rag' | 'comment' | 'generic';
+export type ProblemContext = 'login' | 'post' | 'assistant' | 'rag' | 'comment' | 'cv' | 'generic';
 
 const UNEXPECTED = 'Error inesperado del servidor. Inténtalo de nuevo.';
 
@@ -20,6 +20,9 @@ export function problemMessage(error: unknown, context: ProblemContext = 'generi
       if (context === 'assistant') {
         return 'El asistente no aceptó el borrador. Revisa que tenga contenido y que no sea demasiado largo.';
       }
+      if (context === 'cv') {
+        return 'El archivo no es un PDF válido.';
+      }
       if (context === 'comment') {
         return 'No se pudo responder: la respuesta debe tener entre 1 y 2000 caracteres, y solo se responde a comentarios aprobados que no son respuestas.';
       }
@@ -34,6 +37,9 @@ export function problemMessage(error: unknown, context: ProblemContext = 'generi
       if (context === 'comment') {
         return 'El comentario ya no existe. Puede que se haya borrado o que la lista haya cambiado.';
       }
+      if (context === 'cv') {
+        return 'Esa versión del CV ya no existe. Recarga la lista.';
+      }
       return context === 'post'
         ? 'El post no existe o ya no está disponible.'
         : 'No se encontró lo que buscabas.';
@@ -42,12 +48,15 @@ export function problemMessage(error: unknown, context: ProblemContext = 'generi
         ? 'El slug ya está en uso o ya no se puede cambiar.'
         : 'La petición choca con el estado actual de los datos.';
     case 413:
-      return 'Los datos enviados son demasiado grandes.';
+      return context === 'cv' ? 'El PDF pesa más de 2 MB.' : 'Los datos enviados son demasiado grandes.';
     case 429:
       return tooManyRequests(error.headers.get('Retry-After'), context);
     case 503:
       if (context === 'assistant' || context === 'rag') {
         return assistantUnavailable(error);
+      }
+      if (context === 'cv') {
+        return fileStorageUnavailable(error);
       }
       return context === 'comment' ? moderationUnavailable(error) : UNEXPECTED;
     default:
@@ -102,6 +111,16 @@ function moderationUnavailable(error: HttpErrorResponse): string {
   return detailOf(error) === MODERATION_DISABLED
     ? 'La moderación con IA está desactivada en la API. Puedes aprobar o rechazar sin análisis.'
     : 'El análisis no está disponible ahora (el modelo falló o agotó su cuota). Inténtalo de nuevo en unos minutos.';
+}
+
+// Los `detail` del 503 del almacenamiento (FileStorageUnavailable en
+// openapi.yaml).
+const FILE_STORAGE_DISABLED = 'file storage is not configured';
+
+function fileStorageUnavailable(error: HttpErrorResponse): string {
+  return detailOf(error) === FILE_STORAGE_DISABLED
+    ? 'La API no tiene almacenamiento de archivos configurado (FILES_STORE): no se puede subir el PDF.'
+    : 'No se pudo guardar el PDF. Inténtalo de nuevo en unos minutos.';
 }
 
 function detailOf(error: HttpErrorResponse): string {

@@ -149,6 +149,7 @@ export function sitemapEntries(
     ...bothLanguages('/', 'weekly', 1),
     { url: `${base}/blog`, changeFrequency: 'daily', priority: 0.9, ...(lastPost ? { lastModified: lastPost } : {}) },
     ...bothLanguages('/works', 'yearly', 0.6),
+    ...bothLanguages('/cv', 'monthly', 0.7),
     ...workIds.flatMap((id) => bothLanguages(`/works/${id}`, 'yearly', 0.5)),
     ...posts.map((post) => ({
       url: `${base}/blog/${post.slug}`,

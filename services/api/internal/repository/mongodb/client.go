@@ -78,6 +78,10 @@ func (c *Client) EnsureIndexes(ctx context.Context) error {
 		return fmt.Errorf("create comment indexes: %w", err)
 	}
 
+	if _, err := c.database.Collection(cvVersionsCollection).Indexes().CreateMany(ctx, cvVersionIndexes()); err != nil {
+		return fmt.Errorf("create cv version indexes: %w", err)
+	}
+
 	if _, err := c.database.Collection(chunksCollection).Indexes().CreateMany(ctx, chunkIndexes()); err != nil {
 		return fmt.Errorf("create chunk indexes: %w", err)
 	}

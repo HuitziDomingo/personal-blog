@@ -36,6 +36,11 @@ export const routes: Routes = [
         loadComponent: () => import('./features/comments/comments-queue.page').then((m) => m.CommentsQueuePage),
       },
       {
+        path: 'cv',
+        title: 'CV · Admin',
+        loadComponent: () => import('./features/cv/cv.page').then((m) => m.CvPage),
+      },
+      {
         path: 'settings',
         title: 'Ajustes · Admin',
         loadComponent: () => import('./features/settings/settings.page').then((m) => m.SettingsPage),

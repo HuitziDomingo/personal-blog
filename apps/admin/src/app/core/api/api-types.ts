@@ -26,3 +26,6 @@ export type Moderation = components['schemas']['Moderation'];
 export type ModerationVerdict = components['schemas']['ModerationVerdict'];
 export type ModerationCategory = components['schemas']['ModerationCategory'];
 export type AuthorReply = components['schemas']['AuthorReply'];
+export type CVLanguage = components['schemas']['CVLanguage'];
+export type CVVersion = components['schemas']['CVVersion'];
+export type CVVersionList = components['schemas']['CVVersionList'];

@@ -8,9 +8,11 @@ import { AuthorCard } from '@/components/author-card';
 import { CommentsSection } from '@/components/comments/comments-section';
 import { ArrowLeftIcon, ClockIcon } from '@/components/icons';
 import { PostBody } from '@/components/post-body';
+import { PostCover } from '@/components/post-cover';
 import { TagList } from '@/components/tag-list';
 import { ApiUnavailableError, postsApi, type PublicCommentPage } from '@/lib/api';
 import { apiBaseUrl, commentsEnabled, prerenderLimit, siteUrl } from '@/lib/config';
+import { displayableCover } from '@/lib/cover';
 import { formatDate } from '@/lib/format';
 import { renderPost } from '@/lib/markdown';
 import { formatReadingTime, readingMinutes } from '@/lib/reading-time';
@@ -56,8 +58,10 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   if (!loaded) {
     return {};
   }
-  const { post, cover } = loaded;
-  const image = coverImage(cover, siteUrl());
+  const { post, cover: firstImage } = loaded;
+  // La portada del post (ADR-026) o, sin ella, la primera imagen del contenido.
+  const postCover = displayableCover(post.cover);
+  const image = postCover ? { url: postCover.url, alt: postCover.alt } : coverImage(firstImage, siteUrl());
 
   return pageMetadata({
     title: post.seo?.title ?? post.title,
@@ -92,6 +96,7 @@ export default async function PostPage({ params }: PageProps) {
     notFound();
   }
   const { post, html } = loaded;
+  const cover = displayableCover(post.cover);
   // Comentarios (ADR-022): solo con COMMENTS_ENABLED=true y una API configurada.
   const api = commentsEnabled() ? apiBaseUrl() : null;
   const comments = api === null ? null : await loadComments(post.slug);
@@ -117,6 +122,12 @@ export default async function PostPage({ params }: PageProps) {
         </HStack>
         <TagList tags={post.tags} />
       </Stack>
+
+      {cover && (
+        <Box mb="10">
+          <PostCover cover={cover} />
+        </Box>
+      )}
 
       <PostBody html={html} />
 

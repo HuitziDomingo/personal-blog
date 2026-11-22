@@ -101,6 +101,8 @@ describe('sitemapEntries', () => {
       'https://huitzi.xyz/blog',
       'https://huitzi.xyz/works',
       'https://huitzi.xyz/en/works',
+      'https://huitzi.xyz/cv',
+      'https://huitzi.xyz/en/resume',
       'https://huitzi.xyz/works/debred',
       'https://huitzi.xyz/en/works/debred',
       'https://huitzi.xyz/blog/b',

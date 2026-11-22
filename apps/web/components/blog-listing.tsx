@@ -1,10 +1,10 @@
 import { Box, Heading, LinkBox, LinkOverlay, Stack, Text } from '@chakra-ui/react';
-import Image from 'next/image';
 
 import youtube from '@/assets/img/works/youtube.webp';
 import type { PostSummary } from '@/lib/api';
 import { featuredVideo, siteDescription } from '@/lib/site';
 
+import { BlurImage } from './blur-image';
 import { ExternalLinkIcon } from './icons';
 import { Pagination } from './pagination';
 import { PostCard } from './post-card';
@@ -59,10 +59,9 @@ export function BlogListing({ posts, current, total }: { posts: readonly PostSum
             _hover={{ borderColor: 'brand.accent' }}
           >
             <Box flexShrink={0} w={{ base: 'full', sm: '56' }}>
-              <Image
+              <BlurImage
                 src={youtube}
                 alt=""
-                placeholder="blur"
                 sizes="(min-width: 480px) 224px, 100vw"
                 style={{ width: '100%', height: 'auto' }}
               />

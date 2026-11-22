@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/getkin/kin-openapi/openapi3"
@@ -16,6 +17,21 @@ import (
 
 	"github.com/HuitziDomingo/personal-blog/services/api/internal/handler/gen"
 )
+
+// mediaPathPrefix es donde se sirven los archivos guardados en disco.
+const mediaPathPrefix = "/media/"
+
+// registerBody registra, una sola vez, los tipos de cuerpo que el validador
+// del contrato no conoce. El registro de kin-openapi es global.
+var registerBody sync.Once
+
+// registerBodyDecoders hace que el validador acepte el PDF del CV como un
+// archivo, sin interpretarlo: la firma la comprueba el dominio.
+func registerBodyDecoders() {
+	registerBody.Do(func() {
+		openapi3filter.RegisterBodyDecoder("application/pdf", openapi3filter.FileBodyDecoder)
+	})
+}
 
 // Pinger comprueba que una dependencia externa está disponible.
 type Pinger interface {
@@ -45,6 +61,17 @@ type RouterConfig struct {
 	// WriteDeadlines son los tiempos de las rutas que esperan a un proveedor
 	// de IA: alargan el WriteTimeout del servidor a lo que haga falta.
 	WriteDeadlines WriteDeadlines
+	// CVs implementa el CV en PDF (ADR-028); es obligatorio.
+	CVs CVs
+	// Media sirve los archivos guardados en disco en desarrollo, bajo
+	// /media/. Nil en producción, donde los sirve el almacenamiento.
+	Media http.Handler
+	// Covers implementa las portadas generadas con IA; es obligatorio, aunque
+	// estén desactivadas (ADR-026).
+	Covers Covers
+	// CoverPreviewTimeout es lo más que puede tardar una vista previa de
+	// portada: el timeout del asistente más el del generador de imágenes.
+	CoverPreviewTimeout time.Duration
 	// Logger recibe el access log cuando JSONLogs es true; con logs de texto
 	// se usa gin.Logger(), como siempre.
 	Logger   *slog.Logger
@@ -61,8 +88,9 @@ func SetMode(mode string) {
 // LoadSpec: el validador hace panic si no puede construir su router.
 //
 // Orden de la cadena: logger → recovery → cabeceras → límite de preflight →
-// CORS/Origin → rate limit → límite de cuerpo → deadline de las rutas de IA →
-// lectura de la sesión → validador del contrato → handlers.
+// CORS/Origin → rate limit → límite de cuerpo → deadlines de las rutas de IA y
+// de la vista previa de portadas → lectura de la sesión → validador del
+// contrato → handlers.
 func NewRouter(pinger Pinger, spec *openapi3.T, cfg RouterConfig) (*gin.Engine, error) {
 	if cfg.Sessions == nil {
 		return nil, errors.New("router needs sessions")
@@ -83,6 +111,16 @@ func NewRouter(pinger Pinger, spec *openapi3.T, cfg RouterConfig) (*gin.Engine, 
 	if cfg.RAG == nil {
 		return nil, errors.New("router needs rag")
 	}
+
+	if cfg.Covers == nil {
+		return nil, errors.New("router needs covers")
+	}
+
+	if cfg.CVs == nil {
+		return nil, errors.New("router needs cvs")
+	}
+
+	registerBodyDecoders()
 
 	if err := cfg.RateLimits.validate(); err != nil {
 		return nil, fmt.Errorf("router rate limits: %w", err)
@@ -119,10 +157,15 @@ func NewRouter(pinger Pinger, spec *openapi3.T, cfg RouterConfig) (*gin.Engine, 
 		limiter.handle,
 		limitBody(cfg.MaxBodyBytes),
 		extendWriteDeadlines(cfg.WriteDeadlines),
+		extendCoverPreviewWriteDeadline(cfg.CoverPreviewTimeout),
 	)
 	router.NoRoute(routeNotFound)
 	router.GET("/health", health)
 	router.GET("/ready", ready(newReadiness(pinger, time.Now)))
+
+	if cfg.Media != nil {
+		router.GET(mediaPathPrefix+"*file", gin.WrapH(http.StripPrefix(mediaPathPrefix, cfg.Media)))
+	}
 
 	validator := ginmiddleware.OapiRequestValidatorWithOptions(spec, &ginmiddleware.Options{
 		ErrorHandler:      validationError,
@@ -132,7 +175,7 @@ func NewRouter(pinger Pinger, spec *openapi3.T, cfg RouterConfig) (*gin.Engine, 
 			AuthenticationFunc: authenticateRequest,
 		},
 	})
-	handlers := gen.NewStrictHandlerWithOptions(server{sessions: cfg.Sessions, posts: cfg.Posts, assistant: cfg.Assistant, comments: cfg.Comments, rag: cfg.RAG}, nil, gen.StrictGinServerOptions{
+	handlers := gen.NewStrictHandlerWithOptions(server{sessions: cfg.Sessions, posts: cfg.Posts, assistant: cfg.Assistant, comments: cfg.Comments, cvs: cfg.CVs, covers: cfg.Covers, rag: cfg.RAG}, nil, gen.StrictGinServerOptions{
 		RequestErrorHandlerFunc:  requestError,
 		HandlerErrorFunc:         handlerError,
 		ResponseErrorHandlerFunc: responseError,

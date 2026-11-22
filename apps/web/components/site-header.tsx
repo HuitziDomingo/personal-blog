@@ -24,6 +24,7 @@ interface NavItem {
 function navItems(locale: Locale, ui: SiteContent['ui']): NavItem[] {
   return [
     { href: localizedPath(locale, '/works'), label: ui.nav.works },
+    { href: localizedPath(locale, '/cv'), label: ui.nav.cv },
     // El blog solo existe en español (ADR-024, punto 1).
     { href: '/blog', label: ui.nav.blog, ...(ui.blogLanguageNote ? { note: ui.blogLanguageNote } : {}) },
   ];

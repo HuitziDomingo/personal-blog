@@ -15,7 +15,11 @@ import (
 
 	"github.com/HuitziDomingo/personal-blog/services/api/internal/assistant/gemini"
 	"github.com/HuitziDomingo/personal-blog/services/api/internal/config"
+	"github.com/HuitziDomingo/personal-blog/services/api/internal/domain"
+	"github.com/HuitziDomingo/personal-blog/services/api/internal/files/gcs"
+	"github.com/HuitziDomingo/personal-blog/services/api/internal/files/localdisk"
 	"github.com/HuitziDomingo/personal-blog/services/api/internal/handler"
+	"github.com/HuitziDomingo/personal-blog/services/api/internal/images/cloudflare"
 	"github.com/HuitziDomingo/personal-blog/services/api/internal/logging"
 	"github.com/HuitziDomingo/personal-blog/services/api/internal/repository/mongodb"
 	"github.com/HuitziDomingo/personal-blog/services/api/internal/service"
@@ -114,6 +118,17 @@ func run(logger *slog.Logger) error {
 		slog.Info("comments enabled", "llm_moderation", moderation != nil)
 	}
 
+	files, media, closeFiles, err := newFileStore(ctx, cfg.Files)
+	if err != nil {
+		return errors.Join(err, client.Disconnect(ctx))
+	}
+	defer closeFiles()
+
+	covers, err := newCovers(cfg, postRepository, assistant, files, logger)
+	if err != nil {
+		return errors.Join(err, client.Disconnect(ctx))
+	}
+
 	routerConfig := handler.RouterConfig{
 		AllowedOrigins: cfg.AllowedOrigins,
 		MaxBodyBytes:   cfg.MaxBodyBytes,
@@ -122,6 +137,9 @@ func run(logger *slog.Logger) error {
 		Posts:          posts,
 		Assistant:      assistant,
 		Comments:       service.NewCommentService(mongodb.NewCommentRepository(client), posts, moderation, cfg.Comments.Enabled, time.Now),
+		CVs:            service.NewCVService(mongodb.NewCVRepository(client), files, time.Now),
+		Covers:         covers,
+		Media:          media,
 		RAG:            rag,
 		WriteDeadlines: handler.WriteDeadlines{
 			// «Mejorar con contexto» genera el embedding de la consulta y
@@ -129,16 +147,21 @@ func run(logger *slog.Logger) error {
 			Assistant: cfg.Assistant.Timeout + cfg.RAG.EmbedTimeout,
 			Reindex:   cfg.RAG.ReindexTimeout,
 		},
-		Logger:   logger,
-		JSONLogs: cfg.LogFormat == config.LogFormatJSON,
+		// La vista previa espera a Gemini y después al generador.
+		CoverPreviewTimeout: cfg.Assistant.Timeout + cfg.Images.Timeout,
+		Logger:              logger,
+		JSONLogs:            cfg.LogFormat == config.LogFormatJSON,
 		RateLimits: handler.RateLimits{
-			Global:    handler.RateLimit(cfg.GlobalRateLimit),
-			Login:     handler.RateLimit(cfg.LoginRateLimit),
-			Refresh:   handler.RateLimit(cfg.RefreshRateLimit),
-			Preflight: handler.RateLimit(cfg.PreflightRateLimit),
-			User:      handler.RateLimit(cfg.UserRateLimit),
-			Assistant: handler.RateLimit(cfg.AssistantRateLimit),
-			Comments:  handler.WindowLimit{Max: cfg.Comments.RateLimitMax, Window: cfg.Comments.RateLimitWindow},
+			Global:      handler.RateLimit(cfg.GlobalRateLimit),
+			Login:       handler.RateLimit(cfg.LoginRateLimit),
+			Refresh:     handler.RateLimit(cfg.RefreshRateLimit),
+			Preflight:   handler.RateLimit(cfg.PreflightRateLimit),
+			User:        handler.RateLimit(cfg.UserRateLimit),
+			Assistant:   handler.RateLimit(cfg.AssistantRateLimit),
+			Comments:    handler.WindowLimit{Max: cfg.Comments.RateLimitMax, Window: cfg.Comments.RateLimitWindow},
+			CVUploads:   handler.WindowLimit{Max: cfg.Files.CVUploadsMax, Window: cfg.Files.CVUploadsWindow},
+			Images:      handler.RateLimit(cfg.ImagesRateLimit),
+			ImagesDaily: handler.WindowLimit{Max: cfg.ImagesPerDay, Window: 24 * time.Hour},
 		},
 	}
 
@@ -221,6 +244,85 @@ func newAssistant(ctx context.Context, cfg config.Assistant, logger *slog.Logger
 	)
 
 	return assistant, nil
+}
+
+// newFileStore arma el almacenamiento de archivos de las portadas y el CV
+// (ADR-026, punto 9, y ADR-028, punto 5). Sin FILES_STORE devuelve nil: subir
+// el CV responde 503. Con gcs, el bucket sirve los archivos desde su propio
+// dominio. Con local, también devuelve el handler que sirve el directorio en
+// /media/.
+func newFileStore(ctx context.Context, cfg config.Files) (domain.FileStore, http.Handler, func(), error) {
+	switch cfg.Store {
+	case config.FilesStoreGCS:
+		store, err := gcs.New(ctx, gcs.Config{Bucket: cfg.GCSBucket, PublicURL: cfg.GCSPublicURL})
+		if err != nil {
+			return nil, nil, nil, fmt.Errorf("create gcs file store: %w", err)
+		}
+
+		slog.Info("gcs file store enabled", "bucket", cfg.GCSBucket)
+
+		closeStore := func() {
+			if err := store.Close(); err != nil {
+				slog.Warn("close gcs file store failed", "error", err)
+			}
+		}
+
+		return store, nil, closeStore, nil
+	case config.FilesStoreLocal:
+	default:
+		return nil, nil, func() {}, nil
+	}
+
+	store, err := localdisk.New(cfg.LocalDir, cfg.LocalBaseURL)
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("create local file store: %w", err)
+	}
+
+	slog.Info("local file store enabled", "dir", cfg.LocalDir, "base_url", cfg.LocalBaseURL)
+
+	closeStore := func() {
+		if err := store.Close(); err != nil {
+			slog.Warn("close local file store failed", "error", err)
+		}
+	}
+
+	return store, store.Handler(), closeStore, nil
+}
+
+// newCovers arma las portadas generadas con IA sobre Cloudflare Workers AI, o
+// las desactivadas si IMAGES_ENABLED no es true (ADR-026). Las portadas
+// aceptadas van al almacén de archivos (FILES_*), el mismo del CV.
+func newCovers(cfg config.Config, posts domain.PostRepository, assistant *service.AssistantService, store domain.FileStore, logger *slog.Logger) (*service.CoverService, error) {
+	images := cfg.Images
+	if !images.Enabled {
+		return service.NewDisabledCovers(), nil
+	}
+
+	generator, err := cloudflare.New(cloudflare.Config{
+		AccountID: images.CloudflareAccountID,
+		Token:     images.CloudflareAIToken.Reveal(),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("create image generator: %w", err)
+	}
+
+	covers, err := service.NewCoverService(service.CoverDeps{
+		Posts:     posts,
+		Assistant: assistant,
+		Generator: generator,
+		Store:     store,
+		Secret:    cfg.JWTSecret,
+		Timeout:   images.Timeout,
+		Logger:    logger,
+		Now:       time.Now,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("create cover service: %w", err)
+	}
+
+	slog.Info("cover generation enabled", "model", cloudflare.Model, "store", cfg.Files.Store, "timeout", images.Timeout)
+
+	return covers, nil
 }
 
 // newRAG arma el RAG sobre los embeddings de Gemini, o el desactivado si

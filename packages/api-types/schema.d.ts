@@ -299,6 +299,56 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/posts/{id}/cover/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identificador del post. */
+                id: components["parameters"]["PostId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Genera la vista previa de la portada de un post.
+         * @description Pide a Gemini la idea de la portada del post guardado (tema y texto alternativo, como suggestCover) y genera la imagen con el tema en una plantilla cerrada (ADR-026, puntos 1 y 7). Devuelve la imagen tal como la generó el proveedor, sin recodificar ni recortar (el recorte 16:9 lo hace la web), y NO la guarda (punto 4): para usarla, el admin la reenvía con `token` a acceptCover antes de `expiresAt`. Sin reintentos. Tiene su propio límite por usuario (punto 8): por defecto 2 por minuto y 20 por día.
+         */
+        post: operations["generateCoverPreview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/posts/{id}/cover": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identificador del post. */
+                id: components["parameters"]["PostId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Acepta la vista previa de la portada de un post.
+         * @description Guarda en el almacén de portadas la imagen de una vista previa de generateCoverPreview y la asigna al post como portada generada con IA (ADR-026, puntos 4 y 5). La API no confía en el cliente: `token` es una firma de la propia API sobre la imagen exacta, el post, el usuario y el vencimiento, y además comprueba por sus bytes que la imagen es un JPEG, PNG o WebP de al menos 1024 × 576. La guarda tal cual, con su formato, y genera `blurDataUrl`. Un token inválido o vencido, o una imagen distinta de la generada, responde 400. El texto alternativo se puede editar. Esta ruta acepta un cuerpo de hasta 2,7 MiB aunque `MAX_BODY_BYTES` sea menor: la imagen viaja en base64.
+         */
+        put: operations["acceptCover"];
+        post?: never;
+        /**
+         * Quita la portada de un post.
+         * @description El post queda sin portada y se sigue publicando igual (ADR-026, punto 5). La imagen no se borra del almacén. Quitar la portada de un post sin portada no cambia nada.
+         */
+        delete: operations["removeCover"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/comments": {
         parameters: {
             query?: never;
@@ -411,10 +461,137 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/cv": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Devuelve el CV en PDF vigente de cada idioma.
+         * @description Un idioma sin PDF vigente no aparece en la respuesta. El PDF se sirve desde el dominio del almacenamiento, nunca desde el de la web ni el del admin (ADR-028, punto 6).
+         */
+        get: operations["getCurrentCV"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/cv": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Lista las versiones del CV.
+         * @description Versiones de los dos idiomas, de la más reciente a la más antigua, hasta 200.
+         */
+        get: operations["listCVVersions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/cv/{language}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Idioma del CV. */
+                language: components["parameters"]["CVLanguagePath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Sube una versión del CV en PDF.
+         * @description El cuerpo es el PDF tal cual, de 2 MB como máximo. La API comprueba que empiece con la firma %PDF- (no se fía de la extensión ni del tipo que declara el cliente), genera el nombre del archivo y deja la versión nueva como la vigente de su idioma. Tiene su propio límite de peticiones.
+         */
+        post: operations["uploadCV"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/cv/versions/{id}/current": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identificador de la versión del CV. */
+                id: components["parameters"]["CVVersionId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Marca una versión del CV como la vigente.
+         * @description La versión pasa a ser la vigente de su idioma y la anterior deja de serlo. Marcar la vigente no cambia nada.
+         */
+        post: operations["setCurrentCV"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /**
+         * @description Idioma del CV.
+         * @enum {string}
+         */
+        CVLanguage: "es" | "en";
+        /** @description PDF vigente de un idioma. */
+        CVFile: {
+            /**
+             * Format: uri
+             * @description URL pública del PDF, en el dominio del almacenamiento.
+             */
+            url: string;
+            /**
+             * Format: int64
+             * @description Tamaño en bytes.
+             */
+            size: number;
+            /** Format: date-time */
+            uploadedAt: string;
+        };
+        /** @description PDF vigente por idioma; un idioma sin PDF vigente no aparece. */
+        CurrentCVs: {
+            es?: components["schemas"]["CVFile"];
+            en?: components["schemas"]["CVFile"];
+        };
+        /** @description Una versión subida del CV. */
+        CVVersion: {
+            id: string;
+            language: components["schemas"]["CVLanguage"];
+            /** Format: uri */
+            url: string;
+            /** Format: int64 */
+            size: number;
+            /** Format: date-time */
+            uploadedAt: string;
+            /** @description Si es la versión vigente de su idioma. */
+            current: boolean;
+        };
+        CVVersionList: {
+            items: components["schemas"]["CVVersion"][];
+        };
         /** @description Detalle de un error según RFC 9457. */
         Problem: {
             /**
@@ -503,6 +680,63 @@ export interface components {
             /** @description Texto alternativo de la imagen, en el idioma del borrador. Solo letras, marcas diacríticas, dígitos, el espacio y `. , ; : ' " ( ) - ¿ ? ¡ ! « » ’ “ ” – — / % &`. */
             alt: string;
         };
+        /** @description Portada de un post (ADR-026, punto 5). Opcional: un post sin portada se publica igual. Si `aiGenerated` es true, la web muestra la leyenda «Imagen generada con IA» (punto 6). */
+        Cover: {
+            /**
+             * Format: uri
+             * @description URL pública de la imagen, tal como la generó el proveedor (JPEG, PNG o WebP de al menos 1024 × 576). La web la recorta a 16:9.
+             */
+            url: string;
+            /** @description Texto alternativo de la imagen. */
+            alt: string;
+            /** @description Si la imagen se generó con IA. */
+            aiGenerated: boolean;
+            /** @description Placeholder diminuto (16 px de ancho, PNG en base64) que la web muestra borroso mientras carga la portada. Falta en portadas guardadas antes de que existiera. */
+            blurDataUrl?: string;
+        };
+        /** @description Vista previa de una portada generada con IA (ADR-026, punto 4). No está guardada en ningún sitio: para usarla se reenvían `image` y `token` a acceptCover. */
+        CoverPreview: {
+            /**
+             * Format: byte
+             * @description La imagen, en base64. Se muestra como `data:` con `contentType`.
+             */
+            image: string;
+            /** @description Tipo de la imagen, detectado por sus bytes `image/jpeg`, `image/png` o `image/webp`. */
+            contentType: string;
+            /**
+             * Format: int32
+             * @description Ancho en píxeles de la imagen del proveedor (al menos 1024).
+             */
+            width: number;
+            /**
+             * Format: int32
+             * @description Alto en píxeles de la imagen del proveedor (al menos 576).
+             */
+            height: number;
+            /** @description Tema que propuso Gemini y que se usó en la plantilla, en inglés. */
+            subject: string;
+            /** @description Texto alternativo sugerido, en el idioma del post. Se puede editar al aceptar. */
+            alt: string;
+            /** @description Firma de la API sobre la imagen, el post, el usuario y el vencimiento. Se reenvía tal cual a acceptCover. */
+            token: string;
+            /**
+             * Format: date-time
+             * @description Hasta cuándo se puede aceptar la vista previa.
+             */
+            expiresAt: string;
+        };
+        /** @description La vista previa que se acepta, tal como la devolvió generateCoverPreview. */
+        CoverAcceptance: {
+            /**
+             * Format: byte
+             * @description La imagen de la vista previa, en base64 (2 MiB como máximo).
+             */
+            image: string;
+            /** @description El `token` de la vista previa. */
+            token: string;
+            /** @description Texto alternativo de la portada. Solo letras, marcas diacríticas, dígitos, el espacio y `. , ; : ' " ( ) - ¿ ? ¡ ! « » ’ “ ” – — / % &`. Se guarda sin espacios en los extremos. */
+            alt: string;
+        };
         /** @description El borrador para «mejorar con contexto». `postId` es el post que se está editando: sus propios fragmentos no se usan como contexto. */
         ContextDraft: {
             /** @description Vacío o ausente si el post todavía no se guardó. */
@@ -583,6 +817,7 @@ export interface components {
              * @description Nulo mientras no se haya publicado.
              */
             publishedAt?: string | null;
+            cover?: components["schemas"]["Cover"];
             /** Format: date-time */
             createdAt: string;
             /** Format: date-time */
@@ -776,8 +1011,26 @@ export interface components {
                 "application/problem+json": components["schemas"]["Problem"];
             };
         };
+        /** @description La generación de portadas está desactivada (`detail`: "image generation is disabled"), se agotó la cuota diaria del proveedor ("image generation quota exhausted, try again tomorrow"), el proveedor falló, agotó su tiempo o devolvió una imagen inválida ("image generation is unavailable, try again later"), o no se pudo guardar la portada ("cover storage is unavailable, try again later"). La vista previa también puede responder con los 503 del asistente, que propone el tema. */
+        ImagesUnavailable: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["Problem"];
+            };
+        };
         /** @description La moderación con LLM está desactivada (`detail`: "comment moderation is disabled") o el clasificador falló, agotó su tiempo o devolvió una salida inválida (`detail`: "comment moderation is unavailable"). */
         ModerationUnavailable: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["Problem"];
+            };
+        };
+        /** @description No hay almacenamiento de archivos configurado (`detail`: "file storage is not configured") o falló al guardar (`detail`: "file storage is unavailable"). */
+        FileStorageUnavailable: {
             headers: {
                 [name: string]: unknown;
             };
@@ -805,10 +1058,16 @@ export interface components {
         };
     };
     parameters: {
+        /** @description Identificador del post. */
+        PostId: string;
         /** @description Identificador del post en la URL. */
         Slug: components["schemas"]["Slug"];
         /** @description Identificador del comentario. */
         CommentId: string;
+        /** @description Idioma del CV. */
+        CVLanguagePath: components["schemas"]["CVLanguage"];
+        /** @description Identificador de la versión del CV. */
+        CVVersionId: string;
         /** @description Filtra por etiqueta. Se compara en minúsculas y con los espacios colapsados. */
         Tag: string;
         /** @description Tamaño de la página. */
@@ -1373,6 +1632,96 @@ export interface operations {
             default: components["responses"]["UnexpectedError"];
         };
     };
+    generateCoverPreview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identificador del post. */
+                id: components["parameters"]["PostId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Vista previa de la portada, sin guardar. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CoverPreview"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["TooManyRequests"];
+            503: components["responses"]["ImagesUnavailable"];
+            default: components["responses"]["UnexpectedError"];
+        };
+    };
+    acceptCover: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identificador del post. */
+                id: components["parameters"]["PostId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CoverAcceptance"];
+            };
+        };
+        responses: {
+            /** @description Post con su portada nueva. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Post"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            413: components["responses"]["PayloadTooLarge"];
+            429: components["responses"]["TooManyRequests"];
+            503: components["responses"]["ImagesUnavailable"];
+            default: components["responses"]["UnexpectedError"];
+        };
+    };
+    removeCover: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identificador del post. */
+                id: components["parameters"]["PostId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Post sin portada. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["TooManyRequests"];
+            default: components["responses"]["UnexpectedError"];
+        };
+    };
     listComments: {
         parameters: {
             query?: {
@@ -1521,6 +1870,114 @@ export interface operations {
             404: components["responses"]["NotFound"];
             429: components["responses"]["TooManyRequests"];
             503: components["responses"]["ModerationUnavailable"];
+            default: components["responses"]["UnexpectedError"];
+        };
+    };
+    getCurrentCV: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description PDF vigente por idioma. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CurrentCVs"];
+                };
+            };
+            429: components["responses"]["TooManyRequests"];
+            default: components["responses"]["UnexpectedError"];
+        };
+    };
+    listCVVersions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Versiones del CV. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CVVersionList"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["TooManyRequests"];
+            default: components["responses"]["UnexpectedError"];
+        };
+    };
+    uploadCV: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Idioma del CV. */
+                language: components["parameters"]["CVLanguagePath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/pdf": string;
+            };
+        };
+        responses: {
+            /** @description Versión guardada, ya vigente. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CVVersion"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            413: components["responses"]["PayloadTooLarge"];
+            429: components["responses"]["TooManyRequests"];
+            503: components["responses"]["FileStorageUnavailable"];
+            default: components["responses"]["UnexpectedError"];
+        };
+    };
+    setCurrentCV: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identificador de la versión del CV. */
+                id: components["parameters"]["CVVersionId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Versión vigente. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CVVersion"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["TooManyRequests"];
             default: components["responses"]["UnexpectedError"];
         };
     };

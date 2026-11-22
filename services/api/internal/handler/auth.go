@@ -16,6 +16,8 @@ type server struct {
 	posts     Posts
 	assistant Assistant
 	comments  Comments
+	cvs       CVs
+	covers    Covers
 	rag       RAG
 }
 

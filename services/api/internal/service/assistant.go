@@ -295,22 +295,24 @@ func normalizeCover(suggestion domain.CoverSuggestion) domain.CoverSuggestion {
 }
 
 func validateCover(suggestion domain.CoverSuggestion) error {
-	if err := validateCoverField("subject", suggestion.Subject, MaxCoverSubjectLength, coverSubjectPunctuation); err != nil {
+	if err := validateCoverField("subject", suggestion.Subject, MaxCoverSubjectLength, coverSubjectPunctuation, domain.ErrAssistantInvalidOutput); err != nil {
 		return err
 	}
 
-	return validateCoverField("alt", suggestion.Alt, MaxCoverAltLength, coverAltPunctuation)
+	return validateCoverField("alt", suggestion.Alt, MaxCoverAltLength, coverAltPunctuation, domain.ErrAssistantInvalidOutput)
 }
 
 // validateCoverField exige texto no vacío, de hasta maxLength caracteres, con
 // solo letras, marcas, dígitos, el espacio U+0020 y la puntuación indicada. Un
-// UTF-8 inválido llega aquí como U+FFFD, que no es ninguno de ellos.
-func validateCoverField(field, value string, maxLength int, punctuation string) error {
+// UTF-8 inválido llega aquí como U+FFFD, que no es ninguno de ellos. El error
+// envuelve invalid: la salida inválida del modelo o la entrada inválida del
+// admin al aceptar una portada.
+func validateCoverField(field, value string, maxLength int, punctuation string, invalid error) error {
 	switch {
 	case value == "":
-		return fmt.Errorf("%w: empty %s", domain.ErrAssistantInvalidOutput, field)
+		return fmt.Errorf("%w: empty %s", invalid, field)
 	case utf8.RuneCountInString(value) > maxLength:
-		return fmt.Errorf("%w: %s too long", domain.ErrAssistantInvalidOutput, field)
+		return fmt.Errorf("%w: %s too long", invalid, field)
 	}
 
 	for _, r := range value {
@@ -319,7 +321,7 @@ func validateCoverField(field, value string, maxLength int, punctuation string) 
 		}
 
 		// El log lleva el código del carácter, no el texto del modelo.
-		return fmt.Errorf("%w: %s has a disallowed character %U", domain.ErrAssistantInvalidOutput, field, r)
+		return fmt.Errorf("%w: %s has a disallowed character %U", invalid, field, r)
 	}
 
 	return nil

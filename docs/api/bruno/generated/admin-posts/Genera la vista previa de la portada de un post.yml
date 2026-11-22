@@ -1,0 +1,246 @@
+info:
+  name: Genera la vista previa de la portada de un post
+  type: http
+  seq: 6
+  tags:
+    - admin-posts
+
+http:
+  method: POST
+  url: "{{baseUrl}}/api/v1/admin/posts/:id/cover/preview"
+  headers:
+    - name: access_token
+      value: "{{apiKey}}"
+      description: Token de acceso JWT, en cookie HttpOnly (ADR-005).
+  params:
+    - name: id
+      value: ""
+      type: path
+      description: Identificador del post.
+  auth:
+    type: apikey
+    key: access_token
+    value: "{{apiKey}}"
+    placement: header
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: true
+
+examples:
+  - name: 200 Response
+    description: Vista previa de la portada, sin guardar.
+    request:
+      url: "{{baseUrl}}/api/v1/admin/posts/:id/cover/preview"
+      method: POST
+      headers:
+        - name: access_token
+          value: "{{apiKey}}"
+          description: Token de acceso JWT, en cookie HttpOnly (ADR-005).
+      params:
+        - name: id
+          value: ""
+          type: path
+          description: Identificador del post.
+    response:
+      status: 200
+      statusText: OK
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "image": "",
+            "contentType": "",
+            "width": 0,
+            "height": 0,
+            "subject": "",
+            "alt": "",
+            "token": "",
+            "expiresAt": ""
+          }
+  - name: 401 Response
+    description: Faltan credenciales o no son válidas.
+    request:
+      url: "{{baseUrl}}/api/v1/admin/posts/:id/cover/preview"
+      method: POST
+      headers:
+        - name: access_token
+          value: "{{apiKey}}"
+          description: Token de acceso JWT, en cookie HttpOnly (ADR-005).
+      params:
+        - name: id
+          value: ""
+          type: path
+          description: Identificador del post.
+    response:
+      status: 401
+      statusText: Unauthorized
+      headers:
+        - name: Content-Type
+          value: application/problem+json
+      body:
+        type: json
+        data: |-
+          {
+            "type": "",
+            "title": "",
+            "status": 0,
+            "detail": "",
+            "instance": ""
+          }
+  - name: 403 Response
+    description: Las credenciales no dan permiso, o el Origin está fuera de la allowlist.
+    request:
+      url: "{{baseUrl}}/api/v1/admin/posts/:id/cover/preview"
+      method: POST
+      headers:
+        - name: access_token
+          value: "{{apiKey}}"
+          description: Token de acceso JWT, en cookie HttpOnly (ADR-005).
+      params:
+        - name: id
+          value: ""
+          type: path
+          description: Identificador del post.
+    response:
+      status: 403
+      statusText: Forbidden
+      headers:
+        - name: Content-Type
+          value: application/problem+json
+      body:
+        type: json
+        data: |-
+          {
+            "type": "",
+            "title": "",
+            "status": 0,
+            "detail": "",
+            "instance": ""
+          }
+  - name: 404 Response
+    description: El recurso no existe.
+    request:
+      url: "{{baseUrl}}/api/v1/admin/posts/:id/cover/preview"
+      method: POST
+      headers:
+        - name: access_token
+          value: "{{apiKey}}"
+          description: Token de acceso JWT, en cookie HttpOnly (ADR-005).
+      params:
+        - name: id
+          value: ""
+          type: path
+          description: Identificador del post.
+    response:
+      status: 404
+      statusText: Not Found
+      headers:
+        - name: Content-Type
+          value: application/problem+json
+      body:
+        type: json
+        data: |-
+          {
+            "type": "",
+            "title": "",
+            "status": 0,
+            "detail": "",
+            "instance": ""
+          }
+  - name: 429 Response
+    description: Se superó el límite de peticiones de la IP, o el de logins fallidos del email.
+    request:
+      url: "{{baseUrl}}/api/v1/admin/posts/:id/cover/preview"
+      method: POST
+      headers:
+        - name: access_token
+          value: "{{apiKey}}"
+          description: Token de acceso JWT, en cookie HttpOnly (ADR-005).
+      params:
+        - name: id
+          value: ""
+          type: path
+          description: Identificador del post.
+    response:
+      status: 429
+      statusText: Too Many Requests
+      headers:
+        - name: Content-Type
+          value: application/problem+json
+      body:
+        type: json
+        data: |-
+          {
+            "type": "",
+            "title": "",
+            "status": 0,
+            "detail": "",
+            "instance": ""
+          }
+  - name: 503 Response
+    description: 'La generación de portadas está desactivada (`detail`: "image generation is disabled"), se agotó la cuota diaria del proveedor ("image generation quota exhausted, try again tomorrow"), el proveedor falló, agotó su tiempo o devolvió una imagen inválida ("image generation is unavailable, try again later"), o no se pudo guardar la portada ("cover storage is unavailable, try again later"). La vista previa también puede responder con los 503 del asistente, que propone el tema.'
+    request:
+      url: "{{baseUrl}}/api/v1/admin/posts/:id/cover/preview"
+      method: POST
+      headers:
+        - name: access_token
+          value: "{{apiKey}}"
+          description: Token de acceso JWT, en cookie HttpOnly (ADR-005).
+      params:
+        - name: id
+          value: ""
+          type: path
+          description: Identificador del post.
+    response:
+      status: 503
+      statusText: Service Unavailable
+      headers:
+        - name: Content-Type
+          value: application/problem+json
+      body:
+        type: json
+        data: |-
+          {
+            "type": "",
+            "title": "",
+            "status": 0,
+            "detail": "",
+            "instance": ""
+          }
+  - name: default Response
+    description: Error inesperado.
+    request:
+      url: "{{baseUrl}}/api/v1/admin/posts/:id/cover/preview"
+      method: POST
+      headers:
+        - name: access_token
+          value: "{{apiKey}}"
+          description: Token de acceso JWT, en cookie HttpOnly (ADR-005).
+      params:
+        - name: id
+          value: ""
+          type: path
+          description: Identificador del post.
+    response:
+      headers:
+        - name: Content-Type
+          value: application/problem+json
+      body:
+        type: json
+        data: |-
+          {
+            "type": "",
+            "title": "",
+            "status": 0,
+            "detail": "",
+            "instance": ""
+          }
+
+docs: "Pide a Gemini la idea de la portada del post guardado (tema y texto alternativo, como suggestCover) y genera la imagen con el tema en una plantilla cerrada (ADR-026, puntos 1 y 7). Devuelve la imagen tal como la generó el proveedor, sin recodificar ni recortar (el recorte 16:9 lo hace la web), y NO la guarda (punto 4): para usarla, el admin la reenvía con `token` a acceptCover antes de `expiresAt`. Sin reintentos. Tiene su propio límite por usuario (punto 8): por defecto 2 por minuto y 20 por día."

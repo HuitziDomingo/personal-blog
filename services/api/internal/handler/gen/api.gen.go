@@ -10,6 +10,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"path"
@@ -22,6 +23,24 @@ import (
 	"github.com/oapi-codegen/runtime"
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
+
+// Defines values for CVLanguage.
+const (
+	En CVLanguage = "en"
+	Es CVLanguage = "es"
+)
+
+// Valid indicates whether the value is a known member of the CVLanguage enum.
+func (e CVLanguage) Valid() bool {
+	switch e {
+	case En:
+		return true
+	case Es:
+		return true
+	default:
+		return false
+	}
+}
 
 // Defines values for CommentReceiptStatus.
 const (
@@ -161,6 +180,37 @@ type AuthorReply struct {
 	Content string `json:"content"`
 }
 
+// CVFile PDF vigente de un idioma.
+type CVFile struct {
+	// Size Tamaño en bytes.
+	Size       int64     `json:"size"`
+	UploadedAt time.Time `json:"uploadedAt"`
+
+	// Url URL pública del PDF, en el dominio del almacenamiento.
+	Url string `json:"url"`
+}
+
+// CVLanguage Idioma del CV.
+type CVLanguage string
+
+// CVVersion Una versión subida del CV.
+type CVVersion struct {
+	// Current Si es la versión vigente de su idioma.
+	Current bool   `json:"current"`
+	Id      string `json:"id"`
+
+	// Language Idioma del CV.
+	Language   CVLanguage `json:"language"`
+	Size       int64      `json:"size"`
+	UploadedAt time.Time  `json:"uploadedAt"`
+	Url        string     `json:"url"`
+}
+
+// CVVersionList defines model for CVVersionList.
+type CVVersionList struct {
+	Items []CVVersion `json:"items"`
+}
+
 // Comment Comentario completo, para el admin.
 type Comment struct {
 	ByAuthor bool `json:"byAuthor"`
@@ -271,6 +321,60 @@ type Contradiction struct {
 	Slug Slug   `json:"slug"`
 }
 
+// Cover Portada de un post (ADR-026, punto 5). Opcional: un post sin portada se publica igual. Si `aiGenerated` es true, la web muestra la leyenda «Imagen generada con IA» (punto 6).
+type Cover struct {
+	// AiGenerated Si la imagen se generó con IA.
+	AiGenerated bool `json:"aiGenerated"`
+
+	// Alt Texto alternativo de la imagen.
+	Alt string `json:"alt"`
+
+	// BlurDataUrl Placeholder diminuto (16 px de ancho, PNG en base64) que la web muestra borroso mientras carga la portada. Falta en portadas guardadas antes de que existiera.
+	BlurDataUrl *string `json:"blurDataUrl,omitempty"`
+
+	// Url URL pública de la imagen, tal como la generó el proveedor (JPEG, PNG o WebP de al menos 1024 × 576). La web la recorta a 16:9.
+	Url string `json:"url"`
+}
+
+// CoverAcceptance La vista previa que se acepta, tal como la devolvió generateCoverPreview.
+type CoverAcceptance struct {
+	// Alt Texto alternativo de la portada. Solo letras, marcas diacríticas, dígitos, el espacio y `. , ; : ' " ( ) - ¿ ? ¡ ! « » ’ “ ” – — / % &`. Se guarda sin espacios en los extremos.
+	Alt string `json:"alt"`
+
+	// Image La imagen de la vista previa, en base64 (2 MiB como máximo).
+	Image []byte `json:"image"`
+
+	// Token El `token` de la vista previa.
+	Token string `json:"token"`
+}
+
+// CoverPreview Vista previa de una portada generada con IA (ADR-026, punto 4). No está guardada en ningún sitio: para usarla se reenvían `image` y `token` a acceptCover.
+type CoverPreview struct {
+	// Alt Texto alternativo sugerido, en el idioma del post. Se puede editar al aceptar.
+	Alt string `json:"alt"`
+
+	// ContentType Tipo de la imagen, detectado por sus bytes `image/jpeg`, `image/png` o `image/webp`.
+	ContentType string `json:"contentType"`
+
+	// ExpiresAt Hasta cuándo se puede aceptar la vista previa.
+	ExpiresAt time.Time `json:"expiresAt"`
+
+	// Height Alto en píxeles de la imagen del proveedor (al menos 576).
+	Height int32 `json:"height"`
+
+	// Image La imagen, en base64. Se muestra como `data:` con `contentType`.
+	Image []byte `json:"image"`
+
+	// Subject Tema que propuso Gemini y que se usó en la plantilla, en inglés.
+	Subject string `json:"subject"`
+
+	// Token Firma de la API sobre la imagen, el post, el usuario y el vencimiento. Se reenvía tal cual a acceptCover.
+	Token string `json:"token"`
+
+	// Width Ancho en píxeles de la imagen del proveedor (al menos 1024).
+	Width int32 `json:"width"`
+}
+
 // CoverSuggestion Idea de portada (ADR-026). Ninguno de los dos campos tiene saltos de línea, caracteres de control ni espacios en los extremos.
 type CoverSuggestion struct {
 	// Alt Texto alternativo de la imagen, en el idioma del borrador. Solo letras, marcas diacríticas, dígitos, el espacio y `. , ; : ' " ( ) - ¿ ? ¡ ! « » ’ “ ” – — / % &`.
@@ -278,6 +382,15 @@ type CoverSuggestion struct {
 
 	// Subject Tema de la imagen, en inglés, para la plantilla cerrada del generador de imágenes. Solo letras, marcas diacríticas, dígitos, el espacio y `, . ; : ' ( ) -`.
 	Subject string `json:"subject"`
+}
+
+// CurrentCVs PDF vigente por idioma; un idioma sin PDF vigente no aparece.
+type CurrentCVs struct {
+	// En PDF vigente de un idioma.
+	En *CVFile `json:"en,omitempty"`
+
+	// Es PDF vigente de un idioma.
+	Es *CVFile `json:"es,omitempty"`
 }
 
 // ImprovedWriting defines model for ImprovedWriting.
@@ -328,7 +441,10 @@ type Post struct {
 	AuthorId string `json:"authorId"`
 
 	// Content Contenido en Markdown.
-	Content   string    `json:"content"`
+	Content string `json:"content"`
+
+	// Cover Portada de un post (ADR-026, punto 5). Opcional: un post sin portada se publica igual. Si `aiGenerated` es true, la web muestra la leyenda «Imagen generada con IA» (punto 6).
+	Cover     *Cover    `json:"cover,omitempty"`
 	CreatedAt time.Time `json:"createdAt"`
 	Excerpt   *string   `json:"excerpt,omitempty"`
 	Id        string    `json:"id"`
@@ -358,7 +474,10 @@ type PostStatus string
 
 // PostSummary Datos de un post para listados, sin su contenido.
 type PostSummary struct {
-	AuthorId  string    `json:"authorId"`
+	AuthorId string `json:"authorId"`
+
+	// Cover Portada de un post (ADR-026, punto 5). Opcional: un post sin portada se publica igual. Si `aiGenerated` es true, la web muestra la leyenda «Imagen generada con IA» (punto 6).
+	Cover     *Cover    `json:"cover,omitempty"`
 	CreatedAt time.Time `json:"createdAt"`
 	Excerpt   *string   `json:"excerpt,omitempty"`
 	Id        string    `json:"id"`
@@ -486,6 +605,12 @@ type User struct {
 // UserRole defines model for UserRole.
 type UserRole string
 
+// CVLanguagePath Idioma del CV.
+type CVLanguagePath = CVLanguage
+
+// CVVersionId defines model for CVVersionId.
+type CVVersionId = string
+
 // CommentId defines model for CommentId.
 type CommentId = string
 
@@ -494,6 +619,9 @@ type Limit = int32
 
 // Offset defines model for Offset.
 type Offset = int32
+
+// PostId defines model for PostId.
+type PostId = string
 
 // Tag defines model for Tag.
 type Tag = string
@@ -507,8 +635,14 @@ type BadRequest = Problem
 // Conflict Detalle de un error según RFC 9457.
 type Conflict = Problem
 
+// FileStorageUnavailable Detalle de un error según RFC 9457.
+type FileStorageUnavailable = Problem
+
 // Forbidden Detalle de un error según RFC 9457.
 type Forbidden = Problem
+
+// ImagesUnavailable Detalle de un error según RFC 9457.
+type ImagesUnavailable = Problem
 
 // ModerationUnavailable Detalle de un error según RFC 9457.
 type ModerationUnavailable = Problem
@@ -600,6 +734,9 @@ type CreatePostJSONRequestBody = PostWrite
 // UpdatePostJSONRequestBody defines body for UpdatePost for application/json ContentType.
 type UpdatePostJSONRequestBody = PostWrite
 
+// AcceptCoverJSONRequestBody defines body for AcceptCover for application/json ContentType.
+type AcceptCoverJSONRequestBody = CoverAcceptance
+
 // LoginJSONRequestBody defines body for Login for application/json ContentType.
 type LoginJSONRequestBody = LoginRequest
 
@@ -635,6 +772,15 @@ type ServerInterface interface {
 	// ReplyToComment Responde a un comentario como autor.
 	// (POST /api/v1/admin/comments/{id}/replies)
 	ReplyToComment(c *gin.Context, id CommentId)
+	// ListCVVersions Lista las versiones del CV.
+	// (GET /api/v1/admin/cv)
+	ListCVVersions(c *gin.Context)
+	// SetCurrentCV Marca una versión del CV como la vigente.
+	// (POST /api/v1/admin/cv/versions/{id}/current)
+	SetCurrentCV(c *gin.Context, id CVVersionId)
+	// UploadCV Sube una versión del CV en PDF.
+	// (POST /api/v1/admin/cv/{language})
+	UploadCV(c *gin.Context, language CVLanguagePath)
 	// ListPosts Lista los posts en cualquier estado.
 	// (GET /api/v1/admin/posts)
 	ListPosts(c *gin.Context, params ListPostsParams)
@@ -650,6 +796,15 @@ type ServerInterface interface {
 	// UpdatePost Reemplaza los datos editables de un post.
 	// (PUT /api/v1/admin/posts/{id})
 	UpdatePost(c *gin.Context, id string)
+	// RemoveCover Quita la portada de un post.
+	// (DELETE /api/v1/admin/posts/{id}/cover)
+	RemoveCover(c *gin.Context, id PostId)
+	// AcceptCover Acepta la vista previa de la portada de un post.
+	// (PUT /api/v1/admin/posts/{id}/cover)
+	AcceptCover(c *gin.Context, id PostId)
+	// GenerateCoverPreview Genera la vista previa de la portada de un post.
+	// (POST /api/v1/admin/posts/{id}/cover/preview)
+	GenerateCoverPreview(c *gin.Context, id PostId)
 	// ReindexPosts Reconstruye el índice de posts.
 	// (POST /api/v1/admin/rag/reindex)
 	ReindexPosts(c *gin.Context)
@@ -668,6 +823,9 @@ type ServerInterface interface {
 	// RefreshSession Rota el token de refresco y emite cookies nuevas.
 	// (POST /api/v1/auth/refresh)
 	RefreshSession(c *gin.Context)
+	// GetCurrentCV Devuelve el CV en PDF vigente de cada idioma.
+	// (GET /api/v1/cv)
+	GetCurrentCV(c *gin.Context)
 	// ListPublishedPosts Lista los posts publicados.
 	// (GET /api/v1/posts)
 	ListPublishedPosts(c *gin.Context, params ListPublishedPostsParams)
@@ -886,6 +1044,69 @@ func (siw *ServerInterfaceWrapper) ReplyToComment(c *gin.Context) {
 	siw.Handler.ReplyToComment(c, id)
 }
 
+// ListCVVersions operation middleware
+func (siw *ServerInterfaceWrapper) ListCVVersions(c *gin.Context) {
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.ListCVVersions(c)
+}
+
+// SetCurrentCV operation middleware
+func (siw *ServerInterfaceWrapper) SetCurrentCV(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id CVVersionId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.SetCurrentCV(c, id)
+}
+
+// UploadCV operation middleware
+func (siw *ServerInterfaceWrapper) UploadCV(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "language" -------------
+	var language CVLanguagePath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "language", c.Param("language"), &language, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter language: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.UploadCV(c, language)
+}
+
 // ListPosts operation middleware
 func (siw *ServerInterfaceWrapper) ListPosts(c *gin.Context) {
 
@@ -1025,6 +1246,81 @@ func (siw *ServerInterfaceWrapper) UpdatePost(c *gin.Context) {
 	siw.Handler.UpdatePost(c, id)
 }
 
+// RemoveCover operation middleware
+func (siw *ServerInterfaceWrapper) RemoveCover(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id PostId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.RemoveCover(c, id)
+}
+
+// AcceptCover operation middleware
+func (siw *ServerInterfaceWrapper) AcceptCover(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id PostId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.AcceptCover(c, id)
+}
+
+// GenerateCoverPreview operation middleware
+func (siw *ServerInterfaceWrapper) GenerateCoverPreview(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id PostId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.GenerateCoverPreview(c, id)
+}
+
 // ReindexPosts operation middleware
 func (siw *ServerInterfaceWrapper) ReindexPosts(c *gin.Context) {
 
@@ -1101,6 +1397,19 @@ func (siw *ServerInterfaceWrapper) RefreshSession(c *gin.Context) {
 	}
 
 	siw.Handler.RefreshSession(c)
+}
+
+// GetCurrentCV operation middleware
+func (siw *ServerInterfaceWrapper) GetCurrentCV(c *gin.Context) {
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.GetCurrentCV(c)
 }
 
 // ListPublishedPosts operation middleware
@@ -1286,11 +1595,18 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	router.DELETE(options.BaseURL+"/api/v1/admin/posts/:id", wrapper.DeletePost)
 	router.GET(options.BaseURL+"/api/v1/admin/posts/:id", wrapper.GetPost)
 	router.PUT(options.BaseURL+"/api/v1/admin/posts/:id", wrapper.UpdatePost)
+	router.POST(options.BaseURL+"/api/v1/admin/posts/:id/cover/preview", wrapper.GenerateCoverPreview)
+	router.DELETE(options.BaseURL+"/api/v1/admin/posts/:id/cover", wrapper.RemoveCover)
+	router.PUT(options.BaseURL+"/api/v1/admin/posts/:id/cover", wrapper.AcceptCover)
 	router.GET(options.BaseURL+"/api/v1/admin/comments", wrapper.ListComments)
 	router.POST(options.BaseURL+"/api/v1/admin/comments/:id/approve", wrapper.ApproveComment)
 	router.POST(options.BaseURL+"/api/v1/admin/comments/:id/reject", wrapper.RejectComment)
 	router.POST(options.BaseURL+"/api/v1/admin/comments/:id/replies", wrapper.ReplyToComment)
 	router.POST(options.BaseURL+"/api/v1/admin/comments/:id/analyze", wrapper.AnalyzeComment)
+	router.GET(options.BaseURL+"/api/v1/cv", wrapper.GetCurrentCV)
+	router.GET(options.BaseURL+"/api/v1/admin/cv", wrapper.ListCVVersions)
+	router.POST(options.BaseURL+"/api/v1/admin/cv/:language", wrapper.UploadCV)
+	router.POST(options.BaseURL+"/api/v1/admin/cv/versions/:id/current", wrapper.SetCurrentCV)
 }
 
 type AssistantUnavailableApplicationProblemPlusJSONResponse Problem
@@ -1299,7 +1615,11 @@ type BadRequestApplicationProblemPlusJSONResponse Problem
 
 type ConflictApplicationProblemPlusJSONResponse Problem
 
+type FileStorageUnavailableApplicationProblemPlusJSONResponse Problem
+
 type ForbiddenApplicationProblemPlusJSONResponse Problem
+
+type ImagesUnavailableApplicationProblemPlusJSONResponse Problem
 
 type ModerationUnavailableApplicationProblemPlusJSONResponse Problem
 
@@ -2453,6 +2773,340 @@ func (response ReplyToCommentdefaultApplicationProblemPlusJSONResponse) VisitRep
 	return err
 }
 
+type ListCVVersionsRequestObject struct {
+}
+
+type ListCVVersionsResponseObject interface {
+	VisitListCVVersionsResponse(w http.ResponseWriter) error
+}
+
+type ListCVVersions200JSONResponse CVVersionList
+
+func (response ListCVVersions200JSONResponse) VisitListCVVersionsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListCVVersions401ApplicationProblemPlusJSONResponse struct {
+	UnauthorizedApplicationProblemPlusJSONResponse
+}
+
+func (response ListCVVersions401ApplicationProblemPlusJSONResponse) VisitListCVVersionsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListCVVersions403ApplicationProblemPlusJSONResponse struct {
+	ForbiddenApplicationProblemPlusJSONResponse
+}
+
+func (response ListCVVersions403ApplicationProblemPlusJSONResponse) VisitListCVVersionsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListCVVersions429ApplicationProblemPlusJSONResponse struct {
+	TooManyRequestsApplicationProblemPlusJSONResponse
+}
+
+func (response ListCVVersions429ApplicationProblemPlusJSONResponse) VisitListCVVersionsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	if response.Headers.RetryAfter != nil {
+		w.Header().Set("Retry-After", fmt.Sprint(*response.Headers.RetryAfter))
+	}
+	w.WriteHeader(429)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListCVVersionsdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response ListCVVersionsdefaultApplicationProblemPlusJSONResponse) VisitListCVVersionsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetCurrentCVRequestObject struct {
+	Id CVVersionId `json:"id"`
+}
+
+type SetCurrentCVResponseObject interface {
+	VisitSetCurrentCVResponse(w http.ResponseWriter) error
+}
+
+type SetCurrentCV200JSONResponse CVVersion
+
+func (response SetCurrentCV200JSONResponse) VisitSetCurrentCVResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetCurrentCV401ApplicationProblemPlusJSONResponse struct {
+	UnauthorizedApplicationProblemPlusJSONResponse
+}
+
+func (response SetCurrentCV401ApplicationProblemPlusJSONResponse) VisitSetCurrentCVResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetCurrentCV403ApplicationProblemPlusJSONResponse struct {
+	ForbiddenApplicationProblemPlusJSONResponse
+}
+
+func (response SetCurrentCV403ApplicationProblemPlusJSONResponse) VisitSetCurrentCVResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetCurrentCV404ApplicationProblemPlusJSONResponse struct {
+	NotFoundApplicationProblemPlusJSONResponse
+}
+
+func (response SetCurrentCV404ApplicationProblemPlusJSONResponse) VisitSetCurrentCVResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetCurrentCV429ApplicationProblemPlusJSONResponse struct {
+	TooManyRequestsApplicationProblemPlusJSONResponse
+}
+
+func (response SetCurrentCV429ApplicationProblemPlusJSONResponse) VisitSetCurrentCVResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	if response.Headers.RetryAfter != nil {
+		w.Header().Set("Retry-After", fmt.Sprint(*response.Headers.RetryAfter))
+	}
+	w.WriteHeader(429)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetCurrentCVdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response SetCurrentCVdefaultApplicationProblemPlusJSONResponse) VisitSetCurrentCVResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UploadCVRequestObject struct {
+	Language CVLanguagePath `json:"language"`
+	Body     io.Reader
+}
+
+type UploadCVResponseObject interface {
+	VisitUploadCVResponse(w http.ResponseWriter) error
+}
+
+type UploadCV201JSONResponse CVVersion
+
+func (response UploadCV201JSONResponse) VisitUploadCVResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UploadCV400ApplicationProblemPlusJSONResponse struct {
+	BadRequestApplicationProblemPlusJSONResponse
+}
+
+func (response UploadCV400ApplicationProblemPlusJSONResponse) VisitUploadCVResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UploadCV401ApplicationProblemPlusJSONResponse struct {
+	UnauthorizedApplicationProblemPlusJSONResponse
+}
+
+func (response UploadCV401ApplicationProblemPlusJSONResponse) VisitUploadCVResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UploadCV403ApplicationProblemPlusJSONResponse struct {
+	ForbiddenApplicationProblemPlusJSONResponse
+}
+
+func (response UploadCV403ApplicationProblemPlusJSONResponse) VisitUploadCVResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UploadCV413ApplicationProblemPlusJSONResponse struct {
+	PayloadTooLargeApplicationProblemPlusJSONResponse
+}
+
+func (response UploadCV413ApplicationProblemPlusJSONResponse) VisitUploadCVResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(413)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UploadCV429ApplicationProblemPlusJSONResponse struct {
+	TooManyRequestsApplicationProblemPlusJSONResponse
+}
+
+func (response UploadCV429ApplicationProblemPlusJSONResponse) VisitUploadCVResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	if response.Headers.RetryAfter != nil {
+		w.Header().Set("Retry-After", fmt.Sprint(*response.Headers.RetryAfter))
+	}
+	w.WriteHeader(429)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UploadCV503ApplicationProblemPlusJSONResponse struct {
+	FileStorageUnavailableApplicationProblemPlusJSONResponse
+}
+
+func (response UploadCV503ApplicationProblemPlusJSONResponse) VisitUploadCVResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(503)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UploadCVdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response UploadCVdefaultApplicationProblemPlusJSONResponse) VisitUploadCVResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type ListPostsRequestObject struct {
 	Params ListPostsParams
 }
@@ -3058,6 +3712,383 @@ func (response UpdatePostdefaultApplicationProblemPlusJSONResponse) VisitUpdateP
 	return err
 }
 
+type RemoveCoverRequestObject struct {
+	Id PostId `json:"id"`
+}
+
+type RemoveCoverResponseObject interface {
+	VisitRemoveCoverResponse(w http.ResponseWriter) error
+}
+
+type RemoveCover204Response struct {
+}
+
+func (response RemoveCover204Response) VisitRemoveCoverResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type RemoveCover401ApplicationProblemPlusJSONResponse struct {
+	UnauthorizedApplicationProblemPlusJSONResponse
+}
+
+func (response RemoveCover401ApplicationProblemPlusJSONResponse) VisitRemoveCoverResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RemoveCover403ApplicationProblemPlusJSONResponse struct {
+	ForbiddenApplicationProblemPlusJSONResponse
+}
+
+func (response RemoveCover403ApplicationProblemPlusJSONResponse) VisitRemoveCoverResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RemoveCover404ApplicationProblemPlusJSONResponse struct {
+	NotFoundApplicationProblemPlusJSONResponse
+}
+
+func (response RemoveCover404ApplicationProblemPlusJSONResponse) VisitRemoveCoverResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RemoveCover429ApplicationProblemPlusJSONResponse struct {
+	TooManyRequestsApplicationProblemPlusJSONResponse
+}
+
+func (response RemoveCover429ApplicationProblemPlusJSONResponse) VisitRemoveCoverResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	if response.Headers.RetryAfter != nil {
+		w.Header().Set("Retry-After", fmt.Sprint(*response.Headers.RetryAfter))
+	}
+	w.WriteHeader(429)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RemoveCoverdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response RemoveCoverdefaultApplicationProblemPlusJSONResponse) VisitRemoveCoverResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AcceptCoverRequestObject struct {
+	Id   PostId `json:"id"`
+	Body *AcceptCoverJSONRequestBody
+}
+
+type AcceptCoverResponseObject interface {
+	VisitAcceptCoverResponse(w http.ResponseWriter) error
+}
+
+type AcceptCover200JSONResponse Post
+
+func (response AcceptCover200JSONResponse) VisitAcceptCoverResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AcceptCover400ApplicationProblemPlusJSONResponse struct {
+	BadRequestApplicationProblemPlusJSONResponse
+}
+
+func (response AcceptCover400ApplicationProblemPlusJSONResponse) VisitAcceptCoverResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AcceptCover401ApplicationProblemPlusJSONResponse struct {
+	UnauthorizedApplicationProblemPlusJSONResponse
+}
+
+func (response AcceptCover401ApplicationProblemPlusJSONResponse) VisitAcceptCoverResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AcceptCover403ApplicationProblemPlusJSONResponse struct {
+	ForbiddenApplicationProblemPlusJSONResponse
+}
+
+func (response AcceptCover403ApplicationProblemPlusJSONResponse) VisitAcceptCoverResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AcceptCover404ApplicationProblemPlusJSONResponse struct {
+	NotFoundApplicationProblemPlusJSONResponse
+}
+
+func (response AcceptCover404ApplicationProblemPlusJSONResponse) VisitAcceptCoverResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AcceptCover413ApplicationProblemPlusJSONResponse struct {
+	PayloadTooLargeApplicationProblemPlusJSONResponse
+}
+
+func (response AcceptCover413ApplicationProblemPlusJSONResponse) VisitAcceptCoverResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(413)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AcceptCover429ApplicationProblemPlusJSONResponse struct {
+	TooManyRequestsApplicationProblemPlusJSONResponse
+}
+
+func (response AcceptCover429ApplicationProblemPlusJSONResponse) VisitAcceptCoverResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	if response.Headers.RetryAfter != nil {
+		w.Header().Set("Retry-After", fmt.Sprint(*response.Headers.RetryAfter))
+	}
+	w.WriteHeader(429)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AcceptCover503ApplicationProblemPlusJSONResponse struct {
+	ImagesUnavailableApplicationProblemPlusJSONResponse
+}
+
+func (response AcceptCover503ApplicationProblemPlusJSONResponse) VisitAcceptCoverResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(503)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AcceptCoverdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response AcceptCoverdefaultApplicationProblemPlusJSONResponse) VisitAcceptCoverResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GenerateCoverPreviewRequestObject struct {
+	Id PostId `json:"id"`
+}
+
+type GenerateCoverPreviewResponseObject interface {
+	VisitGenerateCoverPreviewResponse(w http.ResponseWriter) error
+}
+
+type GenerateCoverPreview200JSONResponse CoverPreview
+
+func (response GenerateCoverPreview200JSONResponse) VisitGenerateCoverPreviewResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GenerateCoverPreview401ApplicationProblemPlusJSONResponse struct {
+	UnauthorizedApplicationProblemPlusJSONResponse
+}
+
+func (response GenerateCoverPreview401ApplicationProblemPlusJSONResponse) VisitGenerateCoverPreviewResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GenerateCoverPreview403ApplicationProblemPlusJSONResponse struct {
+	ForbiddenApplicationProblemPlusJSONResponse
+}
+
+func (response GenerateCoverPreview403ApplicationProblemPlusJSONResponse) VisitGenerateCoverPreviewResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GenerateCoverPreview404ApplicationProblemPlusJSONResponse struct {
+	NotFoundApplicationProblemPlusJSONResponse
+}
+
+func (response GenerateCoverPreview404ApplicationProblemPlusJSONResponse) VisitGenerateCoverPreviewResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GenerateCoverPreview429ApplicationProblemPlusJSONResponse struct {
+	TooManyRequestsApplicationProblemPlusJSONResponse
+}
+
+func (response GenerateCoverPreview429ApplicationProblemPlusJSONResponse) VisitGenerateCoverPreviewResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	if response.Headers.RetryAfter != nil {
+		w.Header().Set("Retry-After", fmt.Sprint(*response.Headers.RetryAfter))
+	}
+	w.WriteHeader(429)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GenerateCoverPreview503ApplicationProblemPlusJSONResponse struct {
+	ImagesUnavailableApplicationProblemPlusJSONResponse
+}
+
+func (response GenerateCoverPreview503ApplicationProblemPlusJSONResponse) VisitGenerateCoverPreviewResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(503)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GenerateCoverPreviewdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response GenerateCoverPreviewdefaultApplicationProblemPlusJSONResponse) VisitGenerateCoverPreviewResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type ReindexPostsRequestObject struct {
 }
 
@@ -3623,6 +4654,63 @@ func (response RefreshSessiondefaultApplicationProblemPlusJSONResponse) VisitRef
 	return err
 }
 
+type GetCurrentCVRequestObject struct {
+}
+
+type GetCurrentCVResponseObject interface {
+	VisitGetCurrentCVResponse(w http.ResponseWriter) error
+}
+
+type GetCurrentCV200JSONResponse CurrentCVs
+
+func (response GetCurrentCV200JSONResponse) VisitGetCurrentCVResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetCurrentCV429ApplicationProblemPlusJSONResponse struct {
+	TooManyRequestsApplicationProblemPlusJSONResponse
+}
+
+func (response GetCurrentCV429ApplicationProblemPlusJSONResponse) VisitGetCurrentCVResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	if response.Headers.RetryAfter != nil {
+		w.Header().Set("Retry-After", fmt.Sprint(*response.Headers.RetryAfter))
+	}
+	w.WriteHeader(429)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetCurrentCVdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response GetCurrentCVdefaultApplicationProblemPlusJSONResponse) VisitGetCurrentCVResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type ListPublishedPostsRequestObject struct {
 	Params ListPublishedPostsParams
 }
@@ -4030,6 +5118,15 @@ type StrictServerInterface interface {
 	// ReplyToComment Responde a un comentario como autor.
 	// (POST /api/v1/admin/comments/{id}/replies)
 	ReplyToComment(ctx context.Context, request ReplyToCommentRequestObject) (ReplyToCommentResponseObject, error)
+	// ListCVVersions Lista las versiones del CV.
+	// (GET /api/v1/admin/cv)
+	ListCVVersions(ctx context.Context, request ListCVVersionsRequestObject) (ListCVVersionsResponseObject, error)
+	// SetCurrentCV Marca una versión del CV como la vigente.
+	// (POST /api/v1/admin/cv/versions/{id}/current)
+	SetCurrentCV(ctx context.Context, request SetCurrentCVRequestObject) (SetCurrentCVResponseObject, error)
+	// UploadCV Sube una versión del CV en PDF.
+	// (POST /api/v1/admin/cv/{language})
+	UploadCV(ctx context.Context, request UploadCVRequestObject) (UploadCVResponseObject, error)
 	// ListPosts Lista los posts en cualquier estado.
 	// (GET /api/v1/admin/posts)
 	ListPosts(ctx context.Context, request ListPostsRequestObject) (ListPostsResponseObject, error)
@@ -4045,6 +5142,15 @@ type StrictServerInterface interface {
 	// UpdatePost Reemplaza los datos editables de un post.
 	// (PUT /api/v1/admin/posts/{id})
 	UpdatePost(ctx context.Context, request UpdatePostRequestObject) (UpdatePostResponseObject, error)
+	// RemoveCover Quita la portada de un post.
+	// (DELETE /api/v1/admin/posts/{id}/cover)
+	RemoveCover(ctx context.Context, request RemoveCoverRequestObject) (RemoveCoverResponseObject, error)
+	// AcceptCover Acepta la vista previa de la portada de un post.
+	// (PUT /api/v1/admin/posts/{id}/cover)
+	AcceptCover(ctx context.Context, request AcceptCoverRequestObject) (AcceptCoverResponseObject, error)
+	// GenerateCoverPreview Genera la vista previa de la portada de un post.
+	// (POST /api/v1/admin/posts/{id}/cover/preview)
+	GenerateCoverPreview(ctx context.Context, request GenerateCoverPreviewRequestObject) (GenerateCoverPreviewResponseObject, error)
 	// ReindexPosts Reconstruye el índice de posts.
 	// (POST /api/v1/admin/rag/reindex)
 	ReindexPosts(ctx context.Context, request ReindexPostsRequestObject) (ReindexPostsResponseObject, error)
@@ -4063,6 +5169,9 @@ type StrictServerInterface interface {
 	// RefreshSession Rota el token de refresco y emite cookies nuevas.
 	// (POST /api/v1/auth/refresh)
 	RefreshSession(ctx context.Context, request RefreshSessionRequestObject) (RefreshSessionResponseObject, error)
+	// GetCurrentCV Devuelve el CV en PDF vigente de cada idioma.
+	// (GET /api/v1/cv)
+	GetCurrentCV(ctx context.Context, request GetCurrentCVRequestObject) (GetCurrentCVResponseObject, error)
 	// ListPublishedPosts Lista los posts publicados.
 	// (GET /api/v1/posts)
 	ListPublishedPosts(ctx context.Context, request ListPublishedPostsRequestObject) (ListPublishedPostsResponseObject, error)
@@ -4450,6 +5559,84 @@ func (sh *strictHandler) ReplyToComment(ctx *gin.Context, id CommentId) {
 	}
 }
 
+// ListCVVersions operation middleware
+func (sh *strictHandler) ListCVVersions(ctx *gin.Context) {
+	var request ListCVVersionsRequestObject
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.ListCVVersions(ctx, request.(ListCVVersionsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListCVVersions")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		sh.options.HandlerErrorFunc(ctx, err)
+	} else if validResponse, ok := response.(ListCVVersionsResponseObject); ok {
+		if err := validResponse.VisitListCVVersionsResponse(ctx.Writer); err != nil {
+			sh.options.ResponseErrorHandlerFunc(ctx, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(ctx, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// SetCurrentCV operation middleware
+func (sh *strictHandler) SetCurrentCV(ctx *gin.Context, id CVVersionId) {
+	var request SetCurrentCVRequestObject
+
+	request.Id = id
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.SetCurrentCV(ctx, request.(SetCurrentCVRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "SetCurrentCV")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		sh.options.HandlerErrorFunc(ctx, err)
+	} else if validResponse, ok := response.(SetCurrentCVResponseObject); ok {
+		if err := validResponse.VisitSetCurrentCVResponse(ctx.Writer); err != nil {
+			sh.options.ResponseErrorHandlerFunc(ctx, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(ctx, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// UploadCV operation middleware
+func (sh *strictHandler) UploadCV(ctx *gin.Context, language CVLanguagePath) {
+	var request UploadCVRequestObject
+
+	request.Language = language
+
+	request.Body = ctx.Request.Body
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.UploadCV(ctx, request.(UploadCVRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UploadCV")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		sh.options.HandlerErrorFunc(ctx, err)
+	} else if validResponse, ok := response.(UploadCVResponseObject); ok {
+		if err := validResponse.VisitUploadCVResponse(ctx.Writer); err != nil {
+			sh.options.ResponseErrorHandlerFunc(ctx, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(ctx, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // ListPosts operation middleware
 func (sh *strictHandler) ListPosts(ctx *gin.Context, params ListPostsParams) {
 	var request ListPostsRequestObject
@@ -4607,6 +5794,102 @@ func (sh *strictHandler) UpdatePost(ctx *gin.Context, id string) {
 		sh.options.HandlerErrorFunc(ctx, err)
 	} else if validResponse, ok := response.(UpdatePostResponseObject); ok {
 		if err := validResponse.VisitUpdatePostResponse(ctx.Writer); err != nil {
+			sh.options.ResponseErrorHandlerFunc(ctx, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(ctx, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// RemoveCover operation middleware
+func (sh *strictHandler) RemoveCover(ctx *gin.Context, id PostId) {
+	var request RemoveCoverRequestObject
+
+	request.Id = id
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.RemoveCover(ctx, request.(RemoveCoverRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "RemoveCover")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		sh.options.HandlerErrorFunc(ctx, err)
+	} else if validResponse, ok := response.(RemoveCoverResponseObject); ok {
+		if err := validResponse.VisitRemoveCoverResponse(ctx.Writer); err != nil {
+			sh.options.ResponseErrorHandlerFunc(ctx, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(ctx, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// AcceptCover operation middleware
+func (sh *strictHandler) AcceptCover(ctx *gin.Context, id PostId) {
+	var request AcceptCoverRequestObject
+
+	request.Id = id
+
+	var body AcceptCoverJSONRequestBody
+	var err error
+	// A request validator built on kin-openapi's openapi3filter with
+	// KeepValidatedValue leaves the value it validated on the body. Bind
+	// that value, matching member names exactly, so the handler receives
+	// what was validated instead of a second, case-insensitive decode.
+	if vb, ok := ctx.Request.Body.(interface{ ValidatedValue() any }); !ok || runtime.BindJSONValue(vb.ValidatedValue(), &body) != nil {
+		err = ctx.ShouldBindJSON(&body)
+	} else if binding.Validator != nil {
+		// ShouldBindJSON runs the struct validator after decoding; keep that.
+		err = binding.Validator.ValidateStruct(&body)
+	}
+	if err != nil {
+		sh.options.RequestErrorHandlerFunc(ctx, err)
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.AcceptCover(ctx, request.(AcceptCoverRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "AcceptCover")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		sh.options.HandlerErrorFunc(ctx, err)
+	} else if validResponse, ok := response.(AcceptCoverResponseObject); ok {
+		if err := validResponse.VisitAcceptCoverResponse(ctx.Writer); err != nil {
+			sh.options.ResponseErrorHandlerFunc(ctx, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(ctx, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GenerateCoverPreview operation middleware
+func (sh *strictHandler) GenerateCoverPreview(ctx *gin.Context, id PostId) {
+	var request GenerateCoverPreviewRequestObject
+
+	request.Id = id
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.GenerateCoverPreview(ctx, request.(GenerateCoverPreviewRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GenerateCoverPreview")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		sh.options.HandlerErrorFunc(ctx, err)
+	} else if validResponse, ok := response.(GenerateCoverPreviewResponseObject); ok {
+		if err := validResponse.VisitGenerateCoverPreviewResponse(ctx.Writer); err != nil {
 			sh.options.ResponseErrorHandlerFunc(ctx, err)
 		}
 	} else if response != nil {
@@ -4776,6 +6059,30 @@ func (sh *strictHandler) RefreshSession(ctx *gin.Context) {
 	}
 }
 
+// GetCurrentCV operation middleware
+func (sh *strictHandler) GetCurrentCV(ctx *gin.Context) {
+	var request GetCurrentCVRequestObject
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.GetCurrentCV(ctx, request.(GetCurrentCVRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetCurrentCV")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		sh.options.HandlerErrorFunc(ctx, err)
+	} else if validResponse, ok := response.(GetCurrentCVResponseObject); ok {
+		if err := validResponse.VisitGetCurrentCVResponse(ctx.Writer); err != nil {
+			sh.options.ResponseErrorHandlerFunc(ctx, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(ctx, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // ListPublishedPosts operation middleware
 func (sh *strictHandler) ListPublishedPosts(ctx *gin.Context, params ListPublishedPostsParams) {
 	var request ListPublishedPostsRequestObject
@@ -4904,124 +6211,166 @@ func (sh *strictHandler) SubmitComment(ctx *gin.Context, slug Slug) {
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"7H3Pchy3dver4JvvfvVJucPhiJZ9r+m6laIp2VZCyQpJ2QtbMcHuwyEkNNAC0CONXEz5BbJKNqlKFlq6",
-	"XFqktPNdpErzJn6S1DlA/8f8ISVRkq82LmvY3TgAzjn4nb/4cZDoLNcKlLOD7R8Hp8BTMPS/B2Ct0GpX",
-	"64cC6JcUbGJE7oRWg+3BF+IBZ5oda2M4k9yyxD/JeJKAtT84/RAUmzEDJwbsqf/3iO1xZsDmBVjHmZQw",
-	"5axQnCX8GBIwnB2A2/BjslwblvCUhy+PBsOBTU4h40iMm+Uw2B5YZ4SaDM7OzoaDnBuegQv07+osA+Vu",
-	"pX3Sb6WgnDgRCU+1YSlIlmh8lhuhcRSBD+XcnQ6GA8UzHEekg+HAwKNCGEgH284U0KQm40/2QE3c6WB7",
-	"6/pwkAlV/vPasEfqcLAnMuH6dB3yjM//W7MUmOQsnz+bCMUrgh4VYGY1RZK+0SQihRNeSDfY3hoPByfa",
-	"ZNwh5cp9tDUYIokiK7LB9rXxmCgM/6roE8rBBAwR+PXJiYUIhTcl4EJpyx4VwCwwy6XjinHlwK5Ht/af",
-	"jhK+iu4W5eMo5QeymKyz47m2joFCgu/t7y3YdYsfW7bvfzBwMtge/N/NWow2/V/tJlGCJB3ySUx8pDOc",
-	"eByceFSA4yN2AMiJyMdIWibU/FebFChcM5ZoxaS2DGzOE6FR3iTPLU+1XbTUjk8GC7j04/EqLj3Dedtc",
-	"K+ulf8daYR1X7p7iUy4kP5aAvydaOVDEKzzPpUg4znAzN/pYQvbHBxan++Oaa3bXv+WH77Ie40gBKAcM",
-	"rJs/YylYnjgx5almV3YODm4dHO7cOfzh5p2dz/du3vjLCZcWrg4Z7rbRUwDc+xMu5fwF04xPtJu/YLZg",
-	"SaEdHzKUu6mWUzF/QSrJFhMwoBLBidmVZkmR5RJI2RmYSG5H7CgFx4U8YqlIgCXF/JkcDc6Gg895ug+P",
-	"UMtd5hrtcZaDE4mYv1ANgknBKWe400TcrlYnUiTukrcPpYnNeNg8UKywGpe9lMYZR42SF8dSJPMXjMsJ",
-	"bsMUnrIZbhO9rjTLC0iBJTw7FtzQfL7Q5likKajLXWvLEgMpcYgEi6SlXLEcTCaqiX1txESoMOWTAk84",
-	"ryW5lPqxFNbRDG7rFAwR+paka4+zjGjwvIPKZm/vdk/OOLtScvw2+36Q+DM2vIqfYsKyVFgkP/1+cNUv",
-	"QiK5rZSvF8BhQ/6cgCzXffnjUqScCTWdP5NivaGLevW+H1ylpb2j3Re6UOklM7uBpDBWI1fAE1RbRMxd",
-	"PpOap4da73EzuWz9mRRgcs1skSMfgmQuAI5s/uyJyLxy2OeTt6fh93e+jOn25sYbPukwWalDKh2fAoPs",
-	"GNJUqIn1f6yPDuQ/brTyHIj/V50BNQsC/hxjwsUa/1Dr21zNgta3l7lwB+D3dP4CpyrnzzPhAFfBHwZa",
-	"Vdjs1t2wWPhPPRHK0nqIVFtCRZBxIRFONAyBfXBmtrFz4sD0YcwBTAqVBjx44sGgxy+SWTEpBK25oHXQ",
-	"BHDgCc6McQIz2syfTwDpI7XpiBBUPjtkRGzsauWMlhs3n+TawsZXnqq2JbAUyuJi3VO8cKfaiKdwqVrg",
-	"C78crUOCFILVigV+ssQ79xQ8ySFxkN40RptLFTockAkFFpVCijrgrFzdNu67YfhJ1CTwNiAKXjAKQE3n",
-	"z/GIq8VuxA60JM5z8+eukJrNSlgCSqR6m6lCJZyl3BErssIWaI5ZpgTTzmhLGMGyKzs39jfGW9euIhPk",
-	"RudgXLBPG0vWJnG3HAVBx21uHqb6sRp526IGxKV1sRgTDwdOOAn9Ae4SJAHruGFTnsyf687Xt8bjmB1Y",
-	"GxbfhU8Pq1ncr17Qxw8gcTj8DvHxPuRyhkSsOX1aeQdPnB6ieaFZoToGb5vS8WoDtkn4MoKDER7bknJ8",
-	"sngkIHGl4uBpJlR/f49nfv4N8/9Yawlc4VALp3+IMyc0rNWJwEPD6yGb8JyYNNPWGW4kLUVvyxMD3EG6",
-	"Q1+urNOUO9hwIoPYKyKNeCiGgxqqrJLXGg4OzkprLvLBnJvKw9H/o7bL/hS3k/FXxhNXcFlZySNGioxZ",
-	"0UTqDVwzjI9wGJeVwyD/nVHC7ktOdi1qgAYevQgJBqYCHpcb1+G+Yv5MpR4YFE4bhvSgaiXL0EByyp/O",
-	"X5BxPv9VOpGRGYLDrMcA1nFX2FW7HITjwD/cFSvyOIVNDDxQM3k1xLCWiiarLpHFu9zjzrZsCQdZ+3/W",
-	"oHxwVg3DjeEz/LcsXVs9R073bB6WrqD1Hnbacdl99pPrg6gXqLWQNKPyA8PKcRZGX7JU+5CAyF1/ter9",
-	"7YgPWjIGcZdC7Dlid5CbpiA5U0JN5r8qxhUe/FYQiAGFuOW7QXh+cL/HS525hIGX0HxQkdb9+BCBBGJk",
-	"78p8QHgjMmT9qeI4E+QEXqq/8bBWTELitBmx+rDZRmF+DMcoXDFli4tjgU0KblKPTBNtDGg88cvVEj2/",
-	"nR+nhAFb54EBzXPQihoJ4IBfHd7eO/9JWOvm9kh3dHZsoIRDGRoEhpcTnoKhGfUAyMrBmvp+4XZwSeN6",
-	"310KI3YDjpEM0z72vb5D6wpXNRM2016xBl+XBe+Yr5z13dW5vpLcx3BshYsszy5He98ZnuW8ySU6KVDL",
-	"z2jgHIzVCs0ElsIDXuIqdiAwbDDhZCZMudRmyFoefFxjHI8bR25UKyTCbzr/cTCc65J5rUZqHV0cF0aF",
-	"jLYGZKZT7+UvGTzQhhuiMfEv65d/HbEjfwIcMbDV0VeibO9GS4XjCgG0LSzawDmC5hPDJ8FRT3vJCsuV",
-	"B3/l198Kfq5BSXuEb2hz0StbWLIYGye90ykne0LV+mL+ojP8J9ffdeweWOJAFyaJkHFP1ZsWVCrN3rtD",
-	"UU4Li/9dsYdLUJ9NtIHYmZUJKVyRskRb8DCZQc2hbdSji2MJrahMIyKzUS+7KrJjf25bSFz0CCmBoPdM",
-	"WEi86/EKKAwGPvWqiSkxBcm2rpKaqlbos7BVxCckGbQe7TiUERkYHgWHNqDf1fGbhXxTkx9g8mAVl1Rg",
-	"LoSVSq4pV6jcoiXcU3B5UEwmYMsljUjwk4gE77V1ArGSbfPS0B8E82cWdRIkKO54XoMKAab1gGGTyc+I",
-	"T275F6/3saIPSqSCph+BUzfESYjAeKeQ9wCkwI4C0UfnIqwaaiVhQjkwiss9oR5G6KKffXxIpNoOmUVk",
-	"wSP0YeRCKGYgByfM2tTeaoy/kljbYog2pbfpWKlo5balwdlNG+SmaR1vo5Y1oFIw4ikv1YFHCJYr4QTJ",
-	"Jp5CScHlo0KA8brqSs6Th3wCdjMLQ1yNYKpzuhca0+tuTI+DhpUELJKh6uG+8Cgdwyr/VMx/9q7ehk5k",
-	"M/ao+Xsp/+3zcOWJtL4W6q6JVyBEcXymUzAHS/jiVgpkY+faOIrqeDj9ydURuyPUpFBeLWvLSE8gXrPM",
-	"CVA+4u9ddHL+XAEfsoQbnjgwXvMm3mWLoLoKVUMIXT9xBjKvTtprz+VCxw2XtOVOTMujQmR8AmqIXwXJ",
-	"RCp0xlna2J5ghUhwhtshy7hJOEYMeGLmz51I8Md0/nwiHAovyJJQNmNHIzZkn7Ft9v/Z9wN2hV1lG+zl",
-	"/7C/Zy+fsf/DXv7CXv6V/fbTf7DffvpP9ttP/8V+++nf2G8//TvbZP+PfV+Mx1ufHHVZfg1gbwu/dZEl",
-	"yHh/1kJN5PxnW7tMcsmVExKdJ4BL4JdjAgpMMJyYyObP8Af7KoszZKOwOLQyRzGkdD7Z9vMeEgPEOPlW",
-	"5k3Wb41w+IX1vZ41aC0V9dvQfRd3nbbOgN60DXAbE+wb8xcqBTYj3xXpKFCSPy29m43N+ugSFFSgMja9",
-	"PYw+NVIk2tOjOFTL2eN/iRrF1j7WJm09Xf14Pn4sB6lej1F+G1BlOn6w9NylZ3QLJXj703oDtEwhIV4C",
-	"xe5q65DJoa8c4UkCxruhznnAOD6JwJebrdSi4bLMooBf0iL3RkgbCZ7Pe1GDmK1xH8VUKPtV9EmJqMsV",
-	"CysQ3cWWM75jEtWZP2k3faF2PHk9qo0A5fh27UtOETtHtpErLmdPzxdJSLiDiTaz9QMGu+UbIeAgo7Zg",
-	"rT56f5qCSUNu0HojfhNe6G5G+aHGLKqBS9qGzVVZvk27jaUoXZtKKzKgcp7hp44LC96x+4PTuUj8FmS5",
-	"+0GoB5WRFRxL8gcU4qj/sz+3xpjBiVr5UAdlqCH6KRRrD3Dk1yeD7e9WxGkxMFNkGaf9+/GV/TN9hQ56",
-	"pT4HfY5z6n43noxTqEJ6o3IJXkfQob04byHw0IFm+LPH0NbZAAlw2gQZToR0Rrd8J28uXEEr0/P7p+R8",
-	"HA7Ig2RPye3PTXIqpgvc/s0F7gOLKjBfOqYIewrruDeBhc+jKVkxov8oTLXAOXWBKGvjWFw3AlstRSwo",
-	"eAe9ORlqc7SYvbPxlM947YJbGABUhQzZUj5B+JX8TesFDxt73jjoK0HqUbDwvO09WeTp+bYiFrisNrvh",
-	"5gpeLyS1Eb+sd7459CI2J4i0iDvJF34socmnI3aEA5MDXeeJQM2/jW5DSlYakkeZ7CSWNpJTuGRIFxr6",
-	"lkxaC2bqcxN82JpLP5r5zDt/fDpqzT5VhrlFQloJMj7RpZHpOsRRBFN6WEVt2PXxpyN21zOeYSdYa3HU",
-	"4N4jP2rt5Szj0690YrCD4F7nDHUbWjif4Rg7d28FqiXZSpgf54DxOmq2HPk1JLVNxtdhQyiqQxvCdIhr",
-	"eP9uY388RvXT1Zb9y7VPxm3PQyObqBXeizlmLnwwXp4o91L8/M4oBr97+N7Lcohqg5DT1tcF4LiUEHQA",
-	"UH6bBQon73+xyz69/vGf+pLikzojttITWjofmvBxImAJtyQHiQEXTxoSyjquElhWibLgW5XGLYzYMOA9",
-	"4CuyTDrCPX+RiokO5KK/4qvDw7tdLNIurvn400+bRUHjcRQJxSMh+2CLDF18MBHHtPCSOZETASFfMR6F",
-	"8T806n8G/FgXbvtYcvVwMFyycvEB1l26sxg7ka5dJ1+tDJx7zFMlLDbTlZamrvUWLxTDpQ0LUrJjqSeN",
-	"RXuvEt3WSlhbN4FhGGJ8vWSENVBIL2tq7WSpFju8Fuul+cF3yn6pMydsxdu2Fda8BBNmn09qC6YDYk6L",
-	"aBTuizqeGWIV3hITKoUn5WG3rFpwOABFNQTxhFL6DqR4OkdGp59r08AHKBshVlxbTFooXcjo7iiTHlcT",
-	"VnluOm5F/5VWfUMVCg8jYQkFz/kk2Ct9GfTpYOtOC3WcX1HD/BiFYvPnikJfUwEP9OrZVMC1GnRFEWfL",
-	"Jxv2qHYZdT7X2anODIcl/0S5DuhVPMCkuxDnlTGWNZgtULlq+hX9izYHleOjAlJfukLR5XKDcm3wr5GC",
-	"xzU2aT2GWP0hAxklGS4hPyTvItBXTWabsaSYtVMVLHjryWi1auhIukWDO2rGGNQ0LuWOA9ARnuBKK5Fw",
-	"ec+0AxSFEd1o2PU/R+SvtSY/9iIyvecfwgxDEe2TpgPdzwnW9eQWBhMvOoOFWH8NmFWmnTde/XPPSsi5",
-	"c2DUYHvwz9/xjafjjU/v//HKRvW/V//uDzHFds/GCpR2CzzcUGVSVYGwLoC0DnxrVulEQjDrx6MWYCKj",
-	"JazCCDiDfXwuCmbKEelLMX6tXm96q3HS8bxiC0lhhJsd4Oh+mr51g2+/EEMM2NEBVxIf0+wfvj2kcLRv",
-	"z8C+ci7/WslZCJGMP75a1aX7J+rC9GaLiHoNeS7+EWZehVDPiJWE+OcSHSUDz6q73J3+ZZPnYnN6bRN9",
-	"UmsQ12pY0afujFT5iY47VQx3ZZoCek0qJM++AcP80GR9BhkanBbCPRWjJ7On+PyAwi8+43owHl0bjUlc",
-	"c1A8F4PtwUej8egjik+6U9qwamq4zZu8LNXaFD5svvFYuNONRlZYHsIRbcK/1ebhidSPkXCEDyHG9aer",
-	"262kFwsN5w+oGoOEtA9blB41AwnVmHrHxPWmPm8lmHWQW+MkoBzX8A2QrMiODZfsCoqsbKDTKj/2qvfU",
-	"5SKFbvG+x0Wym+9GPicVkl3qklg/0pDJ1jfKT+P45QcwIaLK8/IpyWWO8k3bIWK7mbzKRwzz8SRlkc1C",
-	"75SQmhSqNcm7R4XuivG8UI6baH7ZiO1SvwgHzcrPXJuyfs5blVXxa6t6TuchyoUGWZlp8a1wpyGLL3S+",
-	"AOs+1+lsSVHi+YoRW7nRZ21V50wB3cYTW+Px6x67nUYZq6itt362KnGSglzXx+NFY1eT2Ww0haBXrq1+",
-	"pVW7Si99tPqluh8CvnFtjTe6den43tanq9/rFj2fDQcfr0Nhp8j8bFj7gFavSLtWtnmUUYC1fYh9dx9j",
-	"lLYMa+HOCjDAspAZGaymSqgXKKRRGbkoz9SNStkO7iMJKzVxI4EpqoRvwLQAOYVWWSwzQA+5fvLScgVz",
-	"6HP1ilAREFMNQ6+LwTojEueTmqqsMbmOqghTejNqolN3fMmKopt3FtERdQwlFJYYSHlIYvfclfIPuuH8",
-	"uiHaaOgSNYTPme5sqA8mNGsiLqQNQjLzRoIJuuvpAtdNAW3m7VJjHNfNkyU4HGrwlC7jmx7rVF8pU36H",
-	"DPGFZltX11Arex7WTn1XDIQc3EwQCRG8auUBd5KHq8oM32EDjNQ2BD5r95jS/kO+bVEVDP14/FHl6HDk",
-	"q3yNuCcAAUqZ/l2qsm4yeESVddPBy3KBD+rr/VNfJcBBfRG2VfJqZ1+zHstCLuwaqiyrUmKbqVLxfNgq",
-	"d+Pt4pwgNGXC7+9SO0SymSMKIpLP/EE3vL+6IaQ5Dakihyfkyyi7UFqf2XdxLRE6sxGnTmBpLJ0AgdMI",
-	"Eyqjq1GHyJUTk8KXIeK/DSTUT2pYWm2GAjehUlS2W9hZgdlKp3zWl+s9ged9oLLdN/a7ZX06KZkC/UaK",
-	"zX9GHxEugqd/UQvOKs1t3bO60xIk/nhN8aZvJbvGg6GlKzLEG4Qadbw8okXu+s6wnaDzu65ILqgQLkum",
-	"94gJg3uzkiuSYS8OEfmtRHSJ+G7+KNKzzZCeT+d7W0xWsFvdfhnJjWODbzwy4CyHVBjGO6UWtmi6YMvC",
-	"i9Je+fgq+U7LhEVQ7KhusHQ0ZAYgy7H0SaWUKMmVAyOwOPBOla4JMgh1pwl0o5oDm9iBr+kQoFLd1yY7",
-	"fonChAdvXrzizohGPy3SjVWjGaYKmOrRZYrM+PrqN6q+nG/60I33Vr1ECb0ryOz1+9DeGg/H283YLiyq",
-	"oTDljYjqzW6HleAaHbEdShkyDMMoVU8ZVYmYIi9YT2Y8re+MzJSE/y6l5LL4fCc3BRzz18fRocDqEhia",
-	"Ogyl1JvJgg8l+osN/Mn60ZiSuewQq9+nuuzAw2nC4H1bI7ZPfeOCKPgmcuvIwj7N8p0RhYrwD7LwCrIQ",
-	"eOF1ykIuyx4/r10YWpdy1Mq9VIvoZ6Y+AXQXR6brVOVQBGsbzlq+qM9YaCwGtjFWCtTcdRvtNHyP4t6+",
-	"5U8K9XM2JjW5nB3qpti8AddMo9/qWn6Za5chrHXKeBmffOcdtecW70v23lyeWlggJSRWXqTOpSSqrM3g",
-	"aek7Oqqs2PN5OV6PP6NZ2rSGjwJvSnnffB5VefNyhwdt1AdXx2tyddBqUtJf1YWl5tu29NCjg/tn9dnX",
-	"lpFdqgPBXXxDh0hdtnrJRwjNKcaVVKJvoMZ47+65sQZDVrfZ/I7PDWTSKiq2kMXjpwPhR4/5JLhot1qC",
-	"X8Hdz07mz61IMItRlpX+Fg2ho7J5wNGwYy/5a7QwMSCf/+qR46wumi6v7qFchVYR84jt0CfJZPJj+THW",
-	"MZtu0GwquW3J0PV48UH99Q+2zavY+X4VV/PjMI5KvgQX37bxpai+D3v/CntfhfNLgT3vGbwMhcZv6bvg",
-	"jYxL687REi4irHmPGlC8O2DgciQilCWKp+8DIjivQH2AEKXpGeJhPjNvccOU9eGF4ZPNUHy4OAGoCvL5",
-	"hBtDwzeu5+pnALQrAsMFs+2qwJBfWNcSyqqcsCxeqeOEI7aLnitSV+SpKheCvE1WUOf0BkVVyxGj1Yjt",
-	"yNB0hCopQ7/nqrryCpnMD/CLehhuEaN7xVJ+1Tei911TZ43pGaDcCbC+jJM6ehyF2sQjn9tgi6rGto5b",
-	"nivlMeYxo50q/QFvTNO0i2rj/qsqa0NW1auXDMp+n9UN+5BoZZ0pZsQlJQ/V/oeubBs+WSTZdXuRaBbP",
-	"Dfywz96tb+0DlSAfp5pKeefPSFh7Qh0ktdz35cXyrS/hx8FHW3Z75e61D3prPKZvHYXi8W1Gd8EebVe3",
-	"S6HCKCwv8ySoLwYrwg0Uhr385XbjQoZMNO5kYDP28pf9quQaddfLv/al7UtwdU+DNylt1SCxy93q5IbA",
-	"CqMP7qQ+lm2ngVxEaAp3ukn3KTbPwY4vlv78ZlBlq5nuJQNLKruOXkppKQ9PKJGIYMG3rpcv73lfNEB4",
-	"eLNzEf3Z2bsNUN9T+NiSjFu0Z8yGLZwxILDRvOW/LgOfVWXYLUkp3GlcSHSxpBT5Dt3pNoEwzjbVfYCU",
-	"dD936D7iQvm3TbTSiUj1kDn0FM1/Vs0j4HoNHmu6I8mgnqJ1fEglS4cm66+Zo9839doBHlMdGnP1i/Nt",
-	"uLJpuGhHVjBNBg0U0jtmdwtjQDnSQ29Bz90L6JsXOEboE3phffMeHZm12eHv7/GyUXc4WrGpoc3C4gNz",
-	"3z8QhOVcAmpA6enrl9C/EdTU6b7RszG0iwt6dU6UZwQmPPIVAr5GALvb7ul8+S+/95hyq0j9gtDoXTpJ",
-	"ukHeeA1+xCcVgl0Yazpbdl60+Onc7ORbu95/W57aRi/qi8Lg9ywisTz8UK0HecJCqPEcjLK6WsnfltMp",
-	"r2j2SezTslYJ08Lmoexes9NluHXpqGydSVeKabqvmBvwLhhbNIhjOU9NeTtkSedn7IiaMR6xxPfDkjrc",
-	"ahNSWamUKV4phXy3uFrqvVKrvaaeaxcp1Tv+tyl48SqjmBg0ha+RuXZhPbtO+jb50RkovGxZeAh4ypHg",
-	"UOvbvOQbU9SpkUEtYjZc2wy2vh92xtSSu5vJ+7j79e3bN+8cHvxw887O53s3b/yFnIzNHu7Xlxco453H",
-	"69Qmb0Vrk48z4d5s+mv/Hui1fEtbr5uA8h7ulYnr4ti7npuccHF5/ZDluo5muKnoct5O0reav1Ai04z3",
-	"T8cFCuKs6n3/3SKzLgXZ6OIYKpPLloJoWZwNu6/uQeIKw+vEpChsrr5Cf4p85kuwLpAQXk/BpiSrKben",
-	"x5qbtElMI27a/1in/hmVqr/VHKqbErskNq+dogVvLDHdjGqgASG2KWWqmchPffPKfP6kXswy4TjQXW1H",
-	"jGjJO0ile0TOapVq68+3lVhrgZYMt1O1bkmpg7kRtI0411s7jZ4N7KCwzWGtVo2iUbtdXV+hy0LRMpus",
-	"RUld0N4nZf6vVTwgujVLb/CueylipZwPU+WU3HKCW86u7O982T4/+stk0IK9f/a/AwA=",
+	"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",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,
