@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"slices"
 	"strings"
 
 	"google.golang.org/genai"
@@ -128,6 +129,66 @@ func (a *Assistant) SuggestCover(ctx context.Context, draft domain.Draft) (domai
 	}
 
 	return domain.CoverSuggestion{Subject: output.Subject, Alt: output.Alt, Usage: usage}, nil
+}
+
+// ImproveWithContext pide mejoras al borrador con los fragmentos de posts
+// publicados como contexto (ADR-027, punto 8). Los fragmentos viajan como
+// datos en el mismo JSON que el borrador, nunca en las instrucciones. El
+// esquema limita los slugs de links y contradicciones a los recuperados; el
+// service lo vuelve a validar.
+func (a *Assistant) ImproveWithContext(ctx context.Context, draft domain.Draft, chunks []domain.ContextChunk) (domain.ContextualSuggestion, error) {
+	var output struct {
+		Suggestion    string `json:"suggestion"`
+		InternalLinks []struct {
+			Slug   string `json:"slug"`
+			Reason string `json:"reason"`
+		} `json:"internalLinks"`
+		Contradictions []struct {
+			Slug string `json:"slug"`
+			Note string `json:"note"`
+		} `json:"contradictions"`
+	}
+
+	input := contextualData{Draft: draftData(draft), PublishedPosts: make([]chunkData, len(chunks))}
+	slugs := make([]string, 0, len(chunks))
+	for i, chunk := range chunks {
+		input.PublishedPosts[i] = chunkData{Slug: chunk.Slug, Title: chunk.PostTitle, Section: chunk.Section, Text: chunk.Text}
+		if !slices.Contains(slugs, chunk.Slug) {
+			slugs = append(slugs, chunk.Slug)
+		}
+	}
+
+	usage, err := a.generate(ctx, contextInstruction, contextSchema(slugs), input, &output)
+	if err != nil {
+		return domain.ContextualSuggestion{Usage: usage}, err
+	}
+
+	suggestion := domain.ContextualSuggestion{Suggestion: output.Suggestion, Usage: usage}
+	for _, link := range output.InternalLinks {
+		suggestion.InternalLinks = append(suggestion.InternalLinks, domain.InternalLink{Slug: link.Slug, Reason: link.Reason})
+	}
+
+	for _, contradiction := range output.Contradictions {
+		suggestion.Contradictions = append(suggestion.Contradictions, domain.Contradiction{Slug: contradiction.Slug, Note: contradiction.Note})
+	}
+
+	return suggestion, nil
+}
+
+// contextualData es lo que ve el modelo en «mejorar con contexto»: el
+// borrador y los fragmentos recuperados, todo como datos.
+type contextualData struct {
+	Draft          draftData   `json:"draft"`
+	PublishedPosts []chunkData `json:"publishedPosts"`
+}
+
+// chunkData es un fragmento de un post publicado del autor. Solo se indexan
+// posts del autor, nunca comentarios (ADR-027, punto 9).
+type chunkData struct {
+	Slug    string `json:"slug"`
+	Title   string `json:"title"`
+	Section string `json:"section"`
+	Text    string `json:"text"`
 }
 
 // Classify pide la sugerencia de moderación de un comentario. El service

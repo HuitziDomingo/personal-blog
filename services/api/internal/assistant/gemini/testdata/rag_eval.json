@@ -1,0 +1,67 @@
+{
+  "posts": [
+    {
+      "slug": "orquestar-agentes-de-ia",
+      "title": "Orquestar agentes de IA sin perder el control",
+      "content": "Un orquestador reparte el trabajo entre agentes especializados y revisa lo que devuelven.\n\n## Un solo orquestador\n\nPrefiero un orquestador central que decide el orden de las tareas. Cuando cada agente decide a quién llamar, el flujo se vuelve imposible de depurar.\n\n## Límites por agente\n\nCada agente recibe solo las herramientas que necesita y un presupuesto de llamadas. Si se pasa del presupuesto, el orquestador lo detiene y pide revisión humana."
+    },
+    {
+      "slug": "workflows-antes-que-agentes",
+      "title": "Workflows antes que agentes",
+      "content": "No todo necesita un agente autónomo.\n\n## Cuándo basta un workflow\n\nSi los pasos son siempre los mismos, un workflow con un orden fijo decidido por el código es más barato, más rápido y más fácil de probar que un agente que elige sus herramientas.\n\n## Cuándo sí un agente\n\nCuando el camino depende de lo que se encuentra en cada paso y no se puede escribir de antemano."
+    },
+    {
+      "slug": "arquitectura-hexagonal-en-go",
+      "title": "Arquitectura hexagonal en Go con Gin",
+      "content": "El dominio no conoce Gin ni MongoDB.\n\n## Puertos y adaptadores\n\nLos puertos son interfaces del dominio; los adaptadores las implementan con MongoDB o con un proveedor externo. Las dependencias apuntan hacia adentro: handler, service, domain y repository.\n\n## Fakes escritos a mano\n\nEn los tests uso fakes en memoria en lugar de mocks generados: prueban comportamiento y no llamadas.\n\n```go\ntype PostRepository interface {\n\tGetByID(ctx context.Context, id string) (*Post, error)\n}\n```"
+    },
+    {
+      "slug": "contrato-primero-con-openapi",
+      "title": "Contrato primero con OpenAPI y oapi-codegen",
+      "content": "El archivo openapi.yaml es la única fuente de la API.\n\n## Generar en lugar de escribir\n\noapi-codegen genera la interfaz estricta del servidor en Go, y openapi-typescript los tipos del frontend. Si el contrato cambia, el CI falla hasta regenerar.\n\n## Validar antes del handler\n\nEl middleware valida cada petición contra el contrato: largos máximos, patrones y campos obligatorios, antes de llegar al código."
+    },
+    {
+      "slug": "cookies-httponly-y-jwt",
+      "title": "Sesión con cookies HttpOnly y JWT de vida corta",
+      "content": "La sesión del admin no guarda tokens en localStorage.\n\n## Dos cookies\n\nEl token de acceso dura 15 minutos y viaja en una cookie HttpOnly con SameSite=Strict. El de refresco tiene un Path restringido a la ruta de auth y se rota en cada uso.\n\n## Detectar el robo\n\nSi llega un refresh token ya usado, se revoca toda la familia de tokens: alguien lo copió."
+    },
+    {
+      "slug": "rate-limit-en-memoria",
+      "title": "Rate limit en memoria con token bucket",
+      "content": "Con una sola instancia no hace falta Redis.\n\n## Buckets por IP y por usuario\n\nLas peticiones anónimas gastan un bucket por IP; las autenticadas, uno por usuario. El login tiene su propio límite, más estricto.\n\n## La IP real detrás de un proxy\n\nSolo se confía en X-Forwarded-For si la conexión viene del rango del proxy; si no, cualquiera falsifica su IP."
+    },
+    {
+      "slug": "moderar-comentarios-con-llm",
+      "title": "Moderar comentarios con un LLM y revisión humana",
+      "content": "El modelo sugiere y la persona decide.\n\n## Prompt injection en los comentarios\n\nUn comentario puede intentar darle órdenes al clasificador. Por eso el comentario viaja como datos JSON, separado de las instrucciones, y el veredicto siempre lo revisa el autor.\n\n## Categorías\n\nSpam, abuso, fuera de tema, datos personales e intentos de inyección."
+    },
+    {
+      "slug": "dependencias-con-cooldown",
+      "title": "Siete días de espera para cada dependencia",
+      "content": "Las versiones maliciosas de paquetes suelen retirarse en pocos días.\n\n## minimumReleaseAge\n\npnpm no instala versiones con menos de siete días publicadas, y Dependabot espera el mismo cooldown. Un parche de seguridad urgente se exceptúa en su propio PR.\n\n## Acciones fijadas por SHA\n\nLas GitHub Actions se fijan por SHA y no por tag, porque un tag se puede mover."
+    },
+    {
+      "slug": "isla-3d-con-three-js",
+      "title": "Una isla 3D en la portada con three.js",
+      "content": "La portada carga un modelo glTF de forma diferida.\n\n## Sin bloquear el LCP\n\nMientras carga el modelo se ve un spinner, y con prefers-reduced-motion se muestra una imagen fija. El chunk de three.js solo se descarga después del primer pintado.\n\n## Controles tipo tornamesa\n\nYaw y pitch independientes, recalculados en cada frame, para que el modelo nunca se incline de lado."
+    },
+    {
+      "slug": "costo-cero-en-produccion",
+      "title": "Producción con costo cercano a cero",
+      "content": "Cloud Run con una instancia como máximo y MongoDB Atlas M0.\n\n## Un tope real de gasto\n\nUna alerta de presupuesto solo avisa. Lo que limita el gasto es max-instances=1: con una sola instancia, además, el rate limit en memoria sigue siendo exacto.\n\n## Respaldos\n\nM0 no tiene respaldos: una GitHub Action semanal ejecuta mongodump y lo sube a un bucket privado."
+    }
+  ],
+  "queries": [
+    {"id": "orquestador-central", "query": "¿Conviene que cada agente decida a qué otro agente llamar, o es mejor coordinarlos desde un punto central?", "expectedSlug": "orquestar-agentes-de-ia"},
+    {"id": "pasos-fijos", "query": "Mi proceso siempre sigue los mismos pasos en el mismo orden; ¿necesito que un modelo elija las herramientas?", "expectedSlug": "workflows-antes-que-agentes"},
+    {"id": "interfaces-dominio", "query": "Cómo separar la lógica de negocio de la base de datos usando interfaces en un servicio en Go", "expectedSlug": "arquitectura-hexagonal-en-go"},
+    {"id": "spec-first", "query": "Quiero que los tipos del frontend y el servidor salgan de la misma especificación de la API", "expectedSlug": "contrato-primero-con-openapi"},
+    {"id": "token-robado", "query": "¿Qué hago si alguien copia el token de refresco de un usuario?", "expectedSlug": "cookies-httponly-y-jwt"},
+    {"id": "ip-falsa", "query": "Un atacante cambia la cabecera X-Forwarded-For para saltarse el límite de peticiones", "expectedSlug": "rate-limit-en-memoria"},
+    {"id": "comentario-inyeccion", "query": "Un lector escribió un comentario que le pide al modelo que apruebe todo", "expectedSlug": "moderar-comentarios-con-llm"},
+    {"id": "paquete-malicioso", "query": "Cómo protegerme de una versión comprometida de un paquete de npm recién publicada", "expectedSlug": "dependencias-con-cooldown"},
+    {"id": "modelo-3d-lento", "query": "El modelo 3D de la página de inicio tarda en cargar y empeora el rendimiento percibido", "expectedSlug": "isla-3d-con-three-js"},
+    {"id": "factura-sorpresa", "query": "Cómo evitar una factura grande en la nube si llega mucho tráfico", "expectedSlug": "costo-cero-en-produccion"},
+    {"id": "copias-de-seguridad", "query": "La base de datos gratuita no hace copias de seguridad; ¿cómo las automatizo?", "expectedSlug": "costo-cero-en-produccion"}
+  ]
+}

@@ -38,6 +38,7 @@ func testRouterConfig() RouterConfig {
 		Comments:  newFakeComments(),
 		CVs:       newFakeCVs(),
 		Covers:    &fakeCovers{},
+		RAG:       &fakeRAG{},
 	}
 }
 

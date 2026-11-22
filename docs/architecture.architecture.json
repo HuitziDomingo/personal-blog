@@ -50,7 +50,7 @@
         { "path": "services/api/internal/repository/mongodb/client.go", "line": 27, "end_line": 30 },
         { "path": "services/api/internal/repository/mongodb/comment_repository.go", "line": 123 }
       ] },
-    { "id": "gemini_adapter", "type": "backend", "label": "assistant/gemini", "sublabel": "asistente · moderación", "pos": [760, 380], "size": [150, 64],
+    { "id": "gemini_adapter", "type": "backend", "label": "assistant/gemini", "sublabel": "asistente · moderación · embeddings", "pos": [760, 380], "size": [150, 64],
       "sources": [
         { "path": "services/api/internal/assistant/gemini/gemini.go", "line": 88, "end_line": 130 },
         { "path": "services/api/cmd/api/main.go", "line": 207, "end_line": 235 }
@@ -73,7 +73,7 @@
       ] },
     { "id": "cloudflare", "type": "cloud", "label": "Workers AI", "sublabel": "Cloudflare · FLUX.1 schnell", "pos": [1180, 540], "size": [150, 64],
       "sources": [{ "path": "services/api/internal/images/cloudflare/cloudflare.go", "line": 119, "end_line": 158 }] },
-    { "id": "mongo", "type": "database", "label": "MongoDB", "sublabel": "posts · comments · users · cv_versions", "pos": [1000, 540], "size": [150, 64],
+    { "id": "mongo", "type": "database", "label": "MongoDB", "sublabel": "posts · cv · post_chunks", "pos": [1000, 540], "size": [150, 64],
       "sources": [{ "path": "services/api/internal/repository/mongodb/client.go", "line": 27, "end_line": 30 }] },
     { "id": "gemini", "type": "cloud", "label": "Gemini API", "sublabel": "Google · plan gratuito", "pos": [760, 540], "size": [150, 64],
       "sources": [{ "path": "services/api/internal/assistant/gemini/gemini.go", "line": 172, "end_line": 180 }] }
@@ -94,18 +94,18 @@
     { "id": "service-domain", "from": "service", "to": "domain", "label": "puertos", "variant": "dashed" },
     { "id": "service-repository", "from": "service", "to": "repository", "label": "persiste", "variant": "emphasis" },
     { "id": "repository-domain", "from": "repository", "to": "domain", "label": "implementa", "variant": "dashed" },
-    { "id": "service-gemini", "from": "service", "to": "gemini_adapter", "label": "sugiere · clasifica" },
+    { "id": "service-gemini", "from": "service", "to": "gemini_adapter", "label": "sugiere · clasifica · embeddings" },
     { "id": "repository-mongo", "from": "repository", "to": "mongo", "label": "driver v2" },
     { "id": "service-files", "from": "service", "to": "files_adapter", "label": "guarda el PDF y las portadas" },
     { "id": "service-images", "from": "service", "to": "images_adapter", "label": "genera la portada" },
     { "id": "images-cloudflare", "from": "images_adapter", "to": "cloudflare", "label": "HTTPS" },
     { "id": "files-storage", "from": "files_adapter", "to": "storage", "label": "escribe" },
     { "id": "lector-storage", "from": "lector", "to": "storage", "label": "descarga el CV", "variant": "dashed" },
-    { "id": "adapter-gemini", "from": "gemini_adapter", "to": "gemini", "label": "generateContent", "variant": "security" }
+    { "id": "adapter-gemini", "from": "gemini_adapter", "to": "gemini", "label": "generateContent · embedContent", "variant": "security" }
   ],
   "cards": [
     { "dot": "cyan", "title": "Frontends", "items": ["web lee la API en el servidor con ISR", "admin usa cookies de sesión (ADR-012)", "el formulario de comentarios envía desde el navegador (#105)"] },
     { "dot": "emerald", "title": "API hexagonal", "items": ["handler → service → domain ← repository", "handler/gen se genera del contrato OpenAPI", "MCP por stdio, sin red y solo lectura"] },
-    { "dot": "rose", "title": "IA", "items": ["Gemini solo sugiere: el autor decide", "moderación y asistente apagados por defecto", "timeout y sin reintentos"] }
+    { "dot": "rose", "title": "IA", "items": ["Gemini solo sugiere: el autor decide", "moderación y asistente apagados por defecto", "timeout y sin reintentos", "RAG: búsqueda coseno en memoria sobre post_chunks (ADR-027)"] }
   ]
 }

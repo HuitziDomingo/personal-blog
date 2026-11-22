@@ -62,6 +62,12 @@ describe('AdminNav', () => {
     expect(screen.getByRole('link', { name: 'Nuevo post' }).getAttribute('href')).toBe('/posts/new');
   });
 
+  it('enlaza a la pantalla del CV (BLOG-138)', async () => {
+    await renderNav();
+
+    expect(screen.getByRole('link', { name: 'CV' }).getAttribute('href')).toBe('/cv');
+  });
+
   it('enlaza a Comentarios con un badge de pendientes que el lector de pantalla oye', async () => {
     const comments = new FakeCommentsApi();
     comments.comments = [aComment({ id: 'a' }), aComment({ id: 'b' }), aComment({ id: 'c', status: 'approved' })];

@@ -28,6 +28,10 @@ tags:
     description: >-
       Subida y versiones del CV en PDF (ADR-028). El PDF es público: no debe
       incluir el teléfono ni datos privados.
+  - name: admin-rag
+    description: >-
+      Índice de los posts publicados para «mejorar con contexto» (ADR-027).
+      Apagado por defecto (RAG_ENABLED=false).
 
 paths:
   /api/v1/auth/login:
@@ -429,6 +433,110 @@ paths:
           $ref: "#/components/responses/TooManyRequests"
         "503":
           $ref: "#/components/responses/AssistantUnavailable"
+        default:
+          $ref: "#/components/responses/UnexpectedError"
+
+  /api/v1/admin/assistant/improve-with-context:
+    post:
+      tags: [admin-assistant]
+      operationId: improveWithContext
+      summary: Sugiere mejoras con el contexto de los posts publicados.
+      description: >-
+        Workflow de RAG (ADR-027): el borrador se convierte en embedding de
+        consulta, se recuperan los 4 fragmentos más parecidos de los posts
+        publicados que superan el umbral (sin los del post `postId`) y se pide
+        una sugerencia con ellos como contexto. Si ninguno supera el umbral,
+        la sugerencia se pide sin contexto y `context` llega vacío. Es una
+        sugerencia: no se guarda. Los links y las contradicciones solo pueden
+        apuntar a posts de `context`. Comparte el límite por usuario del
+        asistente (ADR-021).
+      security:
+        - accessCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ContextDraft"
+      responses:
+        "200":
+          description: Sugerencia y fragmentos usados como contexto.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ContextualSuggestion"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "413":
+          $ref: "#/components/responses/PayloadTooLarge"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "503":
+          $ref: "#/components/responses/RagUnavailable"
+        default:
+          $ref: "#/components/responses/UnexpectedError"
+
+  /api/v1/admin/rag/status:
+    get:
+      tags: [admin-rag]
+      operationId: getRagStatus
+      summary: Devuelve el estado del índice de posts.
+      description: >-
+        Dice si el RAG está encendido y cuántos posts publicados están
+        indexados al día con el modelo actual y cuántos pendientes. Con el RAG
+        apagado responde 200 con `enabled: false`: el admin lo usa para
+        mostrar u ocultar «Mejorar con mi contexto» y «Reindexar todo».
+      security:
+        - accessCookie: []
+      responses:
+        "200":
+          description: Estado del índice.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RagStatus"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        default:
+          $ref: "#/components/responses/UnexpectedError"
+
+  /api/v1/admin/rag/reindex:
+    post:
+      tags: [admin-rag]
+      operationId: reindexPosts
+      summary: Reconstruye el índice de posts.
+      description: >-
+        Vuelve a generar los embeddings de todos los posts publicados y borra
+        los fragmentos de los que ya no lo están (ADR-027, punto 5). Cada post
+        se reemplaza solo si sus embeddings se generaron. Al primer fallo del
+        proveedor (por ejemplo, cuota agotada) se detiene y los posts
+        restantes quedan en `pending`, con su índice anterior. Comparte el
+        límite por usuario del asistente.
+      security:
+        - accessCookie: []
+      responses:
+        "200":
+          description: Resultado del reindexado.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReindexResult"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "503":
+          $ref: "#/components/responses/RagUnavailable"
         default:
           $ref: "#/components/responses/UnexpectedError"
 
@@ -1109,6 +1217,15 @@ components:
         application/problem+json:
           schema:
             $ref: "#/components/schemas/Problem"
+    RagUnavailable:
+      description: >-
+        El RAG está desactivado (`detail`: "rag is disabled"), o el proveedor
+        de embeddings o el asistente fallaron, agotaron su cuota o devolvieron
+        una salida inválida. `detail` dice cuál.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
     UnexpectedError:
       description: Error inesperado.
       content:
@@ -1466,6 +1583,153 @@ components:
             Texto alternativo de la portada. Solo letras, marcas diacríticas,
             dígitos, el espacio y `. , ; : ' " ( ) - ¿ ? ¡ ! « » ’ “ ” – — / % &`.
             Se guarda sin espacios en los extremos.
+
+    ContextDraft:
+      type: object
+      description: >-
+        El borrador para «mejorar con contexto». `postId` es el post que se
+        está editando: sus propios fragmentos no se usan como contexto.
+      required: [title, content]
+      properties:
+        postId:
+          type: string
+          minLength: 1
+          maxLength: 64
+          description: Vacío o ausente si el post todavía no se guardó.
+        title:
+          type: string
+          maxLength: 200
+          description: Puede estar vacío.
+        content:
+          type: string
+          description: Contenido en Markdown.
+          minLength: 1
+          maxLength: 50000
+
+    ContextSource:
+      type: object
+      description: Un fragmento de un post publicado usado como contexto.
+      required: [postId, slug, title, section, score]
+      properties:
+        postId:
+          type: string
+        slug:
+          $ref: "#/components/schemas/Slug"
+        title:
+          type: string
+          description: Título del post.
+        section:
+          type: string
+          description: Título de la sección (encabezado de nivel 2) del fragmento; vacío si es el texto antes de la primera.
+        score:
+          type: number
+          format: double
+          minimum: -1
+          maximum: 1
+          description: Similitud coseno con el borrador.
+
+    InternalLink:
+      type: object
+      required: [slug, reason]
+      properties:
+        slug:
+          $ref: "#/components/schemas/Slug"
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 300
+          description: Dónde y por qué enlazarlo.
+
+    Contradiction:
+      type: object
+      required: [slug, note]
+      properties:
+        slug:
+          $ref: "#/components/schemas/Slug"
+        note:
+          type: string
+          minLength: 1
+          maxLength: 500
+          description: Qué dice el borrador y qué dice el post.
+
+    ContextualSuggestion:
+      type: object
+      required: [suggestion, internalLinks, contradictions, context]
+      properties:
+        suggestion:
+          type: string
+          minLength: 1
+          maxLength: 20000
+          description: >-
+            Mejoras sugeridas en Markdown. Es texto no confiable: se renderiza
+            con el mismo sanitizado que cualquier post (packages/markdown).
+        internalLinks:
+          type: array
+          maxItems: 4
+          description: Links sugeridos, solo a posts de `context` y sin repetir.
+          items:
+            $ref: "#/components/schemas/InternalLink"
+        contradictions:
+          type: array
+          maxItems: 4
+          description: Diferencias con posts de `context`.
+          items:
+            $ref: "#/components/schemas/Contradiction"
+        context:
+          type: array
+          maxItems: 4
+          description: Los fragmentos usados como contexto, del más parecido al menos.
+          items:
+            $ref: "#/components/schemas/ContextSource"
+
+    RagStatus:
+      type: object
+      required: [enabled, model, publishedPosts, indexedPosts, pendingPosts, chunks]
+      properties:
+        enabled:
+          type: boolean
+        model:
+          type: string
+          description: Modelo de embeddings; vacío con el RAG apagado.
+        publishedPosts:
+          type: integer
+          minimum: 0
+        indexedPosts:
+          type: integer
+          minimum: 0
+          description: Posts publicados con fragmentos al día con el modelo actual.
+        pendingPosts:
+          type: integer
+          minimum: 0
+          description: Posts publicados sin indexar o con un índice viejo.
+        chunks:
+          type: integer
+          minimum: 0
+          description: Fragmentos de los posts indexados.
+
+    ReindexResult:
+      type: object
+      required: [posts, indexed, pending, removed, chunks]
+      properties:
+        posts:
+          type: integer
+          minimum: 0
+          description: Posts publicados.
+        indexed:
+          type: integer
+          minimum: 0
+        pending:
+          type: integer
+          minimum: 0
+          description: Posts que quedaron sin reindexar porque el proveedor falló.
+        removed:
+          type: integer
+          minimum: 0
+          description: Posts que ya no están publicados y cuyos fragmentos se borraron.
+        chunks:
+          type: integer
+          minimum: 0
+          description: Fragmentos generados.
 
     PostSummary:
       type: object

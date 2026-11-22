@@ -73,6 +73,8 @@ type Config struct {
 
 	Assistant Assistant
 
+	RAG RAG
+
 	Comments Comments
 
 	// Files es el almacenamiento de archivos y el límite de subidas del CV
@@ -153,6 +155,11 @@ func Load() (Config, error) {
 		return Config{}, err
 	}
 
+	rag, err := loadRAG(assistant)
+	if err != nil {
+		return Config{}, err
+	}
+
 	files, err := loadFiles()
 	if err != nil {
 		return Config{}, err
@@ -186,6 +193,7 @@ func Load() (Config, error) {
 		ImagesRateLimit:      limits[6],
 		ImagesPerDay:         imagesPerDay,
 		Assistant:            assistant,
+		RAG:                  rag,
 		Comments:             comments,
 		Files:                files,
 		Images:               images,
