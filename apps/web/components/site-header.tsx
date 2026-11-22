@@ -9,6 +9,7 @@ import { useEffect, useState } from 'react';
 import logo from '@/assets/img/logo.png';
 import { alternateHref, localizedPath } from '@/lib/content/routes';
 import type { Locale, SiteContent } from '@/lib/content/types';
+import { HEADER_GLASS } from '@/lib/glass';
 import { profile } from '@/lib/site';
 
 import { ColorModeToggle } from './color-mode-toggle';
@@ -109,7 +110,7 @@ export function SiteHeader({ locale, ui }: { locale: Locale; ui: SiteContent['ui
       top="0"
       zIndex="sticky"
       bg="brand.header"
-      backdropFilter="saturate(180%) blur(10px)"
+      backdropFilter={`saturate(${String(HEADER_GLASS.saturate * 100)}%) blur(${String(HEADER_GLASS.blur)}px)`}
       borderBottomWidth="1px"
     >
       <Container maxW="4xl" px={{ base: '4', md: '6' }} h="16" display="flex" alignItems="center" gap="3">

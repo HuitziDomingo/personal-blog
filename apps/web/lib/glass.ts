@@ -87,3 +87,59 @@ export function glassSurface(backdrop: string, mode: GlassMode, space: FilterSpa
 
   return format(filtered.map((v, i) => (tint[i] ?? 0) * alpha + v * (1 - alpha)) as Rgb);
 }
+
+/**
+ * La cabecera fija (components/site-header.tsx): el lienzo al 82 % con
+ * `saturate(180%) blur(10px)`. Su texto también va sobre la aurora.
+ */
+export const HEADER_GLASS = {
+  blur: 10,
+  saturate: 1.8,
+  tint: {
+    light: { color: palette.light.bg, alpha: 0.82 },
+    dark: { color: palette.dark.bg, alpha: 0.82 },
+  },
+} as const;
+
+/** Parámetros de una superficie de vidrio: lo que mide `glassBox`. */
+export interface GlassSurfaceSpec {
+  saturate: number;
+  tint: Record<GlassMode, { color: string; alpha: number }>;
+}
+
+/** Rango posible de cada canal (0–1): el de `colorBox` de lib/aurora.ts. */
+export interface ChannelBox {
+  lo: readonly [number, number, number];
+  hi: readonly [number, number, number];
+}
+
+function saturateMatrix(s: number): number[][] {
+  return [
+    [0.213 + 0.787 * s, 0.715 - 0.715 * s, 0.072 - 0.072 * s],
+    [0.213 - 0.213 * s, 0.715 + 0.285 * s, 0.072 - 0.072 * s],
+    [0.213 - 0.213 * s, 0.715 - 0.715 * s, 0.072 + 0.928 * s],
+  ];
+}
+
+/**
+ * El rango de colores de una superficie de vidrio sobre un rango de fondos:
+ * `saturate()` (lineal en cada espacio, así que el extremo de cada canal sale
+ * de las esquinas de la caja según el signo de cada coeficiente), recorte a
+ * 0–1 y el tinte encima. Todo es monótono menos la matriz, que se resuelve
+ * por signos: el resultado contiene todos los colores posibles.
+ */
+export function glassBox(box: ChannelBox, mode: GlassMode, space: FilterSpace, spec: GlassSurfaceSpec = GLASS): ChannelBox {
+  const into = space === 'linear' ? toLinear : (c: number) => c;
+  const back = space === 'linear' ? toGamma : (c: number) => c;
+  const lo = box.lo.map(into);
+  const hi = box.hi.map(into);
+  const m = saturateMatrix(spec.saturate);
+  const clamp = (v: number) => Math.min(1, Math.max(0, v));
+  const sat = (pick: 'lo' | 'hi') =>
+    m.map((row) => clamp(row.reduce((sum, coef, j) => sum + coef * ((coef >= 0) === (pick === 'lo') ? (lo[j] ?? 0) : (hi[j] ?? 0)), 0)));
+  const { color, alpha } = spec.tint[mode];
+  const tint = parse(color);
+  const tinted = (rgb: number[]) => rgb.map((v, i) => (tint[i] ?? 0) * alpha + back(v) * (1 - alpha)) as unknown as [number, number, number];
+
+  return { lo: tinted(sat('lo')), hi: tinted(sat('hi')) };
+}
