@@ -3,6 +3,7 @@ import { Router, RouterLink, RouterLinkActive } from '@angular/router';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
   lucideFileText,
+  lucideFileUser,
   lucideLogOut,
   lucideMessageSquare,
   lucideMonitor,
@@ -34,6 +35,7 @@ import { BackgroundPicker } from './background-picker';
   providers: [
     provideIcons({
       lucideFileText,
+      lucideFileUser,
       lucideLogOut,
       lucideMessageSquare,
       lucideMonitor,
@@ -157,6 +159,7 @@ export class AdminNav {
     { path: '/posts', label: 'Posts', icon: 'lucideFileText' },
     { path: '/posts/new', label: 'Nuevo post', icon: 'lucideSquarePen' },
     { path: '/comments', label: 'Comentarios', icon: 'lucideMessageSquare' },
+    { path: '/cv', label: 'CV', icon: 'lucideFileUser' },
   ] as const;
 
   private readonly pending = inject(PendingComments);

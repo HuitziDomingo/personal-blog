@@ -64,6 +64,11 @@ type RateLimits struct {
 	// CVUploads es por usuario (o por IP sin sesión), solo para subir el CV y
 	// además de Global o User (ADR-028, punto 4).
 	CVUploads WindowLimit
+	// Images y ImagesDaily son por usuario, solo para generar vistas previas
+	// de portada y además de User (ADR-026, punto 8): uno por minuto y otro
+	// por día.
+	Images      RateLimit
+	ImagesDaily WindowLimit
 }
 
 // accessVerifier valida un access token con las reglas de ADR-011 y devuelve
@@ -163,7 +168,8 @@ func (l *keyedLimiter) size() int {
 
 // rateLimiter aplica a /api/v1 el límite por usuario o el global por IP, uno
 // extra por IP a login, refresh y el envío de comentarios, uno extra por
-// usuario al asistente y uno propio por IP a los preflight CORS.
+// usuario al asistente y a las vistas previas de portada, y uno propio por IP
+// a los preflight CORS.
 type rateLimiter struct {
 	global     *keyedLimiter
 	login      *keyedLimiter
@@ -173,6 +179,8 @@ type rateLimiter struct {
 	assistant  *keyedLimiter
 	comments   *keyedLimiter
 	cvUploads  *keyedLimiter
+	images     *keyedLimiter
+	imagesDay  *keyedLimiter
 	verify     accessVerifier
 }
 
@@ -182,13 +190,14 @@ func (limits RateLimits) validate() error {
 	for name, limit := range map[string]RateLimit{
 		"global": limits.Global, "login": limits.Login, "refresh": limits.Refresh,
 		"preflight": limits.Preflight, "user": limits.User, "assistant": limits.Assistant,
+		"images": limits.Images,
 	} {
 		if limit.PerMinute <= 0 || limit.Burst <= 0 {
 			return fmt.Errorf("%s rate limit must be positive: %+v", name, limit)
 		}
 	}
 
-	for name, limit := range map[string]WindowLimit{"comments": limits.Comments, "cv uploads": limits.CVUploads} {
+	for name, limit := range map[string]WindowLimit{"comments": limits.Comments, "cv uploads": limits.CVUploads, "daily images": limits.ImagesDaily} {
 		if limit.Max <= 0 || limit.Window <= 0 {
 			return fmt.Errorf("%s rate limit must be positive: %+v", name, limit)
 		}
@@ -207,6 +216,8 @@ func newRateLimiter(limits RateLimits, verify accessVerifier, now func() time.Ti
 		assistant:  newKeyedLimiter(limits.Assistant, now),
 		comments:   newWindowLimiter(limits.Comments, now),
 		cvUploads:  newWindowLimiter(limits.CVUploads, now),
+		images:     newKeyedLimiter(limits.Images, now),
+		imagesDay:  newWindowLimiter(limits.ImagesDaily, now),
 		verify:     verify,
 	}
 }
@@ -248,8 +259,18 @@ func (r *rateLimiter) handle(c *gin.Context) {
 
 	// Sin sesión, la operación responde 401 sin llegar al proveedor: basta
 	// el bucket global.
-	if authenticated && strings.HasPrefix(path, assistantPathPrefix) {
+	if authenticated && (strings.HasPrefix(path, assistantPathPrefix) || path == reindexPath) {
 		admit(c, r.assistant, userID)
+
+		return
+	}
+
+	// El bucket por minuto va primero: una ráfaga rechazada no gasta el cupo
+	// del día.
+	if authenticated && isCoverPreview(c.Request) {
+		if admit(c, r.images, userID) {
+			admit(c, r.imagesDay, userID)
+		}
 
 		return
 	}

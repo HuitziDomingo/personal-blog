@@ -272,6 +272,109 @@ type CommentSubmission struct {
 	Website *string `json:"website,omitempty"`
 }
 
+// ContextDraft El borrador para «mejorar con contexto». `postId` es el post que se está editando: sus propios fragmentos no se usan como contexto.
+type ContextDraft struct {
+	// Content Contenido en Markdown.
+	Content string `json:"content"`
+
+	// PostId Vacío o ausente si el post todavía no se guardó.
+	PostId *string `json:"postId,omitempty"`
+
+	// Title Puede estar vacío.
+	Title string `json:"title"`
+}
+
+// ContextSource Un fragmento de un post publicado usado como contexto.
+type ContextSource struct {
+	PostId string `json:"postId"`
+
+	// Score Similitud coseno con el borrador.
+	Score float64 `json:"score"`
+
+	// Section Título de la sección (encabezado de nivel 2) del fragmento; vacío si es el texto antes de la primera.
+	Section string `json:"section"`
+	Slug    Slug   `json:"slug"`
+
+	// Title Título del post.
+	Title string `json:"title"`
+}
+
+// ContextualSuggestion defines model for ContextualSuggestion.
+type ContextualSuggestion struct {
+	// Context Los fragmentos usados como contexto, del más parecido al menos.
+	Context []ContextSource `json:"context"`
+
+	// Contradictions Diferencias con posts de `context`.
+	Contradictions []Contradiction `json:"contradictions"`
+
+	// InternalLinks Links sugeridos, solo a posts de `context` y sin repetir.
+	InternalLinks []InternalLink `json:"internalLinks"`
+
+	// Suggestion Mejoras sugeridas en Markdown. Es texto no confiable: se renderiza con el mismo sanitizado que cualquier post (packages/markdown).
+	Suggestion string `json:"suggestion"`
+}
+
+// Contradiction defines model for Contradiction.
+type Contradiction struct {
+	// Note Qué dice el borrador y qué dice el post.
+	Note string `json:"note"`
+	Slug Slug   `json:"slug"`
+}
+
+// Cover Portada de un post (ADR-026, punto 5). Opcional: un post sin portada se publica igual. Si `aiGenerated` es true, la web muestra la leyenda «Imagen generada con IA» (punto 6).
+type Cover struct {
+	// AiGenerated Si la imagen se generó con IA.
+	AiGenerated bool `json:"aiGenerated"`
+
+	// Alt Texto alternativo de la imagen.
+	Alt string `json:"alt"`
+
+	// BlurDataUrl Placeholder diminuto (16 px de ancho, PNG en base64) que la web muestra borroso mientras carga la portada. Falta en portadas guardadas antes de que existiera.
+	BlurDataUrl *string `json:"blurDataUrl,omitempty"`
+
+	// Url URL pública de la imagen, tal como la generó el proveedor (JPEG, PNG o WebP de al menos 1024 × 576). La web la recorta a 16:9.
+	Url string `json:"url"`
+}
+
+// CoverAcceptance La vista previa que se acepta, tal como la devolvió generateCoverPreview.
+type CoverAcceptance struct {
+	// Alt Texto alternativo de la portada. Solo letras, marcas diacríticas, dígitos, el espacio y `. , ; : ' " ( ) - ¿ ? ¡ ! « » ’ “ ” – — / % &`. Se guarda sin espacios en los extremos.
+	Alt string `json:"alt"`
+
+	// Image La imagen de la vista previa, en base64 (2 MiB como máximo).
+	Image []byte `json:"image"`
+
+	// Token El `token` de la vista previa.
+	Token string `json:"token"`
+}
+
+// CoverPreview Vista previa de una portada generada con IA (ADR-026, punto 4). No está guardada en ningún sitio: para usarla se reenvían `image` y `token` a acceptCover.
+type CoverPreview struct {
+	// Alt Texto alternativo sugerido, en el idioma del post. Se puede editar al aceptar.
+	Alt string `json:"alt"`
+
+	// ContentType Tipo de la imagen, detectado por sus bytes `image/jpeg`, `image/png` o `image/webp`.
+	ContentType string `json:"contentType"`
+
+	// ExpiresAt Hasta cuándo se puede aceptar la vista previa.
+	ExpiresAt time.Time `json:"expiresAt"`
+
+	// Height Alto en píxeles de la imagen del proveedor (al menos 576).
+	Height int32 `json:"height"`
+
+	// Image La imagen, en base64. Se muestra como `data:` con `contentType`.
+	Image []byte `json:"image"`
+
+	// Subject Tema que propuso Gemini y que se usó en la plantilla, en inglés.
+	Subject string `json:"subject"`
+
+	// Token Firma de la API sobre la imagen, el post, el usuario y el vencimiento. Se reenvía tal cual a acceptCover.
+	Token string `json:"token"`
+
+	// Width Ancho en píxeles de la imagen del proveedor (al menos 1024).
+	Width int32 `json:"width"`
+}
+
 // CoverSuggestion Idea de portada (ADR-026). Ninguno de los dos campos tiene saltos de línea, caracteres de control ni espacios en los extremos.
 type CoverSuggestion struct {
 	// Alt Texto alternativo de la imagen, en el idioma del borrador. Solo letras, marcas diacríticas, dígitos, el espacio y `. , ; : ' " ( ) - ¿ ? ¡ ! « » ’ “ ” – — / % &`.
@@ -294,6 +397,13 @@ type CurrentCVs struct {
 type ImprovedWriting struct {
 	// Content Contenido sugerido en Markdown. Es texto no confiable: se renderiza con el mismo sanitizado que cualquier post (packages/markdown).
 	Content string `json:"content"`
+}
+
+// InternalLink defines model for InternalLink.
+type InternalLink struct {
+	// Reason Dónde y por qué enlazarlo.
+	Reason string `json:"reason"`
+	Slug   Slug   `json:"slug"`
 }
 
 // LoginRequest defines model for LoginRequest.
@@ -331,7 +441,10 @@ type Post struct {
 	AuthorId string `json:"authorId"`
 
 	// Content Contenido en Markdown.
-	Content   string    `json:"content"`
+	Content string `json:"content"`
+
+	// Cover Portada de un post (ADR-026, punto 5). Opcional: un post sin portada se publica igual. Si `aiGenerated` es true, la web muestra la leyenda «Imagen generada con IA» (punto 6).
+	Cover     *Cover    `json:"cover,omitempty"`
 	CreatedAt time.Time `json:"createdAt"`
 	Excerpt   *string   `json:"excerpt,omitempty"`
 	Id        string    `json:"id"`
@@ -361,7 +474,10 @@ type PostStatus string
 
 // PostSummary Datos de un post para listados, sin su contenido.
 type PostSummary struct {
-	AuthorId  string    `json:"authorId"`
+	AuthorId string `json:"authorId"`
+
+	// Cover Portada de un post (ADR-026, punto 5). Opcional: un post sin portada se publica igual. Si `aiGenerated` es true, la web muestra la leyenda «Imagen generada con IA» (punto 6).
+	Cover     *Cover    `json:"cover,omitempty"`
 	CreatedAt time.Time `json:"createdAt"`
 	Excerpt   *string   `json:"excerpt,omitempty"`
 	Id        string    `json:"id"`
@@ -434,6 +550,39 @@ type PublicCommentPage struct {
 	Total int64 `json:"total"`
 }
 
+// RagStatus defines model for RagStatus.
+type RagStatus struct {
+	// Chunks Fragmentos de los posts indexados.
+	Chunks  int  `json:"chunks"`
+	Enabled bool `json:"enabled"`
+
+	// IndexedPosts Posts publicados con fragmentos al día con el modelo actual.
+	IndexedPosts int `json:"indexedPosts"`
+
+	// Model Modelo de embeddings; vacío con el RAG apagado.
+	Model string `json:"model"`
+
+	// PendingPosts Posts publicados sin indexar o con un índice viejo.
+	PendingPosts   int `json:"pendingPosts"`
+	PublishedPosts int `json:"publishedPosts"`
+}
+
+// ReindexResult defines model for ReindexResult.
+type ReindexResult struct {
+	// Chunks Fragmentos generados.
+	Chunks  int `json:"chunks"`
+	Indexed int `json:"indexed"`
+
+	// Pending Posts que quedaron sin reindexar porque el proveedor falló.
+	Pending int `json:"pending"`
+
+	// Posts Posts publicados.
+	Posts int `json:"posts"`
+
+	// Removed Posts que ya no están publicados y cuyos fragmentos se borraron.
+	Removed int `json:"removed"`
+}
+
 // Seo defines model for Seo.
 type Seo struct {
 	CanonicalUrl *string   `json:"canonicalUrl,omitempty"`
@@ -471,6 +620,9 @@ type Limit = int32
 // Offset defines model for Offset.
 type Offset = int32
 
+// PostId defines model for PostId.
+type PostId = string
+
 // Tag defines model for Tag.
 type Tag = string
 
@@ -489,6 +641,9 @@ type FileStorageUnavailable = Problem
 // Forbidden Detalle de un error según RFC 9457.
 type Forbidden = Problem
 
+// ImagesUnavailable Detalle de un error según RFC 9457.
+type ImagesUnavailable = Problem
+
 // ModerationUnavailable Detalle de un error según RFC 9457.
 type ModerationUnavailable = Problem
 
@@ -497,6 +652,9 @@ type NotFound = Problem
 
 // PayloadTooLarge Detalle de un error según RFC 9457.
 type PayloadTooLarge = Problem
+
+// RagUnavailable Detalle de un error según RFC 9457.
+type RagUnavailable = Problem
 
 // TooManyRequests Detalle de un error según RFC 9457.
 type TooManyRequests = Problem
@@ -555,6 +713,9 @@ type ListPostCommentsParams struct {
 	Offset *Offset `form:"offset,omitempty" json:"offset,omitempty"`
 }
 
+// ImproveWithContextJSONRequestBody defines body for ImproveWithContext for application/json ContentType.
+type ImproveWithContextJSONRequestBody = ContextDraft
+
 // ImproveWritingJSONRequestBody defines body for ImproveWriting for application/json ContentType.
 type ImproveWritingJSONRequestBody = AssistantDraft
 
@@ -573,6 +734,9 @@ type CreatePostJSONRequestBody = PostWrite
 // UpdatePostJSONRequestBody defines body for UpdatePost for application/json ContentType.
 type UpdatePostJSONRequestBody = PostWrite
 
+// AcceptCoverJSONRequestBody defines body for AcceptCover for application/json ContentType.
+type AcceptCoverJSONRequestBody = CoverAcceptance
+
 // LoginJSONRequestBody defines body for Login for application/json ContentType.
 type LoginJSONRequestBody = LoginRequest
 
@@ -581,6 +745,9 @@ type SubmitCommentJSONRequestBody = CommentSubmission
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
+	// ImproveWithContext Sugiere mejoras con el contexto de los posts publicados.
+	// (POST /api/v1/admin/assistant/improve-with-context)
+	ImproveWithContext(c *gin.Context)
 	// ImproveWriting Mejora la redacción de un borrador.
 	// (POST /api/v1/admin/assistant/improve-writing)
 	ImproveWriting(c *gin.Context)
@@ -629,6 +796,21 @@ type ServerInterface interface {
 	// UpdatePost Reemplaza los datos editables de un post.
 	// (PUT /api/v1/admin/posts/{id})
 	UpdatePost(c *gin.Context, id string)
+	// RemoveCover Quita la portada de un post.
+	// (DELETE /api/v1/admin/posts/{id}/cover)
+	RemoveCover(c *gin.Context, id PostId)
+	// AcceptCover Acepta la vista previa de la portada de un post.
+	// (PUT /api/v1/admin/posts/{id}/cover)
+	AcceptCover(c *gin.Context, id PostId)
+	// GenerateCoverPreview Genera la vista previa de la portada de un post.
+	// (POST /api/v1/admin/posts/{id}/cover/preview)
+	GenerateCoverPreview(c *gin.Context, id PostId)
+	// ReindexPosts Reconstruye el índice de posts.
+	// (POST /api/v1/admin/rag/reindex)
+	ReindexPosts(c *gin.Context)
+	// GetRagStatus Devuelve el estado del índice de posts.
+	// (GET /api/v1/admin/rag/status)
+	GetRagStatus(c *gin.Context)
 	// Login Inicia sesión y emite las cookies de acceso y refresco.
 	// (POST /api/v1/auth/login)
 	Login(c *gin.Context)
@@ -666,6 +848,19 @@ type ServerInterfaceWrapper struct {
 }
 
 type MiddlewareFunc func(c *gin.Context)
+
+// ImproveWithContext operation middleware
+func (siw *ServerInterfaceWrapper) ImproveWithContext(c *gin.Context) {
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.ImproveWithContext(c)
+}
 
 // ImproveWriting operation middleware
 func (siw *ServerInterfaceWrapper) ImproveWriting(c *gin.Context) {
@@ -1051,6 +1246,107 @@ func (siw *ServerInterfaceWrapper) UpdatePost(c *gin.Context) {
 	siw.Handler.UpdatePost(c, id)
 }
 
+// RemoveCover operation middleware
+func (siw *ServerInterfaceWrapper) RemoveCover(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id PostId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.RemoveCover(c, id)
+}
+
+// AcceptCover operation middleware
+func (siw *ServerInterfaceWrapper) AcceptCover(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id PostId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.AcceptCover(c, id)
+}
+
+// GenerateCoverPreview operation middleware
+func (siw *ServerInterfaceWrapper) GenerateCoverPreview(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id PostId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.GenerateCoverPreview(c, id)
+}
+
+// ReindexPosts operation middleware
+func (siw *ServerInterfaceWrapper) ReindexPosts(c *gin.Context) {
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.ReindexPosts(c)
+}
+
+// GetRagStatus operation middleware
+func (siw *ServerInterfaceWrapper) GetRagStatus(c *gin.Context) {
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.GetRagStatus(c)
+}
+
 // Login operation middleware
 func (siw *ServerInterfaceWrapper) Login(c *gin.Context) {
 
@@ -1293,9 +1589,15 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	router.POST(options.BaseURL+"/api/v1/admin/assistant/improve-writing", wrapper.ImproveWriting)
 	router.POST(options.BaseURL+"/api/v1/admin/assistant/suggest-metadata", wrapper.SuggestMetadata)
 	router.POST(options.BaseURL+"/api/v1/admin/assistant/suggest-cover", wrapper.SuggestCover)
+	router.POST(options.BaseURL+"/api/v1/admin/assistant/improve-with-context", wrapper.ImproveWithContext)
+	router.GET(options.BaseURL+"/api/v1/admin/rag/status", wrapper.GetRagStatus)
+	router.POST(options.BaseURL+"/api/v1/admin/rag/reindex", wrapper.ReindexPosts)
 	router.DELETE(options.BaseURL+"/api/v1/admin/posts/:id", wrapper.DeletePost)
 	router.GET(options.BaseURL+"/api/v1/admin/posts/:id", wrapper.GetPost)
 	router.PUT(options.BaseURL+"/api/v1/admin/posts/:id", wrapper.UpdatePost)
+	router.POST(options.BaseURL+"/api/v1/admin/posts/:id/cover/preview", wrapper.GenerateCoverPreview)
+	router.DELETE(options.BaseURL+"/api/v1/admin/posts/:id/cover", wrapper.RemoveCover)
+	router.PUT(options.BaseURL+"/api/v1/admin/posts/:id/cover", wrapper.AcceptCover)
 	router.GET(options.BaseURL+"/api/v1/admin/comments", wrapper.ListComments)
 	router.POST(options.BaseURL+"/api/v1/admin/comments/:id/approve", wrapper.ApproveComment)
 	router.POST(options.BaseURL+"/api/v1/admin/comments/:id/reject", wrapper.RejectComment)
@@ -1317,11 +1619,15 @@ type FileStorageUnavailableApplicationProblemPlusJSONResponse Problem
 
 type ForbiddenApplicationProblemPlusJSONResponse Problem
 
+type ImagesUnavailableApplicationProblemPlusJSONResponse Problem
+
 type ModerationUnavailableApplicationProblemPlusJSONResponse Problem
 
 type NotFoundApplicationProblemPlusJSONResponse Problem
 
 type PayloadTooLargeApplicationProblemPlusJSONResponse Problem
+
+type RagUnavailableApplicationProblemPlusJSONResponse Problem
 
 type TooManyRequestsResponseHeaders struct {
 	RetryAfter *int
@@ -1335,6 +1641,144 @@ type TooManyRequestsApplicationProblemPlusJSONResponse struct {
 type UnauthorizedApplicationProblemPlusJSONResponse Problem
 
 type UnexpectedErrorApplicationProblemPlusJSONResponse Problem
+
+type ImproveWithContextRequestObject struct {
+	Body *ImproveWithContextJSONRequestBody
+}
+
+type ImproveWithContextResponseObject interface {
+	VisitImproveWithContextResponse(w http.ResponseWriter) error
+}
+
+type ImproveWithContext200JSONResponse ContextualSuggestion
+
+func (response ImproveWithContext200JSONResponse) VisitImproveWithContextResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ImproveWithContext400ApplicationProblemPlusJSONResponse struct {
+	BadRequestApplicationProblemPlusJSONResponse
+}
+
+func (response ImproveWithContext400ApplicationProblemPlusJSONResponse) VisitImproveWithContextResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ImproveWithContext401ApplicationProblemPlusJSONResponse struct {
+	UnauthorizedApplicationProblemPlusJSONResponse
+}
+
+func (response ImproveWithContext401ApplicationProblemPlusJSONResponse) VisitImproveWithContextResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ImproveWithContext403ApplicationProblemPlusJSONResponse struct {
+	ForbiddenApplicationProblemPlusJSONResponse
+}
+
+func (response ImproveWithContext403ApplicationProblemPlusJSONResponse) VisitImproveWithContextResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ImproveWithContext413ApplicationProblemPlusJSONResponse struct {
+	PayloadTooLargeApplicationProblemPlusJSONResponse
+}
+
+func (response ImproveWithContext413ApplicationProblemPlusJSONResponse) VisitImproveWithContextResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(413)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ImproveWithContext429ApplicationProblemPlusJSONResponse struct {
+	TooManyRequestsApplicationProblemPlusJSONResponse
+}
+
+func (response ImproveWithContext429ApplicationProblemPlusJSONResponse) VisitImproveWithContextResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	if response.Headers.RetryAfter != nil {
+		w.Header().Set("Retry-After", fmt.Sprint(*response.Headers.RetryAfter))
+	}
+	w.WriteHeader(429)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ImproveWithContext503ApplicationProblemPlusJSONResponse struct {
+	RagUnavailableApplicationProblemPlusJSONResponse
+}
+
+func (response ImproveWithContext503ApplicationProblemPlusJSONResponse) VisitImproveWithContextResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(503)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ImproveWithContextdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response ImproveWithContextdefaultApplicationProblemPlusJSONResponse) VisitImproveWithContextResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
 
 type ImproveWritingRequestObject struct {
 	Body *ImproveWritingJSONRequestBody
@@ -3268,6 +3712,577 @@ func (response UpdatePostdefaultApplicationProblemPlusJSONResponse) VisitUpdateP
 	return err
 }
 
+type RemoveCoverRequestObject struct {
+	Id PostId `json:"id"`
+}
+
+type RemoveCoverResponseObject interface {
+	VisitRemoveCoverResponse(w http.ResponseWriter) error
+}
+
+type RemoveCover204Response struct {
+}
+
+func (response RemoveCover204Response) VisitRemoveCoverResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type RemoveCover401ApplicationProblemPlusJSONResponse struct {
+	UnauthorizedApplicationProblemPlusJSONResponse
+}
+
+func (response RemoveCover401ApplicationProblemPlusJSONResponse) VisitRemoveCoverResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RemoveCover403ApplicationProblemPlusJSONResponse struct {
+	ForbiddenApplicationProblemPlusJSONResponse
+}
+
+func (response RemoveCover403ApplicationProblemPlusJSONResponse) VisitRemoveCoverResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RemoveCover404ApplicationProblemPlusJSONResponse struct {
+	NotFoundApplicationProblemPlusJSONResponse
+}
+
+func (response RemoveCover404ApplicationProblemPlusJSONResponse) VisitRemoveCoverResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RemoveCover429ApplicationProblemPlusJSONResponse struct {
+	TooManyRequestsApplicationProblemPlusJSONResponse
+}
+
+func (response RemoveCover429ApplicationProblemPlusJSONResponse) VisitRemoveCoverResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	if response.Headers.RetryAfter != nil {
+		w.Header().Set("Retry-After", fmt.Sprint(*response.Headers.RetryAfter))
+	}
+	w.WriteHeader(429)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RemoveCoverdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response RemoveCoverdefaultApplicationProblemPlusJSONResponse) VisitRemoveCoverResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AcceptCoverRequestObject struct {
+	Id   PostId `json:"id"`
+	Body *AcceptCoverJSONRequestBody
+}
+
+type AcceptCoverResponseObject interface {
+	VisitAcceptCoverResponse(w http.ResponseWriter) error
+}
+
+type AcceptCover200JSONResponse Post
+
+func (response AcceptCover200JSONResponse) VisitAcceptCoverResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AcceptCover400ApplicationProblemPlusJSONResponse struct {
+	BadRequestApplicationProblemPlusJSONResponse
+}
+
+func (response AcceptCover400ApplicationProblemPlusJSONResponse) VisitAcceptCoverResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AcceptCover401ApplicationProblemPlusJSONResponse struct {
+	UnauthorizedApplicationProblemPlusJSONResponse
+}
+
+func (response AcceptCover401ApplicationProblemPlusJSONResponse) VisitAcceptCoverResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AcceptCover403ApplicationProblemPlusJSONResponse struct {
+	ForbiddenApplicationProblemPlusJSONResponse
+}
+
+func (response AcceptCover403ApplicationProblemPlusJSONResponse) VisitAcceptCoverResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AcceptCover404ApplicationProblemPlusJSONResponse struct {
+	NotFoundApplicationProblemPlusJSONResponse
+}
+
+func (response AcceptCover404ApplicationProblemPlusJSONResponse) VisitAcceptCoverResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AcceptCover413ApplicationProblemPlusJSONResponse struct {
+	PayloadTooLargeApplicationProblemPlusJSONResponse
+}
+
+func (response AcceptCover413ApplicationProblemPlusJSONResponse) VisitAcceptCoverResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(413)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AcceptCover429ApplicationProblemPlusJSONResponse struct {
+	TooManyRequestsApplicationProblemPlusJSONResponse
+}
+
+func (response AcceptCover429ApplicationProblemPlusJSONResponse) VisitAcceptCoverResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	if response.Headers.RetryAfter != nil {
+		w.Header().Set("Retry-After", fmt.Sprint(*response.Headers.RetryAfter))
+	}
+	w.WriteHeader(429)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AcceptCover503ApplicationProblemPlusJSONResponse struct {
+	ImagesUnavailableApplicationProblemPlusJSONResponse
+}
+
+func (response AcceptCover503ApplicationProblemPlusJSONResponse) VisitAcceptCoverResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(503)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AcceptCoverdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response AcceptCoverdefaultApplicationProblemPlusJSONResponse) VisitAcceptCoverResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GenerateCoverPreviewRequestObject struct {
+	Id PostId `json:"id"`
+}
+
+type GenerateCoverPreviewResponseObject interface {
+	VisitGenerateCoverPreviewResponse(w http.ResponseWriter) error
+}
+
+type GenerateCoverPreview200JSONResponse CoverPreview
+
+func (response GenerateCoverPreview200JSONResponse) VisitGenerateCoverPreviewResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GenerateCoverPreview401ApplicationProblemPlusJSONResponse struct {
+	UnauthorizedApplicationProblemPlusJSONResponse
+}
+
+func (response GenerateCoverPreview401ApplicationProblemPlusJSONResponse) VisitGenerateCoverPreviewResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GenerateCoverPreview403ApplicationProblemPlusJSONResponse struct {
+	ForbiddenApplicationProblemPlusJSONResponse
+}
+
+func (response GenerateCoverPreview403ApplicationProblemPlusJSONResponse) VisitGenerateCoverPreviewResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GenerateCoverPreview404ApplicationProblemPlusJSONResponse struct {
+	NotFoundApplicationProblemPlusJSONResponse
+}
+
+func (response GenerateCoverPreview404ApplicationProblemPlusJSONResponse) VisitGenerateCoverPreviewResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GenerateCoverPreview429ApplicationProblemPlusJSONResponse struct {
+	TooManyRequestsApplicationProblemPlusJSONResponse
+}
+
+func (response GenerateCoverPreview429ApplicationProblemPlusJSONResponse) VisitGenerateCoverPreviewResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	if response.Headers.RetryAfter != nil {
+		w.Header().Set("Retry-After", fmt.Sprint(*response.Headers.RetryAfter))
+	}
+	w.WriteHeader(429)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GenerateCoverPreview503ApplicationProblemPlusJSONResponse struct {
+	ImagesUnavailableApplicationProblemPlusJSONResponse
+}
+
+func (response GenerateCoverPreview503ApplicationProblemPlusJSONResponse) VisitGenerateCoverPreviewResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(503)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GenerateCoverPreviewdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response GenerateCoverPreviewdefaultApplicationProblemPlusJSONResponse) VisitGenerateCoverPreviewResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ReindexPostsRequestObject struct {
+}
+
+type ReindexPostsResponseObject interface {
+	VisitReindexPostsResponse(w http.ResponseWriter) error
+}
+
+type ReindexPosts200JSONResponse ReindexResult
+
+func (response ReindexPosts200JSONResponse) VisitReindexPostsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ReindexPosts401ApplicationProblemPlusJSONResponse struct {
+	UnauthorizedApplicationProblemPlusJSONResponse
+}
+
+func (response ReindexPosts401ApplicationProblemPlusJSONResponse) VisitReindexPostsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ReindexPosts403ApplicationProblemPlusJSONResponse struct {
+	ForbiddenApplicationProblemPlusJSONResponse
+}
+
+func (response ReindexPosts403ApplicationProblemPlusJSONResponse) VisitReindexPostsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ReindexPosts429ApplicationProblemPlusJSONResponse struct {
+	TooManyRequestsApplicationProblemPlusJSONResponse
+}
+
+func (response ReindexPosts429ApplicationProblemPlusJSONResponse) VisitReindexPostsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	if response.Headers.RetryAfter != nil {
+		w.Header().Set("Retry-After", fmt.Sprint(*response.Headers.RetryAfter))
+	}
+	w.WriteHeader(429)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ReindexPosts503ApplicationProblemPlusJSONResponse struct {
+	RagUnavailableApplicationProblemPlusJSONResponse
+}
+
+func (response ReindexPosts503ApplicationProblemPlusJSONResponse) VisitReindexPostsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(503)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ReindexPostsdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response ReindexPostsdefaultApplicationProblemPlusJSONResponse) VisitReindexPostsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetRagStatusRequestObject struct {
+}
+
+type GetRagStatusResponseObject interface {
+	VisitGetRagStatusResponse(w http.ResponseWriter) error
+}
+
+type GetRagStatus200JSONResponse RagStatus
+
+func (response GetRagStatus200JSONResponse) VisitGetRagStatusResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetRagStatus401ApplicationProblemPlusJSONResponse struct {
+	UnauthorizedApplicationProblemPlusJSONResponse
+}
+
+func (response GetRagStatus401ApplicationProblemPlusJSONResponse) VisitGetRagStatusResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetRagStatus403ApplicationProblemPlusJSONResponse struct {
+	ForbiddenApplicationProblemPlusJSONResponse
+}
+
+func (response GetRagStatus403ApplicationProblemPlusJSONResponse) VisitGetRagStatusResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetRagStatus429ApplicationProblemPlusJSONResponse struct {
+	TooManyRequestsApplicationProblemPlusJSONResponse
+}
+
+func (response GetRagStatus429ApplicationProblemPlusJSONResponse) VisitGetRagStatusResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	if response.Headers.RetryAfter != nil {
+		w.Header().Set("Retry-After", fmt.Sprint(*response.Headers.RetryAfter))
+	}
+	w.WriteHeader(429)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetRagStatusdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response GetRagStatusdefaultApplicationProblemPlusJSONResponse) VisitGetRagStatusResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type LoginRequestObject struct {
 	Body *LoginJSONRequestBody
 }
@@ -4076,6 +5091,9 @@ func (response SubmitCommentdefaultApplicationProblemPlusJSONResponse) VisitSubm
 
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
+	// ImproveWithContext Sugiere mejoras con el contexto de los posts publicados.
+	// (POST /api/v1/admin/assistant/improve-with-context)
+	ImproveWithContext(ctx context.Context, request ImproveWithContextRequestObject) (ImproveWithContextResponseObject, error)
 	// ImproveWriting Mejora la redacción de un borrador.
 	// (POST /api/v1/admin/assistant/improve-writing)
 	ImproveWriting(ctx context.Context, request ImproveWritingRequestObject) (ImproveWritingResponseObject, error)
@@ -4124,6 +5142,21 @@ type StrictServerInterface interface {
 	// UpdatePost Reemplaza los datos editables de un post.
 	// (PUT /api/v1/admin/posts/{id})
 	UpdatePost(ctx context.Context, request UpdatePostRequestObject) (UpdatePostResponseObject, error)
+	// RemoveCover Quita la portada de un post.
+	// (DELETE /api/v1/admin/posts/{id}/cover)
+	RemoveCover(ctx context.Context, request RemoveCoverRequestObject) (RemoveCoverResponseObject, error)
+	// AcceptCover Acepta la vista previa de la portada de un post.
+	// (PUT /api/v1/admin/posts/{id}/cover)
+	AcceptCover(ctx context.Context, request AcceptCoverRequestObject) (AcceptCoverResponseObject, error)
+	// GenerateCoverPreview Genera la vista previa de la portada de un post.
+	// (POST /api/v1/admin/posts/{id}/cover/preview)
+	GenerateCoverPreview(ctx context.Context, request GenerateCoverPreviewRequestObject) (GenerateCoverPreviewResponseObject, error)
+	// ReindexPosts Reconstruye el índice de posts.
+	// (POST /api/v1/admin/rag/reindex)
+	ReindexPosts(ctx context.Context, request ReindexPostsRequestObject) (ReindexPostsResponseObject, error)
+	// GetRagStatus Devuelve el estado del índice de posts.
+	// (GET /api/v1/admin/rag/status)
+	GetRagStatus(ctx context.Context, request GetRagStatusRequestObject) (GetRagStatusResponseObject, error)
 	// Login Inicia sesión y emite las cookies de acceso y refresco.
 	// (POST /api/v1/auth/login)
 	Login(ctx context.Context, request LoginRequestObject) (LoginResponseObject, error)
@@ -4208,6 +5241,48 @@ type strictHandler struct {
 	ssi         StrictServerInterface
 	middlewares []StrictMiddlewareFunc
 	options     StrictGinServerOptions
+}
+
+// ImproveWithContext operation middleware
+func (sh *strictHandler) ImproveWithContext(ctx *gin.Context) {
+	var request ImproveWithContextRequestObject
+
+	var body ImproveWithContextJSONRequestBody
+	var err error
+	// A request validator built on kin-openapi's openapi3filter with
+	// KeepValidatedValue leaves the value it validated on the body. Bind
+	// that value, matching member names exactly, so the handler receives
+	// what was validated instead of a second, case-insensitive decode.
+	if vb, ok := ctx.Request.Body.(interface{ ValidatedValue() any }); !ok || runtime.BindJSONValue(vb.ValidatedValue(), &body) != nil {
+		err = ctx.ShouldBindJSON(&body)
+	} else if binding.Validator != nil {
+		// ShouldBindJSON runs the struct validator after decoding; keep that.
+		err = binding.Validator.ValidateStruct(&body)
+	}
+	if err != nil {
+		sh.options.RequestErrorHandlerFunc(ctx, err)
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.ImproveWithContext(ctx, request.(ImproveWithContextRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ImproveWithContext")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		sh.options.HandlerErrorFunc(ctx, err)
+	} else if validResponse, ok := response.(ImproveWithContextResponseObject); ok {
+		if err := validResponse.VisitImproveWithContextResponse(ctx.Writer); err != nil {
+			sh.options.ResponseErrorHandlerFunc(ctx, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(ctx, fmt.Errorf("unexpected response type: %T", response))
+	}
 }
 
 // ImproveWriting operation middleware
@@ -4726,6 +5801,150 @@ func (sh *strictHandler) UpdatePost(ctx *gin.Context, id string) {
 	}
 }
 
+// RemoveCover operation middleware
+func (sh *strictHandler) RemoveCover(ctx *gin.Context, id PostId) {
+	var request RemoveCoverRequestObject
+
+	request.Id = id
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.RemoveCover(ctx, request.(RemoveCoverRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "RemoveCover")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		sh.options.HandlerErrorFunc(ctx, err)
+	} else if validResponse, ok := response.(RemoveCoverResponseObject); ok {
+		if err := validResponse.VisitRemoveCoverResponse(ctx.Writer); err != nil {
+			sh.options.ResponseErrorHandlerFunc(ctx, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(ctx, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// AcceptCover operation middleware
+func (sh *strictHandler) AcceptCover(ctx *gin.Context, id PostId) {
+	var request AcceptCoverRequestObject
+
+	request.Id = id
+
+	var body AcceptCoverJSONRequestBody
+	var err error
+	// A request validator built on kin-openapi's openapi3filter with
+	// KeepValidatedValue leaves the value it validated on the body. Bind
+	// that value, matching member names exactly, so the handler receives
+	// what was validated instead of a second, case-insensitive decode.
+	if vb, ok := ctx.Request.Body.(interface{ ValidatedValue() any }); !ok || runtime.BindJSONValue(vb.ValidatedValue(), &body) != nil {
+		err = ctx.ShouldBindJSON(&body)
+	} else if binding.Validator != nil {
+		// ShouldBindJSON runs the struct validator after decoding; keep that.
+		err = binding.Validator.ValidateStruct(&body)
+	}
+	if err != nil {
+		sh.options.RequestErrorHandlerFunc(ctx, err)
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.AcceptCover(ctx, request.(AcceptCoverRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "AcceptCover")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		sh.options.HandlerErrorFunc(ctx, err)
+	} else if validResponse, ok := response.(AcceptCoverResponseObject); ok {
+		if err := validResponse.VisitAcceptCoverResponse(ctx.Writer); err != nil {
+			sh.options.ResponseErrorHandlerFunc(ctx, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(ctx, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GenerateCoverPreview operation middleware
+func (sh *strictHandler) GenerateCoverPreview(ctx *gin.Context, id PostId) {
+	var request GenerateCoverPreviewRequestObject
+
+	request.Id = id
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.GenerateCoverPreview(ctx, request.(GenerateCoverPreviewRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GenerateCoverPreview")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		sh.options.HandlerErrorFunc(ctx, err)
+	} else if validResponse, ok := response.(GenerateCoverPreviewResponseObject); ok {
+		if err := validResponse.VisitGenerateCoverPreviewResponse(ctx.Writer); err != nil {
+			sh.options.ResponseErrorHandlerFunc(ctx, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(ctx, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ReindexPosts operation middleware
+func (sh *strictHandler) ReindexPosts(ctx *gin.Context) {
+	var request ReindexPostsRequestObject
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.ReindexPosts(ctx, request.(ReindexPostsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ReindexPosts")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		sh.options.HandlerErrorFunc(ctx, err)
+	} else if validResponse, ok := response.(ReindexPostsResponseObject); ok {
+		if err := validResponse.VisitReindexPostsResponse(ctx.Writer); err != nil {
+			sh.options.ResponseErrorHandlerFunc(ctx, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(ctx, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetRagStatus operation middleware
+func (sh *strictHandler) GetRagStatus(ctx *gin.Context) {
+	var request GetRagStatusRequestObject
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.GetRagStatus(ctx, request.(GetRagStatusRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetRagStatus")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		sh.options.HandlerErrorFunc(ctx, err)
+	} else if validResponse, ok := response.(GetRagStatusResponseObject); ok {
+		if err := validResponse.VisitGetRagStatusResponse(ctx.Writer); err != nil {
+			sh.options.ResponseErrorHandlerFunc(ctx, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(ctx, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // Login operation middleware
 func (sh *strictHandler) Login(ctx *gin.Context) {
 	var request LoginRequestObject
@@ -4992,116 +6211,166 @@ func (sh *strictHandler) SubmitComment(ctx *gin.Context, slug Slug) {
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
-	"CzY+/3Eshb3y0dmYuWLTDq9XCZmXTy7/fwA=",
+	"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",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

@@ -67,4 +67,8 @@ type WritingAssistant interface {
 	ImproveWriting(ctx context.Context, draft Draft) (ImprovedWriting, error)
 	SuggestMetadata(ctx context.Context, draft Draft) (MetadataSuggestion, error)
 	SuggestCover(ctx context.Context, draft Draft) (CoverSuggestion, error)
+	// ImproveWithContext sugiere mejoras al borrador usando como contexto
+	// fragmentos de posts publicados (ADR-027, punto 8). Los fragmentos son
+	// datos, igual que el borrador.
+	ImproveWithContext(ctx context.Context, draft Draft, chunks []ContextChunk) (ContextualSuggestion, error)
 }

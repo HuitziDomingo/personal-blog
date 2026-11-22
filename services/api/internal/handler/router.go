@@ -55,14 +55,23 @@ type RouterConfig struct {
 	// Comments implementa los comentarios; es obligatorio, aunque estén
 	// desactivados (ADR-022).
 	Comments Comments
+	// RAG implementa «mejorar con contexto» y el índice; es obligatorio,
+	// aunque esté desactivado (ADR-027).
+	RAG RAG
+	// WriteDeadlines son los tiempos de las rutas que esperan a un proveedor
+	// de IA: alargan el WriteTimeout del servidor a lo que haga falta.
+	WriteDeadlines WriteDeadlines
 	// CVs implementa el CV en PDF (ADR-028); es obligatorio.
 	CVs CVs
 	// Media sirve los archivos guardados en disco en desarrollo, bajo
 	// /media/. Nil en producción, donde los sirve el almacenamiento.
 	Media http.Handler
-	// AssistantTimeout es el timeout de una llamada al proveedor. Las rutas
-	// del asistente alargan el WriteTimeout del servidor a lo que haga falta.
-	AssistantTimeout time.Duration
+	// Covers implementa las portadas generadas con IA; es obligatorio, aunque
+	// estén desactivadas (ADR-026).
+	Covers Covers
+	// CoverPreviewTimeout es lo más que puede tardar una vista previa de
+	// portada: el timeout del asistente más el del generador de imágenes.
+	CoverPreviewTimeout time.Duration
 	// Logger recibe el access log cuando JSONLogs es true; con logs de texto
 	// se usa gin.Logger(), como siempre.
 	Logger   *slog.Logger
@@ -79,8 +88,9 @@ func SetMode(mode string) {
 // LoadSpec: el validador hace panic si no puede construir su router.
 //
 // Orden de la cadena: logger → recovery → cabeceras → límite de preflight →
-// CORS/Origin → rate limit → límite de cuerpo → deadline del asistente →
-// lectura de la sesión → validador del contrato → handlers.
+// CORS/Origin → rate limit → límite de cuerpo → deadlines de las rutas de IA y
+// de la vista previa de portadas → lectura de la sesión → validador del
+// contrato → handlers.
 func NewRouter(pinger Pinger, spec *openapi3.T, cfg RouterConfig) (*gin.Engine, error) {
 	if cfg.Sessions == nil {
 		return nil, errors.New("router needs sessions")
@@ -96,6 +106,14 @@ func NewRouter(pinger Pinger, spec *openapi3.T, cfg RouterConfig) (*gin.Engine, 
 
 	if cfg.Comments == nil {
 		return nil, errors.New("router needs comments")
+	}
+
+	if cfg.RAG == nil {
+		return nil, errors.New("router needs rag")
+	}
+
+	if cfg.Covers == nil {
+		return nil, errors.New("router needs covers")
 	}
 
 	if cfg.CVs == nil {
@@ -138,7 +156,8 @@ func NewRouter(pinger Pinger, spec *openapi3.T, cfg RouterConfig) (*gin.Engine, 
 		crossOrigin(cfg.AllowedOrigins),
 		limiter.handle,
 		limitBody(cfg.MaxBodyBytes),
-		extendAssistantWriteDeadline(cfg.AssistantTimeout),
+		extendWriteDeadlines(cfg.WriteDeadlines),
+		extendCoverPreviewWriteDeadline(cfg.CoverPreviewTimeout),
 	)
 	router.NoRoute(routeNotFound)
 	router.GET("/health", health)
@@ -156,7 +175,7 @@ func NewRouter(pinger Pinger, spec *openapi3.T, cfg RouterConfig) (*gin.Engine, 
 			AuthenticationFunc: authenticateRequest,
 		},
 	})
-	handlers := gen.NewStrictHandlerWithOptions(server{sessions: cfg.Sessions, posts: cfg.Posts, assistant: cfg.Assistant, comments: cfg.Comments, cvs: cfg.CVs}, nil, gen.StrictGinServerOptions{
+	handlers := gen.NewStrictHandlerWithOptions(server{sessions: cfg.Sessions, posts: cfg.Posts, assistant: cfg.Assistant, comments: cfg.Comments, cvs: cfg.CVs, covers: cfg.Covers, rag: cfg.RAG}, nil, gen.StrictGinServerOptions{
 		RequestErrorHandlerFunc:  requestError,
 		HandlerErrorFunc:         handlerError,
 		ResponseErrorHandlerFunc: responseError,

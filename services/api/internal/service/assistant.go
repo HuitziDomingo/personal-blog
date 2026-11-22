@@ -36,6 +36,13 @@ const (
 	// lectores de pantalla.
 	MaxCoverSubjectLength = 200
 	MaxCoverAltLength     = 250
+
+	// Límites de la sugerencia con contexto (ContextualSuggestion en el
+	// contrato, ADR-027). Links y contradicciones solo pueden apuntar a los
+	// posts recuperados, que son como mucho MaxContextChunks.
+	MaxContextSuggestionLength = 20000
+	MaxContextReasonLength     = 300
+	MaxContextNoteLength       = 500
 )
 
 // Caracteres permitidos en la idea de portada, además de letras, marcas
@@ -149,6 +156,34 @@ func (s *AssistantService) SuggestCover(ctx context.Context, draft domain.Draft)
 	return normalizeCover(result), nil
 }
 
+// ImproveWithContext sugiere mejoras al borrador con los fragmentos
+// recuperados como contexto (ADR-027, punto 8). Valida que haya sugerencia y
+// que cada link interno y cada contradicción apunten a un post de chunks: el
+// modelo no puede inventar posts. Si no los cumple, falla sin reintentar.
+func (s *AssistantService) ImproveWithContext(ctx context.Context, draft domain.Draft, chunks []domain.ContextChunk) (domain.ContextualSuggestion, error) {
+	if s.provider == nil {
+		return domain.ContextualSuggestion{}, domain.ErrAssistantDisabled
+	}
+
+	do := func(ctx context.Context, draft domain.Draft) (domain.ContextualSuggestion, error) {
+		return s.provider.ImproveWithContext(ctx, draft, chunks)
+	}
+
+	known := make(map[string]struct{}, len(chunks))
+	for _, chunk := range chunks {
+		known[chunk.Slug] = struct{}{}
+	}
+
+	result, err := call(ctx, s, "improve_with_context", draft, do,
+		func(r domain.ContextualSuggestion) domain.AssistantUsage { return r.Usage },
+		func(r domain.ContextualSuggestion) error { return validateContextual(normalizeContextual(r), known) })
+	if err != nil {
+		return domain.ContextualSuggestion{}, err
+	}
+
+	return normalizeContextual(result), nil
+}
+
 // call hace una llamada al proveedor con timeout, valida el resultado y deja un
 // log. Es genérica en el tipo del resultado para que las dos operaciones
 // compartan el timeout y el log.
@@ -260,22 +295,24 @@ func normalizeCover(suggestion domain.CoverSuggestion) domain.CoverSuggestion {
 }
 
 func validateCover(suggestion domain.CoverSuggestion) error {
-	if err := validateCoverField("subject", suggestion.Subject, MaxCoverSubjectLength, coverSubjectPunctuation); err != nil {
+	if err := validateCoverField("subject", suggestion.Subject, MaxCoverSubjectLength, coverSubjectPunctuation, domain.ErrAssistantInvalidOutput); err != nil {
 		return err
 	}
 
-	return validateCoverField("alt", suggestion.Alt, MaxCoverAltLength, coverAltPunctuation)
+	return validateCoverField("alt", suggestion.Alt, MaxCoverAltLength, coverAltPunctuation, domain.ErrAssistantInvalidOutput)
 }
 
 // validateCoverField exige texto no vacío, de hasta maxLength caracteres, con
 // solo letras, marcas, dígitos, el espacio U+0020 y la puntuación indicada. Un
-// UTF-8 inválido llega aquí como U+FFFD, que no es ninguno de ellos.
-func validateCoverField(field, value string, maxLength int, punctuation string) error {
+// UTF-8 inválido llega aquí como U+FFFD, que no es ninguno de ellos. El error
+// envuelve invalid: la salida inválida del modelo o la entrada inválida del
+// admin al aceptar una portada.
+func validateCoverField(field, value string, maxLength int, punctuation string, invalid error) error {
 	switch {
 	case value == "":
-		return fmt.Errorf("%w: empty %s", domain.ErrAssistantInvalidOutput, field)
+		return fmt.Errorf("%w: empty %s", invalid, field)
 	case utf8.RuneCountInString(value) > maxLength:
-		return fmt.Errorf("%w: %s too long", domain.ErrAssistantInvalidOutput, field)
+		return fmt.Errorf("%w: %s too long", invalid, field)
 	}
 
 	for _, r := range value {
@@ -284,7 +321,76 @@ func validateCoverField(field, value string, maxLength int, punctuation string) 
 		}
 
 		// El log lleva el código del carácter, no el texto del modelo.
-		return fmt.Errorf("%w: %s has a disallowed character %U", domain.ErrAssistantInvalidOutput, field, r)
+		return fmt.Errorf("%w: %s has a disallowed character %U", invalid, field, r)
+	}
+
+	return nil
+}
+
+// normalizeContextual quita los espacios de los extremos. Lo demás no se
+// corrige.
+func normalizeContextual(suggestion domain.ContextualSuggestion) domain.ContextualSuggestion {
+	suggestion.Suggestion = strings.TrimSpace(suggestion.Suggestion)
+
+	links := make([]domain.InternalLink, 0, len(suggestion.InternalLinks))
+	for _, link := range suggestion.InternalLinks {
+		links = append(links, domain.InternalLink{Slug: strings.TrimSpace(link.Slug), Reason: strings.TrimSpace(link.Reason)})
+	}
+
+	contradictions := make([]domain.Contradiction, 0, len(suggestion.Contradictions))
+	for _, contradiction := range suggestion.Contradictions {
+		contradictions = append(contradictions, domain.Contradiction{Slug: strings.TrimSpace(contradiction.Slug), Note: strings.TrimSpace(contradiction.Note)})
+	}
+
+	suggestion.InternalLinks = links
+	suggestion.Contradictions = contradictions
+
+	return suggestion
+}
+
+// validateContextual exige sugerencia y que links y contradicciones apunten
+// a posts recuperados, sin repetir un link.
+func validateContextual(suggestion domain.ContextualSuggestion, known map[string]struct{}) error {
+	invalid := func(reason string) error {
+		return fmt.Errorf("%w: %s", domain.ErrAssistantInvalidOutput, reason)
+	}
+
+	switch {
+	case suggestion.Suggestion == "":
+		return invalid("empty suggestion")
+	case utf8.RuneCountInString(suggestion.Suggestion) > MaxContextSuggestionLength:
+		return invalid("suggestion too long")
+	case len(suggestion.InternalLinks) > MaxContextChunks:
+		return invalid("too many internal links")
+	case len(suggestion.Contradictions) > MaxContextChunks:
+		return invalid("too many contradictions")
+	}
+
+	linked := make(map[string]struct{}, len(suggestion.InternalLinks))
+	for _, link := range suggestion.InternalLinks {
+		if _, ok := known[link.Slug]; !ok {
+			return invalid("internal link to a post that was not retrieved")
+		}
+
+		if _, ok := linked[link.Slug]; ok {
+			return invalid("repeated internal link")
+		}
+
+		linked[link.Slug] = struct{}{}
+
+		if link.Reason == "" || utf8.RuneCountInString(link.Reason) > MaxContextReasonLength {
+			return invalid("internal link reason is empty or too long")
+		}
+	}
+
+	for _, contradiction := range suggestion.Contradictions {
+		if _, ok := known[contradiction.Slug]; !ok {
+			return invalid("contradiction with a post that was not retrieved")
+		}
+
+		if contradiction.Note == "" || utf8.RuneCountInString(contradiction.Note) > MaxContextNoteLength {
+			return invalid("contradiction note is empty or too long")
+		}
 	}
 
 	return nil

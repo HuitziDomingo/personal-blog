@@ -1,0 +1,178 @@
+info:
+  name: Reconstruye el índice de posts
+  type: http
+  seq: 2
+  tags:
+    - admin-rag
+
+http:
+  method: POST
+  url: "{{baseUrl}}/api/v1/admin/rag/reindex"
+  headers:
+    - name: access_token
+      value: "{{apiKey}}"
+      description: Token de acceso JWT, en cookie HttpOnly (ADR-005).
+  auth:
+    type: apikey
+    key: access_token
+    value: "{{apiKey}}"
+    placement: header
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: true
+
+examples:
+  - name: 200 Response
+    description: Resultado del reindexado.
+    request:
+      url: "{{baseUrl}}/api/v1/admin/rag/reindex"
+      method: POST
+      headers:
+        - name: access_token
+          value: "{{apiKey}}"
+          description: Token de acceso JWT, en cookie HttpOnly (ADR-005).
+    response:
+      status: 200
+      statusText: OK
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "posts": 0,
+            "indexed": 0,
+            "pending": 0,
+            "removed": 0,
+            "chunks": 0
+          }
+  - name: 401 Response
+    description: Faltan credenciales o no son válidas.
+    request:
+      url: "{{baseUrl}}/api/v1/admin/rag/reindex"
+      method: POST
+      headers:
+        - name: access_token
+          value: "{{apiKey}}"
+          description: Token de acceso JWT, en cookie HttpOnly (ADR-005).
+    response:
+      status: 401
+      statusText: Unauthorized
+      headers:
+        - name: Content-Type
+          value: application/problem+json
+      body:
+        type: json
+        data: |-
+          {
+            "type": "",
+            "title": "",
+            "status": 0,
+            "detail": "",
+            "instance": ""
+          }
+  - name: 403 Response
+    description: Las credenciales no dan permiso, o el Origin está fuera de la allowlist.
+    request:
+      url: "{{baseUrl}}/api/v1/admin/rag/reindex"
+      method: POST
+      headers:
+        - name: access_token
+          value: "{{apiKey}}"
+          description: Token de acceso JWT, en cookie HttpOnly (ADR-005).
+    response:
+      status: 403
+      statusText: Forbidden
+      headers:
+        - name: Content-Type
+          value: application/problem+json
+      body:
+        type: json
+        data: |-
+          {
+            "type": "",
+            "title": "",
+            "status": 0,
+            "detail": "",
+            "instance": ""
+          }
+  - name: 429 Response
+    description: Se superó el límite de peticiones de la IP, o el de logins fallidos del email.
+    request:
+      url: "{{baseUrl}}/api/v1/admin/rag/reindex"
+      method: POST
+      headers:
+        - name: access_token
+          value: "{{apiKey}}"
+          description: Token de acceso JWT, en cookie HttpOnly (ADR-005).
+    response:
+      status: 429
+      statusText: Too Many Requests
+      headers:
+        - name: Content-Type
+          value: application/problem+json
+      body:
+        type: json
+        data: |-
+          {
+            "type": "",
+            "title": "",
+            "status": 0,
+            "detail": "",
+            "instance": ""
+          }
+  - name: 503 Response
+    description: 'El RAG está desactivado (`detail`: "rag is disabled"), o el proveedor de embeddings o el asistente fallaron, agotaron su cuota o devolvieron una salida inválida. `detail` dice cuál.'
+    request:
+      url: "{{baseUrl}}/api/v1/admin/rag/reindex"
+      method: POST
+      headers:
+        - name: access_token
+          value: "{{apiKey}}"
+          description: Token de acceso JWT, en cookie HttpOnly (ADR-005).
+    response:
+      status: 503
+      statusText: Service Unavailable
+      headers:
+        - name: Content-Type
+          value: application/problem+json
+      body:
+        type: json
+        data: |-
+          {
+            "type": "",
+            "title": "",
+            "status": 0,
+            "detail": "",
+            "instance": ""
+          }
+  - name: default Response
+    description: Error inesperado.
+    request:
+      url: "{{baseUrl}}/api/v1/admin/rag/reindex"
+      method: POST
+      headers:
+        - name: access_token
+          value: "{{apiKey}}"
+          description: Token de acceso JWT, en cookie HttpOnly (ADR-005).
+    response:
+      headers:
+        - name: Content-Type
+          value: application/problem+json
+      body:
+        type: json
+        data: |-
+          {
+            "type": "",
+            "title": "",
+            "status": 0,
+            "detail": "",
+            "instance": ""
+          }
+
+docs: Vuelve a generar los embeddings de todos los posts publicados y borra los fragmentos de los que ya no lo están (ADR-027, punto 5). Cada post se reemplaza solo si sus embeddings se generaron. Al primer fallo del proveedor (por ejemplo, cuota agotada) se detiene y los posts restantes quedan en `pending`, con su índice anterior. Comparte el límite por usuario del asistente.

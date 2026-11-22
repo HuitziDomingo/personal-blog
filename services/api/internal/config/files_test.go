@@ -39,6 +39,24 @@ func TestLoadFilesLocal(t *testing.T) {
 	assert.NotContains(t, strings.Join(cfg.Warnings(), "\n"), "FILES_STORE")
 }
 
+func TestLoadFilesGCS(t *testing.T) {
+	setRequiredEnv(t)
+	t.Setenv("GIN_MODE", "release")
+	t.Setenv("FILES_STORE", "gcs")
+	t.Setenv("FILES_GCS_BUCKET", "huitzi-files")
+
+	cfg, err := Load()
+
+	require.NoError(t, err)
+	assert.Equal(t, Files{
+		Store:           FilesStoreGCS,
+		GCSBucket:       "huitzi-files",
+		CVUploadsMax:    10,
+		CVUploadsWindow: time.Hour,
+	}, cfg.Files)
+	assert.NotContains(t, strings.Join(cfg.Warnings(), "\n"), "FILES_STORE")
+}
+
 func TestLoadFilesLocalInReleaseWarns(t *testing.T) {
 	setRequiredEnv(t)
 	t.Setenv("GIN_MODE", "release")
@@ -57,8 +75,9 @@ func TestLoadFilesRejectsBadConfig(t *testing.T) {
 		env  map[string]string
 		want string
 	}{
-		"unknown store":      {env: map[string]string{"FILES_STORE": "s3"}, want: `invalid FILES_STORE "s3": must be empty or local`},
-		"gcs not yet":        {env: map[string]string{"FILES_STORE": "gcs"}, want: "FILES_STORE=gcs is not available yet: the GCS adapter arrives with BLOG-112"},
+		"unknown store":      {env: map[string]string{"FILES_STORE": "s3"}, want: `invalid FILES_STORE "s3": must be empty, local or gcs`},
+		"gcs without bucket": {env: map[string]string{"FILES_STORE": "gcs"}, want: "FILES_STORE=gcs needs FILES_GCS_BUCKET"},
+		"gcs with http url":  {env: map[string]string{"FILES_STORE": "gcs", "FILES_GCS_BUCKET": "files", "FILES_GCS_PUBLIC_URL": "http://storage.example"}, want: `invalid FILES_GCS_PUBLIC_URL "http://storage.example": must be an https url`},
 		"local without dir":  {env: map[string]string{"FILES_STORE": "local", "FILES_LOCAL_BASE_URL": "http://localhost:8080/media"}, want: "FILES_STORE=local needs FILES_LOCAL_DIR and FILES_LOCAL_BASE_URL"},
 		"local with bad url": {env: map[string]string{"FILES_STORE": "local", "FILES_LOCAL_DIR": "tmp", "FILES_LOCAL_BASE_URL": "javascript:alert(1)"}, want: `invalid FILES_LOCAL_BASE_URL "javascript:alert(1)": must be an http or https url`},
 		"zero uploads":       {env: map[string]string{"RATE_LIMIT_CV_UPLOADS_MAX": "0"}},

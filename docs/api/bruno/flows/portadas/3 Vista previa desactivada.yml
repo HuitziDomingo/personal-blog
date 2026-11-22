@@ -1,0 +1,28 @@
+info:
+  name: 3 Vista previa desactivada
+  type: http
+  seq: 3
+
+http:
+  method: POST
+  url: "{{baseUrl}}/api/v1/admin/posts/{{postId}}/cover/preview"
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "503"
+  scripts:
+    - type: tests
+      code: |-
+        test("says image generation is disabled", function () {
+          expect(res.getHeader("content-type")).to.include("application/problem+json");
+          expect(res.body.detail).to.equal("image generation is disabled");
+        });
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: true

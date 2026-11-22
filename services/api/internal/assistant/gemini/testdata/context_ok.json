@@ -1,0 +1,15 @@
+{
+  "candidates": [
+    {
+      "content": {
+        "parts": [{ "text": "{\"suggestion\": \"- Resume la sección de herramientas: ya la explicaste en otro post.\", \"internalLinks\": [{\"slug\": \"orquestar-agentes\", \"reason\": \"Enlázalo en la introducción, donde mencionas al orquestador.\"}], \"contradictions\": [{\"slug\": \"orquestar-agentes\", \"note\": \"Allí recomiendas un solo orquestador; aquí, varios.\"}]}" }],
+        "role": "model"
+      },
+      "finishReason": "STOP",
+      "index": 0
+    }
+  ],
+  "usageMetadata": { "promptTokenCount": 400, "candidatesTokenCount": 80, "thoughtsTokenCount": 20, "totalTokenCount": 500 },
+  "modelVersion": "gemini-test-001",
+  "responseId": "resp-context-1"
+}

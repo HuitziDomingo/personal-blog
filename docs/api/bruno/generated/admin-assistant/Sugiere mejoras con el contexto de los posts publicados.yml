@@ -1,0 +1,317 @@
+info:
+  name: Sugiere mejoras con el contexto de los posts publicados
+  type: http
+  seq: 4
+  tags:
+    - admin-assistant
+
+http:
+  method: POST
+  url: "{{baseUrl}}/api/v1/admin/assistant/improve-with-context"
+  headers:
+    - name: access_token
+      value: "{{apiKey}}"
+      description: Token de acceso JWT, en cookie HttpOnly (ADR-005).
+  body:
+    type: json
+    data: |-
+      {
+        "postId": "",
+        "title": "",
+        "content": ""
+      }
+  auth:
+    type: apikey
+    key: access_token
+    value: "{{apiKey}}"
+    placement: header
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: true
+
+examples:
+  - name: 200 Response
+    description: Sugerencia y fragmentos usados como contexto.
+    request:
+      url: "{{baseUrl}}/api/v1/admin/assistant/improve-with-context"
+      method: POST
+      headers:
+        - name: access_token
+          value: "{{apiKey}}"
+          description: Token de acceso JWT, en cookie HttpOnly (ADR-005).
+      body:
+        type: json
+        data: |-
+          {
+            "postId": "",
+            "title": "",
+            "content": ""
+          }
+    response:
+      status: 200
+      statusText: OK
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "suggestion": "",
+            "internalLinks": [
+              {
+                "slug": "",
+                "reason": ""
+              }
+            ],
+            "contradictions": [
+              {
+                "slug": "",
+                "note": ""
+              }
+            ],
+            "context": [
+              {
+                "postId": "",
+                "slug": "",
+                "title": "",
+                "section": "",
+                "score": 0
+              }
+            ]
+          }
+  - name: 400 Response
+    description: La petición no cumple el contrato.
+    request:
+      url: "{{baseUrl}}/api/v1/admin/assistant/improve-with-context"
+      method: POST
+      headers:
+        - name: access_token
+          value: "{{apiKey}}"
+          description: Token de acceso JWT, en cookie HttpOnly (ADR-005).
+      body:
+        type: json
+        data: |-
+          {
+            "postId": "",
+            "title": "",
+            "content": ""
+          }
+    response:
+      status: 400
+      statusText: Bad Request
+      headers:
+        - name: Content-Type
+          value: application/problem+json
+      body:
+        type: json
+        data: |-
+          {
+            "type": "",
+            "title": "",
+            "status": 0,
+            "detail": "",
+            "instance": ""
+          }
+  - name: 401 Response
+    description: Faltan credenciales o no son válidas.
+    request:
+      url: "{{baseUrl}}/api/v1/admin/assistant/improve-with-context"
+      method: POST
+      headers:
+        - name: access_token
+          value: "{{apiKey}}"
+          description: Token de acceso JWT, en cookie HttpOnly (ADR-005).
+      body:
+        type: json
+        data: |-
+          {
+            "postId": "",
+            "title": "",
+            "content": ""
+          }
+    response:
+      status: 401
+      statusText: Unauthorized
+      headers:
+        - name: Content-Type
+          value: application/problem+json
+      body:
+        type: json
+        data: |-
+          {
+            "type": "",
+            "title": "",
+            "status": 0,
+            "detail": "",
+            "instance": ""
+          }
+  - name: 403 Response
+    description: Las credenciales no dan permiso, o el Origin está fuera de la allowlist.
+    request:
+      url: "{{baseUrl}}/api/v1/admin/assistant/improve-with-context"
+      method: POST
+      headers:
+        - name: access_token
+          value: "{{apiKey}}"
+          description: Token de acceso JWT, en cookie HttpOnly (ADR-005).
+      body:
+        type: json
+        data: |-
+          {
+            "postId": "",
+            "title": "",
+            "content": ""
+          }
+    response:
+      status: 403
+      statusText: Forbidden
+      headers:
+        - name: Content-Type
+          value: application/problem+json
+      body:
+        type: json
+        data: |-
+          {
+            "type": "",
+            "title": "",
+            "status": 0,
+            "detail": "",
+            "instance": ""
+          }
+  - name: 413 Response
+    description: El cuerpo supera el tamaño máximo.
+    request:
+      url: "{{baseUrl}}/api/v1/admin/assistant/improve-with-context"
+      method: POST
+      headers:
+        - name: access_token
+          value: "{{apiKey}}"
+          description: Token de acceso JWT, en cookie HttpOnly (ADR-005).
+      body:
+        type: json
+        data: |-
+          {
+            "postId": "",
+            "title": "",
+            "content": ""
+          }
+    response:
+      status: 413
+      statusText: Payload Too Large
+      headers:
+        - name: Content-Type
+          value: application/problem+json
+      body:
+        type: json
+        data: |-
+          {
+            "type": "",
+            "title": "",
+            "status": 0,
+            "detail": "",
+            "instance": ""
+          }
+  - name: 429 Response
+    description: Se superó el límite de peticiones de la IP, o el de logins fallidos del email.
+    request:
+      url: "{{baseUrl}}/api/v1/admin/assistant/improve-with-context"
+      method: POST
+      headers:
+        - name: access_token
+          value: "{{apiKey}}"
+          description: Token de acceso JWT, en cookie HttpOnly (ADR-005).
+      body:
+        type: json
+        data: |-
+          {
+            "postId": "",
+            "title": "",
+            "content": ""
+          }
+    response:
+      status: 429
+      statusText: Too Many Requests
+      headers:
+        - name: Content-Type
+          value: application/problem+json
+      body:
+        type: json
+        data: |-
+          {
+            "type": "",
+            "title": "",
+            "status": 0,
+            "detail": "",
+            "instance": ""
+          }
+  - name: 503 Response
+    description: 'El RAG está desactivado (`detail`: "rag is disabled"), o el proveedor de embeddings o el asistente fallaron, agotaron su cuota o devolvieron una salida inválida. `detail` dice cuál.'
+    request:
+      url: "{{baseUrl}}/api/v1/admin/assistant/improve-with-context"
+      method: POST
+      headers:
+        - name: access_token
+          value: "{{apiKey}}"
+          description: Token de acceso JWT, en cookie HttpOnly (ADR-005).
+      body:
+        type: json
+        data: |-
+          {
+            "postId": "",
+            "title": "",
+            "content": ""
+          }
+    response:
+      status: 503
+      statusText: Service Unavailable
+      headers:
+        - name: Content-Type
+          value: application/problem+json
+      body:
+        type: json
+        data: |-
+          {
+            "type": "",
+            "title": "",
+            "status": 0,
+            "detail": "",
+            "instance": ""
+          }
+  - name: default Response
+    description: Error inesperado.
+    request:
+      url: "{{baseUrl}}/api/v1/admin/assistant/improve-with-context"
+      method: POST
+      headers:
+        - name: access_token
+          value: "{{apiKey}}"
+          description: Token de acceso JWT, en cookie HttpOnly (ADR-005).
+      body:
+        type: json
+        data: |-
+          {
+            "postId": "",
+            "title": "",
+            "content": ""
+          }
+    response:
+      headers:
+        - name: Content-Type
+          value: application/problem+json
+      body:
+        type: json
+        data: |-
+          {
+            "type": "",
+            "title": "",
+            "status": 0,
+            "detail": "",
+            "instance": ""
+          }
+
+docs: "Workflow de RAG (ADR-027): el borrador se convierte en embedding de consulta, se recuperan los 4 fragmentos más parecidos de los posts publicados que superan el umbral (sin los del post `postId`) y se pide una sugerencia con ellos como contexto. Si ninguno supera el umbral, la sugerencia se pide sin contexto y `context` llega vacío. Es una sugerencia: no se guarda. Los links y las contradicciones solo pueden apuntar a posts de `context`. Comparte el límite por usuario del asistente (ADR-021)."

@@ -16,8 +16,10 @@ import (
 	"github.com/HuitziDomingo/personal-blog/services/api/internal/assistant/gemini"
 	"github.com/HuitziDomingo/personal-blog/services/api/internal/config"
 	"github.com/HuitziDomingo/personal-blog/services/api/internal/domain"
+	"github.com/HuitziDomingo/personal-blog/services/api/internal/files/gcs"
 	"github.com/HuitziDomingo/personal-blog/services/api/internal/files/localdisk"
 	"github.com/HuitziDomingo/personal-blog/services/api/internal/handler"
+	"github.com/HuitziDomingo/personal-blog/services/api/internal/images/cloudflare"
 	"github.com/HuitziDomingo/personal-blog/services/api/internal/logging"
 	"github.com/HuitziDomingo/personal-blog/services/api/internal/repository/mongodb"
 	"github.com/HuitziDomingo/personal-blog/services/api/internal/service"
@@ -98,7 +100,14 @@ func run(logger *slog.Logger) error {
 		return errors.Join(err, client.Disconnect(ctx))
 	}
 
-	posts := service.NewPostService(mongodb.NewPostRepository(client), time.Now)
+	postRepository := mongodb.NewPostRepository(client)
+
+	rag, err := newRAG(ctx, cfg.RAG, postRepository, mongodb.NewChunkRepository(client), assistant, logger)
+	if err != nil {
+		return errors.Join(err, client.Disconnect(ctx))
+	}
+
+	posts := service.NewPostService(postRepository, time.Now, service.WithPostIndexer(rag))
 
 	moderation, err := newModeration(ctx, cfg, logger)
 	if err != nil {
@@ -109,34 +118,50 @@ func run(logger *slog.Logger) error {
 		slog.Info("comments enabled", "llm_moderation", moderation != nil)
 	}
 
-	files, media, closeFiles, err := newFileStore(cfg.Files)
+	files, media, closeFiles, err := newFileStore(ctx, cfg.Files)
 	if err != nil {
 		return errors.Join(err, client.Disconnect(ctx))
 	}
 	defer closeFiles()
 
+	covers, err := newCovers(cfg, postRepository, assistant, files, logger)
+	if err != nil {
+		return errors.Join(err, client.Disconnect(ctx))
+	}
+
 	routerConfig := handler.RouterConfig{
-		AllowedOrigins:   cfg.AllowedOrigins,
-		MaxBodyBytes:     cfg.MaxBodyBytes,
-		TrustedProxies:   cfg.TrustedProxies,
-		Sessions:         sessions,
-		Posts:            posts,
-		Assistant:        assistant,
-		Comments:         service.NewCommentService(mongodb.NewCommentRepository(client), posts, moderation, cfg.Comments.Enabled, time.Now),
-		CVs:              service.NewCVService(mongodb.NewCVRepository(client), files, time.Now),
-		Media:            media,
-		AssistantTimeout: cfg.Assistant.Timeout,
-		Logger:           logger,
-		JSONLogs:         cfg.LogFormat == config.LogFormatJSON,
+		AllowedOrigins: cfg.AllowedOrigins,
+		MaxBodyBytes:   cfg.MaxBodyBytes,
+		TrustedProxies: cfg.TrustedProxies,
+		Sessions:       sessions,
+		Posts:          posts,
+		Assistant:      assistant,
+		Comments:       service.NewCommentService(mongodb.NewCommentRepository(client), posts, moderation, cfg.Comments.Enabled, time.Now),
+		CVs:            service.NewCVService(mongodb.NewCVRepository(client), files, time.Now),
+		Covers:         covers,
+		Media:          media,
+		RAG:            rag,
+		WriteDeadlines: handler.WriteDeadlines{
+			// «Mejorar con contexto» genera el embedding de la consulta y
+			// después llama al asistente.
+			Assistant: cfg.Assistant.Timeout + cfg.RAG.EmbedTimeout,
+			Reindex:   cfg.RAG.ReindexTimeout,
+		},
+		// La vista previa espera a Gemini y después al generador.
+		CoverPreviewTimeout: cfg.Assistant.Timeout + cfg.Images.Timeout,
+		Logger:              logger,
+		JSONLogs:            cfg.LogFormat == config.LogFormatJSON,
 		RateLimits: handler.RateLimits{
-			Global:    handler.RateLimit(cfg.GlobalRateLimit),
-			Login:     handler.RateLimit(cfg.LoginRateLimit),
-			Refresh:   handler.RateLimit(cfg.RefreshRateLimit),
-			Preflight: handler.RateLimit(cfg.PreflightRateLimit),
-			User:      handler.RateLimit(cfg.UserRateLimit),
-			Assistant: handler.RateLimit(cfg.AssistantRateLimit),
-			Comments:  handler.WindowLimit{Max: cfg.Comments.RateLimitMax, Window: cfg.Comments.RateLimitWindow},
-			CVUploads: handler.WindowLimit{Max: cfg.Files.CVUploadsMax, Window: cfg.Files.CVUploadsWindow},
+			Global:      handler.RateLimit(cfg.GlobalRateLimit),
+			Login:       handler.RateLimit(cfg.LoginRateLimit),
+			Refresh:     handler.RateLimit(cfg.RefreshRateLimit),
+			Preflight:   handler.RateLimit(cfg.PreflightRateLimit),
+			User:        handler.RateLimit(cfg.UserRateLimit),
+			Assistant:   handler.RateLimit(cfg.AssistantRateLimit),
+			Comments:    handler.WindowLimit{Max: cfg.Comments.RateLimitMax, Window: cfg.Comments.RateLimitWindow},
+			CVUploads:   handler.WindowLimit{Max: cfg.Files.CVUploadsMax, Window: cfg.Files.CVUploadsWindow},
+			Images:      handler.RateLimit(cfg.ImagesRateLimit),
+			ImagesDaily: handler.WindowLimit{Max: cfg.ImagesPerDay, Window: 24 * time.Hour},
 		},
 	}
 
@@ -164,14 +189,14 @@ func run(logger *slog.Logger) error {
 
 	select {
 	case err := <-serveErr:
-		return errors.Join(fmt.Errorf("serve: %w", err), shutdown(server, client))
+		return errors.Join(fmt.Errorf("serve: %w", err), shutdown(server, client, rag))
 	case <-ctx.Done():
 	}
 
 	stop()
 	slog.Info("api shutting down")
 
-	return shutdown(server, client)
+	return shutdown(server, client, rag)
 }
 
 // newSessions arma el login y la sesión sobre MongoDB.
@@ -221,11 +246,30 @@ func newAssistant(ctx context.Context, cfg config.Assistant, logger *slog.Logger
 	return assistant, nil
 }
 
-// newFileStore arma el almacenamiento de archivos (ADR-028, punto 5). Sin
-// FILES_STORE devuelve nil: subir el CV responde 503. Con local, también el
-// handler que sirve el directorio en /media/.
-func newFileStore(cfg config.Files) (domain.FileStore, http.Handler, func(), error) {
-	if cfg.Store != config.FilesStoreLocal {
+// newFileStore arma el almacenamiento de archivos de las portadas y el CV
+// (ADR-026, punto 9, y ADR-028, punto 5). Sin FILES_STORE devuelve nil: subir
+// el CV responde 503. Con gcs, el bucket sirve los archivos desde su propio
+// dominio. Con local, también devuelve el handler que sirve el directorio en
+// /media/.
+func newFileStore(ctx context.Context, cfg config.Files) (domain.FileStore, http.Handler, func(), error) {
+	switch cfg.Store {
+	case config.FilesStoreGCS:
+		store, err := gcs.New(ctx, gcs.Config{Bucket: cfg.GCSBucket, PublicURL: cfg.GCSPublicURL})
+		if err != nil {
+			return nil, nil, nil, fmt.Errorf("create gcs file store: %w", err)
+		}
+
+		slog.Info("gcs file store enabled", "bucket", cfg.GCSBucket)
+
+		closeStore := func() {
+			if err := store.Close(); err != nil {
+				slog.Warn("close gcs file store failed", "error", err)
+			}
+		}
+
+		return store, nil, closeStore, nil
+	case config.FilesStoreLocal:
+	default:
 		return nil, nil, func() {}, nil
 	}
 
@@ -243,6 +287,93 @@ func newFileStore(cfg config.Files) (domain.FileStore, http.Handler, func(), err
 	}
 
 	return store, store.Handler(), closeStore, nil
+}
+
+// newCovers arma las portadas generadas con IA sobre Cloudflare Workers AI, o
+// las desactivadas si IMAGES_ENABLED no es true (ADR-026). Las portadas
+// aceptadas van al almacén de archivos (FILES_*), el mismo del CV.
+func newCovers(cfg config.Config, posts domain.PostRepository, assistant *service.AssistantService, store domain.FileStore, logger *slog.Logger) (*service.CoverService, error) {
+	images := cfg.Images
+	if !images.Enabled {
+		return service.NewDisabledCovers(), nil
+	}
+
+	generator, err := cloudflare.New(cloudflare.Config{
+		AccountID: images.CloudflareAccountID,
+		Token:     images.CloudflareAIToken.Reveal(),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("create image generator: %w", err)
+	}
+
+	covers, err := service.NewCoverService(service.CoverDeps{
+		Posts:     posts,
+		Assistant: assistant,
+		Generator: generator,
+		Store:     store,
+		Secret:    cfg.JWTSecret,
+		Timeout:   images.Timeout,
+		Logger:    logger,
+		Now:       time.Now,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("create cover service: %w", err)
+	}
+
+	slog.Info("cover generation enabled", "model", cloudflare.Model, "store", cfg.Files.Store, "timeout", images.Timeout)
+
+	return covers, nil
+}
+
+// newRAG arma el RAG sobre los embeddings de Gemini, o el desactivado si
+// RAG_ENABLED no es true (ADR-027). config.Load ya comprobó que, encendido,
+// el asistente también lo está.
+func newRAG(ctx context.Context, cfg config.RAG, posts *mongodb.PostRepository, chunks *mongodb.ChunkRepository, assistant *service.AssistantService, logger *slog.Logger) (*service.RAGService, error) {
+	if !cfg.Enabled {
+		return service.NewDisabledRAG(), nil
+	}
+
+	embedder, err := gemini.NewEmbedder(ctx, gemini.EmbedderConfig{
+		APIKey: cfg.GeminiAPIKey.Reveal(),
+		Model:  cfg.EmbeddingModel,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("create embedder: %w", err)
+	}
+
+	rag, err := service.NewRAGService(posts, chunks, embedder, assistant, service.RAGConfig{
+		MinScore:      cfg.MinScore,
+		MaxChunkChars: cfg.ChunkMaxChars,
+		EmbedTimeout:  cfg.EmbedTimeout,
+		IndexTimeout:  cfg.IndexTimeout,
+	}, logger)
+	if err != nil {
+		return nil, fmt.Errorf("create rag: %w", err)
+	}
+
+	slog.Info("rag enabled",
+		"embedding_model", cfg.EmbeddingModel,
+		"min_score", cfg.MinScore,
+		"chunk_max_chars", cfg.ChunkMaxChars,
+	)
+
+	return rag, nil
+}
+
+// waitForIndexing espera las indexaciones en segundo plano hasta que venza
+// ctx. Las que no terminen se pierden: sus posts quedan pendientes.
+func waitForIndexing(ctx context.Context, rag *service.RAGService) {
+	done := make(chan struct{})
+	go func() {
+		rag.Wait()
+		close(done)
+	}()
+
+	select {
+	case <-done:
+	case <-ctx.Done():
+		slog.Warn("rag indexing did not finish before shutdown")
+	}
 }
 
 // newModeration arma el clasificador de comentarios sobre Gemini, con el mismo
@@ -278,9 +409,10 @@ func newModeration(ctx context.Context, cfg config.Config, logger *slog.Logger) 
 	return moderation, nil
 }
 
-// shutdown cierra el servidor y después la base de datos, para que las
-// peticiones en curso terminen con la conexión abierta.
-func shutdown(server *http.Server, client *mongodb.Client) error {
+// shutdown cierra el servidor, espera las indexaciones en segundo plano y
+// después cierra la base de datos, para que las peticiones y las
+// indexaciones en curso terminen con la conexión abierta.
+func shutdown(server *http.Server, client *mongodb.Client, rag *service.RAGService) error {
 	ctx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
 	defer cancel()
 
@@ -288,6 +420,8 @@ func shutdown(server *http.Server, client *mongodb.Client) error {
 	if err := server.Shutdown(ctx); err != nil {
 		shutdownErr = fmt.Errorf("shutdown: %w", err)
 	}
+
+	waitForIndexing(ctx, rag)
 
 	return errors.Join(shutdownErr, client.Disconnect(ctx))
 }

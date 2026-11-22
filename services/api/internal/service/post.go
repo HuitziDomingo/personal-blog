@@ -55,15 +55,44 @@ type PostPage struct {
 	Offset int
 }
 
+// PostIndexer es lo que el service de posts necesita del RAG (ADR-027, punto
+// 5): enterarse de que un post cambió. No devuelve error: el post ya se
+// guardó y la indexación no puede deshacerlo.
+type PostIndexer interface {
+	PostChanged(ctx context.Context, postID string)
+}
+
 // PostService aplica las reglas de negocio de los posts.
 type PostService struct {
-	posts domain.PostRepository
-	now   func() time.Time
+	posts   domain.PostRepository
+	now     func() time.Time
+	indexer PostIndexer
+}
+
+// PostOption configura un PostService.
+type PostOption func(*PostService)
+
+// WithPostIndexer avisa al indexer cada vez que un post se crea, se edita o se
+// archiva.
+func WithPostIndexer(indexer PostIndexer) PostOption {
+	return func(s *PostService) { s.indexer = indexer }
 }
 
 // NewPostService crea el service.
-func NewPostService(posts domain.PostRepository, now func() time.Time) *PostService {
-	return &PostService{posts: posts, now: now}
+func NewPostService(posts domain.PostRepository, now func() time.Time, options ...PostOption) *PostService {
+	service := &PostService{posts: posts, now: now}
+	for _, option := range options {
+		option(service)
+	}
+
+	return service
+}
+
+// changed avisa al indexer, si hay uno.
+func (s *PostService) changed(ctx context.Context, post *domain.Post) {
+	if s.indexer != nil {
+		s.indexer.PostChanged(ctx, post.ID)
+	}
 }
 
 // timestamp devuelve la hora actual con la precisión con la que MongoDB guarda
@@ -91,6 +120,8 @@ func (s *PostService) Create(ctx context.Context, authorID string, input PostInp
 			return nil, fmt.Errorf("create post: %w", err)
 		}
 
+		s.changed(ctx, post)
+
 		return post, nil
 	}
 
@@ -102,6 +133,8 @@ func (s *PostService) Create(ctx context.Context, authorID string, input PostInp
 	if err := s.createWithGeneratedSlug(ctx, post, base); err != nil {
 		return nil, fmt.Errorf("create post: %w", err)
 	}
+
+	s.changed(ctx, post)
 
 	return post, nil
 }
@@ -173,6 +206,8 @@ func (s *PostService) Update(ctx context.Context, id string, input PostInput) (*
 		return nil, fmt.Errorf("update post: %w", err)
 	}
 
+	s.changed(ctx, post)
+
 	return post, nil
 }
 
@@ -193,6 +228,30 @@ func (s *PostService) Archive(ctx context.Context, id string) error {
 
 	if err := s.posts.Update(ctx, post); err != nil {
 		return fmt.Errorf("archive post: %w", err)
+	}
+
+	s.changed(ctx, post)
+
+	return nil
+}
+
+// RemoveCover deja el post sin portada (ADR-026, punto 5). La imagen no se
+// borra del almacén. Quitar la portada de un post sin portada no hace nada.
+func (s *PostService) RemoveCover(ctx context.Context, id string) error {
+	post, err := s.posts.GetByID(ctx, id)
+	if err != nil {
+		return fmt.Errorf("remove cover: %w", err)
+	}
+
+	if post.Cover == nil {
+		return nil
+	}
+
+	post.Cover = nil
+	post.UpdatedAt = s.timestamp()
+
+	if err := s.posts.Update(ctx, post); err != nil {
+		return fmt.Errorf("remove cover: %w", err)
 	}
 
 	return nil

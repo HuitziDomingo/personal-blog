@@ -73,11 +73,19 @@ type Config struct {
 
 	Assistant Assistant
 
+	RAG RAG
+
 	Comments Comments
 
 	// Files es el almacenamiento de archivos y el límite de subidas del CV
 	// (ADR-028).
 	Files Files
+	// Images es la configuración de las portadas generadas con IA (ADR-026).
+	Images Images
+	// ImagesRateLimit e ImagesPerDay son el bucket por usuario de las vistas
+	// previas de portada (ADR-026, punto 8).
+	ImagesRateLimit RateLimit
+	ImagesPerDay    int
 
 	// Opcionales: solo se usan para crear el administrador inicial.
 	InitialAdminEmail    string
@@ -147,7 +155,22 @@ func Load() (Config, error) {
 		return Config{}, err
 	}
 
+	rag, err := loadRAG(assistant)
+	if err != nil {
+		return Config{}, err
+	}
+
 	files, err := loadFiles()
+	if err != nil {
+		return Config{}, err
+	}
+
+	images, err := loadImages(assistant.Enabled, files)
+	if err != nil {
+		return Config{}, err
+	}
+
+	imagesPerDay, err := positiveInt("RATE_LIMIT_IMAGES_PER_DAY", defaultImagesPerDay)
 	if err != nil {
 		return Config{}, err
 	}
@@ -167,9 +190,13 @@ func Load() (Config, error) {
 		PreflightRateLimit:   limits[3],
 		UserRateLimit:        limits[4],
 		AssistantRateLimit:   limits[5],
+		ImagesRateLimit:      limits[6],
+		ImagesPerDay:         imagesPerDay,
 		Assistant:            assistant,
+		RAG:                  rag,
 		Comments:             comments,
 		Files:                files,
+		Images:               images,
 		Port:                 port,
 		MongoURI:             mongoURI,
 		MongoDBName:          mongoDBName,
@@ -307,8 +334,9 @@ type rateLimitSpec struct {
 }
 
 // rateLimitSpecs son los valores por defecto de ADR-010 (global, login y
-// refresh), de ADR-016 (preflight y usuario autenticado) y de ADR-021
-// (asistente).
+// refresh), de ADR-016 (preflight y usuario autenticado), de ADR-021
+// (asistente) y de ADR-026 (vistas previas de portada, por minuto; el límite
+// por día es RATE_LIMIT_IMAGES_PER_DAY).
 var rateLimitSpecs = [...]rateLimitSpec{
 	{name: "GLOBAL", defaults: RateLimit{PerMinute: 60, Burst: 20}},
 	{name: "LOGIN", defaults: RateLimit{PerMinute: 5, Burst: 5}},
@@ -316,6 +344,7 @@ var rateLimitSpecs = [...]rateLimitSpec{
 	{name: "PREFLIGHT", defaults: RateLimit{PerMinute: 120, Burst: 60}},
 	{name: "USER", defaults: RateLimit{PerMinute: 300, Burst: 100}},
 	{name: "ASSISTANT", defaults: RateLimit{PerMinute: 5, Burst: 5}},
+	{name: "IMAGES", defaults: RateLimit{PerMinute: 2, Burst: 2}},
 }
 
 func loadRateLimit(spec rateLimitSpec) (RateLimit, error) {
@@ -622,4 +651,63 @@ func loadComments() (Comments, error) {
 	}
 
 	return comments, nil
+}
+
+// Valores por defecto de las portadas generadas con IA (ADR-026).
+const (
+	// defaultImagesTimeoutSeconds: FLUX.1 [schnell] con 4 pasos suele tardar
+	// unos segundos; el margen cubre la cola del plan gratuito.
+	defaultImagesTimeoutSeconds = 30
+	defaultImagesPerDay         = 20
+)
+
+// Images es la configuración de las portadas generadas con IA (ADR-026).
+type Images struct {
+	// Enabled es false por defecto. Con false, generar y aceptar responden 503.
+	Enabled             bool
+	CloudflareAccountID string
+	// CloudflareAIToken es un API token con permisos solo para Workers AI.
+	CloudflareAIToken Secret
+	Timeout           time.Duration
+}
+
+// loadImages lee IMAGES_ENABLED, CLOUDFLARE_ACCOUNT_ID, CLOUDFLARE_AI_TOKEN e
+// IMAGES_TIMEOUT_SECONDS. Las portadas aceptadas van al almacén de archivos
+// (FILES_*), el mismo del CV. Encendida sin cuenta, sin token o sin almacén,
+// la API no arranca (ADR-026, punto 10). También exige el asistente: el tema de la
+// imagen lo propone Gemini (punto 1).
+func loadImages(assistantEnabled bool, files Files) (Images, error) {
+	enabled, err := loadBool("IMAGES_ENABLED")
+	if err != nil {
+		return Images{}, err
+	}
+
+	timeoutSeconds, err := positiveInt("IMAGES_TIMEOUT_SECONDS", defaultImagesTimeoutSeconds)
+	if err != nil {
+		return Images{}, err
+	}
+
+	images := Images{
+		Enabled:             enabled,
+		CloudflareAccountID: strings.TrimSpace(os.Getenv("CLOUDFLARE_ACCOUNT_ID")),
+		CloudflareAIToken:   Secret(os.Getenv("CLOUDFLARE_AI_TOKEN")),
+		Timeout:             time.Duration(timeoutSeconds) * time.Second,
+	}
+
+	if !enabled {
+		return images, nil
+	}
+
+	switch {
+	case !assistantEnabled:
+		return Images{}, fmt.Errorf("IMAGES_ENABLED is true but ASSISTANT_ENABLED is not: the cover subject comes from the writing assistant")
+	case images.CloudflareAccountID == "":
+		return Images{}, fmt.Errorf("IMAGES_ENABLED is true but CLOUDFLARE_ACCOUNT_ID is empty")
+	case images.CloudflareAIToken == "":
+		return Images{}, fmt.Errorf("IMAGES_ENABLED is true but CLOUDFLARE_AI_TOKEN is empty")
+	case files.Store == FilesStoreNone:
+		return Images{}, fmt.Errorf("IMAGES_ENABLED is true but FILES_STORE is empty: set FILES_STORE=gcs with FILES_GCS_BUCKET, or FILES_STORE=local for development")
+	}
+
+	return images, nil
 }
