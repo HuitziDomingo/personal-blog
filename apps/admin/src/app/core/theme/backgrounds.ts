@@ -51,6 +51,12 @@ export const BACKGROUND_WIDTHS = [1280, 1920, 2560, 3840] as const;
 export const BACKGROUND_FORMATS = ['avif', 'webp'] as const;
 export type BackgroundFormat = (typeof BACKGROUND_FORMATS)[number];
 
+/**
+ * Ancho máximo de cada formato (BLOG-147): AVIF llega a 3840; WebP es solo el
+ * respaldo de los navegadores sin AVIF y se queda en 2560.
+ */
+export const BACKGROUND_MAX_WIDTHS: Readonly<Record<BackgroundFormat, number>> = { avif: 3840, webp: 2560 };
+
 /** Media query del recorte vertical. El apaisado es el que queda. */
 export const PORTRAIT_QUERY = '(orientation: portrait)';
 
@@ -162,13 +168,14 @@ export function maxCropWidth(id: BackgroundId, orientation: BackgroundOrientatio
 }
 
 /**
- * Anchos de un recorte: los de BACKGROUND_WIDTHS que caben en el original y,
- * si alguno no cabe, el ancho del original en su lugar (sin ampliar).
+ * Anchos de un recorte en un formato: los de BACKGROUND_WIDTHS que caben en el
+ * original y no pasan del máximo del formato y, si el original no llega a ese
+ * máximo, el ancho del original en su lugar (sin ampliar).
  */
-export function backgroundWidths(id: BackgroundId, orientation: BackgroundOrientation): number[] {
-  const max = maxCropWidth(id, orientation);
+export function backgroundWidths(id: BackgroundId, orientation: BackgroundOrientation, format: BackgroundFormat): number[] {
+  const max = Math.min(maxCropWidth(id, orientation), BACKGROUND_MAX_WIDTHS[format]);
   const fitting = BACKGROUND_WIDTHS.filter((width) => width <= max);
-  return fitting.length === BACKGROUND_WIDTHS.length || fitting.at(-1) === max ? fitting : [...fitting, max];
+  return fitting.at(-1) === max ? fitting : [...fitting, max];
 }
 
 /** Alto de un recorte de ese ancho. */
@@ -207,7 +214,7 @@ export function backgroundSrcset(
   orientation: BackgroundOrientation,
   format: BackgroundFormat,
 ): string {
-  return backgroundWidths(id, orientation)
+  return backgroundWidths(id, orientation, format)
     .map((width) => `${backgroundPath(id, variant, orientation, width, format)} ${width}w`)
     .join(', ');
 }

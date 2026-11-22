@@ -7,7 +7,8 @@
 //
 // Cada fondo sale en dos recortes centrados, apaisado (16:10) para escritorio
 // y vertical (9:16) para móvil, en cada ancho de backgroundWidths (1280, 1920,
-// 2560 y 3840, sin ampliar el original) y en AVIF y WebP (BLOG-146). La
+// 2560 y 3840, sin ampliar el original), en AVIF y, hasta 2560, en WebP
+// (BLOG-146, BLOG-147). La
 // miniatura del selector (webp de 160 × 120, BLOG-124) solo se genera si no
 // existe; con THUMBNAILS=1 se regenera.
 //
@@ -40,13 +41,16 @@ import {
 } from '../src/app/core/theme/backgrounds.ts';
 
 /**
- * Parámetros de codificación (BLOG-146). AVIF: calidad 65 a 10 bits y 4:4:4
- * (los 10 bits evitan bandas en los degradados y, a igual calidad, pesan un
- * poco menos que 8). WebP: calidad 85 con sharp_yuv, para los navegadores sin
- * AVIF. Antes: AVIF calidad 50 a 8 bits, en dos tamaños fijos.
+ * Parámetros de codificación (BLOG-146, BLOG-147). AVIF: calidad 65 a 10 bits
+ * y 4:4:4 (los 10 bits evitan bandas en los degradados y, a igual calidad,
+ * pesan un poco menos que 8), y 75 en las de 3840, las que se ven en pantallas
+ * 2x. WebP, solo respaldo para navegadores sin AVIF: calidad 80 con
+ * sharp_yuv, hasta 2560 (BACKGROUND_MAX_WIDTHS). Antes de BLOG-146: AVIF
+ * calidad 50 a 8 bits, en dos tamaños fijos.
  */
-const AVIF_ARGS = ['-q', '65', '-d', '10', '-y', '444', '-s', '6', '-j', 'all', '--ignore-exif', '--ignore-xmp'];
-const WEBP_ARGS = ['-q', '85', '-m', '6', '-sharp_yuv', '-metadata', 'none'];
+const AVIF_ARGS = ['-d', '10', '-y', '444', '-s', '6', '-j', 'all', '--ignore-exif', '--ignore-xmp'];
+const avifQuality = (width) => (width === 3840 ? '75' : '65');
+const WEBP_ARGS = ['-q', '80', '-m', '6', '-sharp_yuv', '-metadata', 'none'];
 /** Calidad de cwebp para las miniaturas: a 160 × 120 queda alrededor de 10 KB. */
 const THUMBNAIL_ARGS = ['-q', '80', '-m', '6', '-metadata', 'none'];
 const MAX_THUMBNAIL_BYTES = 16 * 1024;
@@ -122,15 +126,24 @@ try {
       const png = join(work, `${id}-${variant}.png`);
       decode(file, png, info.size, work);
       for (const orientation of BACKGROUND_ORIENTATIONS) {
-        for (const width of backgroundWidths(id, orientation)) {
+        const avifWidths = backgroundWidths(id, orientation, 'avif');
+        const webpWidths = backgroundWidths(id, orientation, 'webp');
+        for (const width of [...new Set([...avifWidths, ...webpWidths])]) {
           const height = backgroundHeight(orientation, width);
           const cropped = join(work, `${id}-${variant}-${orientation}-${width}.png`);
           execFileSync('ffmpeg', ['-loglevel', 'error', '-y', '-i', png, '-vf', cropFilter(width, height), '-pix_fmt', 'rgb24', cropped]);
-          const avif = join(PUBLIC, backgroundPath(id, variant, orientation, width, 'avif'));
-          execFileSync('avifenc', [...AVIF_ARGS, cropped, avif], { stdio: 'ignore' });
-          const webp = join(PUBLIC, backgroundPath(id, variant, orientation, width, 'webp'));
-          execFileSync('cwebp', ['-quiet', ...WEBP_ARGS, cropped, '-o', webp]);
-          console.log(`${id}-${variant}-${orientation}-${width} (${width} × ${height}): avif ${kb(avif)}, webp ${kb(webp)}`);
+          const sizes = [];
+          if (avifWidths.includes(width)) {
+            const avif = join(PUBLIC, backgroundPath(id, variant, orientation, width, 'avif'));
+            execFileSync('avifenc', ['-q', avifQuality(width), ...AVIF_ARGS, cropped, avif], { stdio: 'ignore' });
+            sizes.push(`avif ${kb(avif)}`);
+          }
+          if (webpWidths.includes(width)) {
+            const webp = join(PUBLIC, backgroundPath(id, variant, orientation, width, 'webp'));
+            execFileSync('cwebp', ['-quiet', ...WEBP_ARGS, cropped, '-o', webp]);
+            sizes.push(`webp ${kb(webp)}`);
+          }
+          console.log(`${id}-${variant}-${orientation}-${width} (${width} × ${height}): ${sizes.join(', ')}`);
           rmSync(cropped);
         }
       }

@@ -43,7 +43,7 @@ Con `apps/admin/scripts/build-backgrounds.mjs`:
 
 - Recorte centrado en dos proporciones: 16:10 apaisado y 9:16 vertical.
 - Escalado (Lanczos) a 1280, 1920, 2560 y 3840 px de ancho, sin ampliar: si el recorte del original es más angosto, la variante mayor es la del original y se omiten las que lo superan (2304 px en el vertical de los originales de 4096 × 4096 y 1701 px en el de los de 4032 × 3024).
-- Conversión a AVIF (calidad 65, 10 bits, 4:4:4) y a WebP (calidad 85, `sharp_yuv`) de cada variante. Hasta BLOG-146 eran solo dos AVIF por fondo y modo, de 1920 × 1200 y 900 × 1600, con calidad 50.
+- Conversión a AVIF (calidad 65, 10 bits, 4:4:4; calidad 75 en las de 3840) de cada variante y, hasta 2560 px, a WebP (calidad 80, `sharp_yuv`) como respaldo (BLOG-147). Hasta BLOG-146 eran solo dos AVIF por fondo y modo, de 1920 × 1200 y 900 × 1600, con calidad 50.
 - Miniatura del selector: el mismo recorte a 160 × 120, en WebP (calidad 80).
 - Los SVG (`map` y `blobs`) se rasterizan con Chrome al tamaño del original, 4096 × 4096.
 - No hay variantes oscuras derivadas: cada fondo usa la clara y la oscura de su fuente.
