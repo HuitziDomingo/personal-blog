@@ -244,6 +244,7 @@ export const en: SiteContent = {
     primaryNav: "Main",
     nav: { home: "Home", works: "Work", cv: "Resume", blog: "Blog" },
     blogLanguageNote: "in Spanish",
+    cvButton: "Download CV",
     menuLabel: "Navigation menu",
     colorMode: {
       group: "Theme",

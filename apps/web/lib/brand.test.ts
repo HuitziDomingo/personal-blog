@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { contrastRatio, glassTeal, palette } from './brand';
+import { accentButtonText, contrastRatio, glassTeal, palette } from './brand';
 
 /** WCAG 2.1 AA para texto normal. */
 const AA = 4.5;
@@ -33,4 +33,10 @@ describe.each(['light', 'dark'] as const)('%s palette', (mode) => {
 
 it('dark text meets AA on the teal buttons', () => {
   expect(contrastRatio(palette.light.fg, glassTeal)).toBeGreaterThanOrEqual(AA);
+});
+
+describe('botón «Descargar CV» relleno con el acento (BLOG-152)', () => {
+  it.each(['light', 'dark'] as const)('su texto cumple AA en %s', (mode) => {
+    expect(contrastRatio(accentButtonText[mode], palette[mode].accent)).toBeGreaterThanOrEqual(AA);
+  });
 });

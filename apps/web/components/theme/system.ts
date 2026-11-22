@@ -1,7 +1,7 @@
 import { createSystem, defaultConfig, defineConfig } from '@chakra-ui/react';
 
 import { AURORA_KEYFRAMES } from '@/lib/aurora';
-import { palette } from '@/lib/brand';
+import { accentButtonText, palette } from '@/lib/brand';
 import { GLASS, HEADER_GLASS } from '@/lib/glass';
 
 const { light, dark } = palette;
@@ -138,6 +138,33 @@ const config = defineConfig({
       boxShadow: `inset 0 1px 0 rgb(255 255 255 / ${String(GLASS.edge.dark.highlight)}), 0 12px 32px -20px rgb(0 0 0 / 0.6)`,
       ...solidFallbacks,
     },
+    // «Descargar CV» (components/cv-download-button.tsx, BLOG-152): el relleno
+    // y el texto van como props del componente (le ganan al recipe de Link);
+    // aquí, un brillo diagonal que cruza una vez al cargar (::before) y
+    // otra en hover o foco (::after). Son dos capas para que al salir del
+    // hover no se repita el brillo de la carga. Sin bucle y sin animación con
+    // prefers-reduced-motion. Solo se anima transform.
+    '.cv-cta': {
+      position: 'relative',
+      overflow: 'hidden',
+      isolation: 'isolate',
+      _focusVisible: { outline: '2px solid', outlineColor: 'fg', outlineOffset: '2px' },
+      '&::before, &::after': {
+        content: '""',
+        position: 'absolute',
+        insetY: '0',
+        left: '0',
+        width: '60%',
+        pointerEvents: 'none',
+        background: 'linear-gradient(105deg, transparent 20%, rgb(255 255 255 / 0.45) 50%, transparent 80%)',
+        transform: 'translateX(-120%)',
+        zIndex: '-1',
+      },
+      '@media (prefers-reduced-motion: no-preference)': {
+        '&::before': { animation: 'brillo 0.9s ease-out 0.6s 1 both' },
+        '&:hover::after, &:focus-visible::after': { animation: 'brillo 0.9s ease-out 1' },
+      },
+    },
     '.sr-only': {
       position: 'absolute',
       width: '1px',
@@ -154,6 +181,11 @@ const config = defineConfig({
     // Entrada de las tarjetas (components/entrance.ts): opacidad y transform,
     // sin propiedades de layout.
     keyframes: {
+      // Brillo del botón «Descargar CV»: cruza de izquierda a derecha una vez.
+      brillo: {
+        from: { transform: 'translateX(-120%)' },
+        to: { transform: 'translateX(220%)' },
+      },
       entrada: {
         from: { opacity: '0', transform: 'translateY(0.5rem)' },
         to: { opacity: '1', transform: 'none' },
@@ -196,6 +228,8 @@ const config = defineConfig({
           accent: mode(light.accent, dark.accent),
           surface: mode(light.surface, dark.surface),
           code: mode(light.code, dark.code),
+          // Texto sobre el acento: el del botón «Descargar CV» (BLOG-152).
+          onAccent: mode(accentButtonText.light, accentButtonText.dark),
           header: mode(rgba(HEADER_GLASS.tint.light.color, HEADER_GLASS.tint.light.alpha), rgba(HEADER_GLASS.tint.dark.color, HEADER_GLASS.tint.dark.alpha)),
         },
       },
