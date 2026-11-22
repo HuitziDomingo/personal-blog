@@ -1,4 +1,4 @@
-import { Box, Button, Heading, Stack, Text } from "@chakra-ui/react";
+import { Box, Button, Flex, Heading, Stack, Text } from "@chakra-ui/react";
 import type { Metadata } from "next";
 
 import { ExternalLink } from "@/components/external-link";
@@ -62,7 +62,20 @@ export function CvView({
           {cv.headline}
         </Text>
         {pdfUrl && (
-          <Box>
+          <Flex
+            className="glass"
+            borderWidth="1px"
+            borderRadius="xl"
+            p="4"
+            gap="3"
+            direction={{ base: "column", sm: "row" }}
+            align={{ base: "stretch", sm: "center" }}
+            justify="space-between"
+            alignSelf={{ sm: "start" }}
+          >
+            <Text color="fg.muted" fontSize="sm" aria-hidden="true">
+              {content.ui.cv.downloadDetail}
+            </Text>
             {/* Otro origen (el del almacenamiento, ADR-028, punto 6): sirve el PDF como descarga. */}
             <Button
               asChild
@@ -79,7 +92,7 @@ export function CvView({
                 {content.ui.cv.download}
               </a>
             </Button>
-          </Box>
+          </Flex>
         )}
       </Stack>
 

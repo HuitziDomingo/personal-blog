@@ -1,8 +1,30 @@
 import { createSystem, defaultConfig, defineConfig } from '@chakra-ui/react';
 
 import { palette } from '@/lib/brand';
+import { GLASS } from '@/lib/glass';
 
 const { light, dark } = palette;
+
+function rgba(hex: string, alpha: number): string {
+  const [r, g, b] = [1, 3, 5].map((i) => Number.parseInt(hex.slice(i, i + 2), 16));
+
+  return `rgb(${String(r)} ${String(g)} ${String(b)} / ${String(alpha)})`;
+}
+
+const glassFilter = `blur(${String(GLASS.blur)}px) saturate(${String(GLASS.saturate)})`;
+
+/** Superficie sólida de siempre: sin backdrop-filter o con prefers-reduced-transparency. */
+const solidSurface = {
+  background: 'var(--chakra-colors-brand-surface)',
+  borderColor: 'var(--chakra-colors-border)',
+  boxShadow: 'none',
+  backdropFilter: 'none',
+};
+
+const solidFallbacks = {
+  '@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)))': solidSurface,
+  '@media (prefers-reduced-transparency: reduce)': solidSurface,
+};
 
 /**
  * Los tokens de Chakra traen `_light` y `_dark`; un `base` solo pierde frente
@@ -69,6 +91,23 @@ const config = defineConfig({
     },
     '.dark .aurora > span': {
       background: 'radial-gradient(closest-side, rgb(var(--aurora-rgb) / var(--aurora-alpha-dark)), transparent)',
+    },
+    // Vidrio selectivo (BLOG-149, lib/glass.ts): solo en lo que flota sobre la
+    // aurora. Tinte semitransparente de la superficie de la marca, desenfoque
+    // y saturación de lo que hay detrás, borde claro de 1 px y brillo arriba.
+    // Los valores son los que mide el test de contraste de lib/glass.test.ts.
+    '.glass': {
+      background: rgba(GLASS.tint.light.color, GLASS.tint.light.alpha),
+      borderColor: `rgb(255 255 255 / ${String(GLASS.edge.light.border)})`,
+      boxShadow: `inset 0 1px 0 rgb(255 255 255 / ${String(GLASS.edge.light.highlight)}), 0 12px 32px -20px rgb(80 50 20 / 0.35)`,
+      backdropFilter: glassFilter,
+      ...solidFallbacks,
+    },
+    '.dark .glass': {
+      background: rgba(GLASS.tint.dark.color, GLASS.tint.dark.alpha),
+      borderColor: `rgb(255 255 255 / ${String(GLASS.edge.dark.border)})`,
+      boxShadow: `inset 0 1px 0 rgb(255 255 255 / ${String(GLASS.edge.dark.highlight)}), 0 12px 32px -20px rgb(0 0 0 / 0.6)`,
+      ...solidFallbacks,
     },
     '.sr-only': {
       position: 'absolute',

@@ -55,7 +55,7 @@ export function BlogListing({ posts, current, total }: { posts: readonly PostSum
             borderWidth="1px"
             borderRadius="xl"
             overflow="hidden"
-            bg="brand.surface"
+            className="glass"
             _hover={{ borderColor: 'brand.accent' }}
           >
             <Box flexShrink={0} w={{ base: 'full', sm: '56' }}>
