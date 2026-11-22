@@ -1,5 +1,5 @@
 # ADR-026: Portadas de Posts Generadas con IA
-* Estado: Aprobado
+* Estado: Aprobado — parcialmente reemplazado por ADR-029 (punto 8)
 * Fecha: 2026-11-17
 * Autor: León Nieves Huitzitzili Domingo
 * Complementa: ADR-021 (asistente de escritura; aquí se decide su punto 1, imágenes fuera de alcance) y ADR-017 (web pública)
