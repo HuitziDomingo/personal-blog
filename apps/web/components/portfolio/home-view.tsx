@@ -30,7 +30,7 @@ export function HomeView({ content, latest }: { content: SiteContent; latest: re
         <Box>
           <IslandHero alt={ui.home.island.alt} controls={ui.home.island} />
         </Box>
-        <Box bg="brand.surface" borderWidth="1px" borderRadius="xl" px="4" py="3" textAlign="center">
+        <Box className="glass" borderWidth="1px" borderRadius="xl" px="4" py="3" textAlign="center">
           {text.greeting}
         </Box>
 

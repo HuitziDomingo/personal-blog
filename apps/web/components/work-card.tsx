@@ -26,11 +26,10 @@ export function WorkCard({
   return (
     <LinkBox
       as="article"
-      className="group"
+      className="group glass"
       borderRadius="xl"
       overflow="hidden"
       borderWidth="1px"
-      bg="brand.surface"
       css={entrance(index)}
     >
       {cover && (

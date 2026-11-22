@@ -28,7 +28,7 @@ export function PostCard({
   return (
     <LinkBox
       as="article"
-      bg="brand.surface"
+      className="glass"
       borderWidth="1px"
       borderRadius="xl"
       p={{ base: '5', md: '6' }}
