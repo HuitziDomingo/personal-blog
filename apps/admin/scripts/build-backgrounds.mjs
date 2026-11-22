@@ -8,7 +8,7 @@
 // Cada fondo sale en dos recortes centrados, apaisado (16:10) para escritorio
 // y vertical (9:16) para móvil, en cada ancho de backgroundWidths (1280, 1920,
 // 2560 y 3840, sin ampliar el original), en AVIF y, hasta 2560, en WebP
-// (BLOG-146, BLOG-147). La
+// (BLOG-146, BLOG-148). La
 // miniatura del selector (webp de 160 × 120, BLOG-124) solo se genera si no
 // existe; con THUMBNAILS=1 se regenera.
 //
@@ -41,7 +41,7 @@ import {
 } from '../src/app/core/theme/backgrounds.ts';
 
 /**
- * Parámetros de codificación (BLOG-146, BLOG-147). AVIF: calidad 65 a 10 bits
+ * Parámetros de codificación (BLOG-146, BLOG-148). AVIF: calidad 65 a 10 bits
  * y 4:4:4 (los 10 bits evitan bandas en los degradados y, a igual calidad,
  * pesan un poco menos que 8), y 75 en las de 3840, las que se ven en pantallas
  * 2x. WebP, solo respaldo para navegadores sin AVIF: calidad 80 con

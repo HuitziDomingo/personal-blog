@@ -52,7 +52,7 @@ export const BACKGROUND_FORMATS = ['avif', 'webp'] as const;
 export type BackgroundFormat = (typeof BACKGROUND_FORMATS)[number];
 
 /**
- * Ancho máximo de cada formato (BLOG-147): AVIF llega a 3840; WebP es solo el
+ * Ancho máximo de cada formato (BLOG-148): AVIF llega a 3840; WebP es solo el
  * respaldo de los navegadores sin AVIF y se queda en 2560.
  */
 export const BACKGROUND_MAX_WIDTHS: Readonly<Record<BackgroundFormat, number>> = { avif: 3840, webp: 2560 };

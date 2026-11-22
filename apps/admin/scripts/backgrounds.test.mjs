@@ -52,7 +52,7 @@ test('cada fondo tiene cada variante en AVIF y WebP, sin pasar del límite, y su
   assert.deepEqual(readdirSync(new URL('../public/backgrounds/', import.meta.url)).sort(), [...expected].sort());
 });
 
-test('los anchos no amplían el original y llegan al máximo de cada formato cuando el original alcanza (BLOG-146, BLOG-147)', () => {
+test('los anchos no amplían el original y llegan al máximo de cada formato cuando el original alcanza (BLOG-146, BLOG-148)', () => {
   for (const id of BACKGROUNDS) {
     for (const orientation of BACKGROUND_ORIENTATIONS) {
       for (const format of BACKGROUND_FORMATS) {
@@ -68,7 +68,7 @@ test('los anchos no amplían el original y llegan al máximo de cada formato cua
   assert.deepEqual(BACKGROUND_MAX_WIDTHS, { avif: 3840, webp: 2560 });
 });
 
-test('cada srcset de los 15 fondos apunta a archivos que existen, AVIF hasta 3840 y WebP hasta 2560 (BLOG-147)', () => {
+test('cada srcset de los 15 fondos apunta a archivos que existen, AVIF hasta 3840 y WebP hasta 2560 (BLOG-148)', () => {
   assert.equal(BACKGROUNDS.length, 15);
   for (const id of BACKGROUNDS) {
     for (const variant of BACKGROUND_VARIANTS) {
