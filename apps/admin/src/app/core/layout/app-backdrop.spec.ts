@@ -1,7 +1,7 @@
 import { Component, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 
-import { BackgroundId, BackgroundVariant } from '../theme/backgrounds';
+import { BackgroundId, BackgroundVariant, GLASS_BACKDROP_ATTRIBUTE } from '../theme/backgrounds';
 import { AppBackdrop } from './app-backdrop';
 
 @Component({
@@ -27,6 +27,8 @@ function setup() {
 }
 
 describe('AppBackdrop', () => {
+  afterEach(() => document.documentElement.removeAttribute(GLASS_BACKDROP_ATTRIBUTE));
+
   it('pide solo la imagen del fondo y tema actuales, con el recorte vertical para móvil', () => {
     const { element, images } = setup();
 
@@ -89,5 +91,20 @@ describe('AppBackdrop', () => {
     // Carga la primera (fold), que ya no es la elegida.
     load(0);
     expect(images().some((image) => image.classList.contains('is-shown'))).toBe(false);
+  });
+
+  it('deja en <html> el fondo visible para el tinte de las cards, solo cuando ya cargó (BLOG-143)', () => {
+    const { fixture, load } = setup();
+    expect(document.documentElement.hasAttribute(GLASS_BACKDROP_ATTRIBUTE)).toBe(false);
+
+    load(0);
+    expect(document.documentElement.getAttribute(GLASS_BACKDROP_ATTRIBUTE)).toBe('fold-light');
+
+    fixture.componentInstance.variant.set('dark');
+    fixture.detectChanges();
+    expect(document.documentElement.getAttribute(GLASS_BACKDROP_ATTRIBUTE)).toBe('fold-light');
+
+    load(1);
+    expect(document.documentElement.getAttribute(GLASS_BACKDROP_ATTRIBUTE)).toBe('fold-dark');
   });
 });
