@@ -20,8 +20,11 @@ const config = defineConfig({
     },
     // Columna de al menos el alto visible: el <main> crece (flex: 1) y el footer
     // queda al fondo aunque la página sea corta (404, blog vacío, error).
+    // Sin fondo propio: el color lo pone el `html` de Chakra (el lienzo) y así
+    // la aurora (z-index -1) queda entre el lienzo y el contenido. Con fondo
+    // en el body, lo taparía.
     body: {
-      bg: 'bg',
+      bg: 'transparent',
       color: 'fg',
       fontFamily: 'body',
       display: 'flex',
@@ -40,7 +43,7 @@ const config = defineConfig({
       '@media (prefers-reduced-motion: no-preference)': { opacity: 0 },
     },
     // Fondo aurora (components/aurora.tsx, lib/aurora.ts). Capa fija detrás de
-    // todo (z-index -1 sobre el fondo del body, que pasa al lienzo), recortada
+    // todo (z-index -1, encima del fondo del html y debajo del body), recortada
     // a la pantalla: sin scroll horizontal ni efecto en el layout. Cada mancha
     // es un gradiente radial que ya nace borroso; se anima solo transform y
     // opacity. Quieta con prefers-reduced-motion.
