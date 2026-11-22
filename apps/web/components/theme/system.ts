@@ -29,6 +29,16 @@ const config = defineConfig({
       minHeight: '100dvh',
     },
     '::selection': { bg: 'brand.accent', color: 'bg' },
+    // Blur-up (components/blur-image.tsx): el contenedor lleva la miniatura
+    // borrosa y la imagen nítida aparece encima con un fundido de opacidad.
+    // Sin movimiento con reduced-motion: ni se oculta ni se anima.
+    '.blur-up': { display: 'block' },
+    '.blur-up > img': {
+      '@media (prefers-reduced-motion: no-preference)': { transition: 'opacity 0.35s ease-out' },
+    },
+    '.blur-up > img[data-blur-loading]': {
+      '@media (prefers-reduced-motion: no-preference)': { opacity: 0 },
+    },
     '.sr-only': {
       position: 'absolute',
       width: '1px',
