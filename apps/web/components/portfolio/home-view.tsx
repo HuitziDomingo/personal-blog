@@ -24,7 +24,8 @@ export function HomeView({ content, latest }: { content: SiteContent; latest: re
   const { profile: text, ui } = content;
 
   return (
-    <Stack gap={{ base: '12', md: '16' }} maxW="3xl" mx="auto">
+    // data-aurora-quieta: la aurora no se anima en la portada (BLOG-151).
+    <Stack gap={{ base: '12', md: '16' }} maxW="3xl" mx="auto" data-aurora-quieta="">
       <Stack gap="6">
         {/* Donde la web anterior tenía el perro 3D (BLOG-077, BLOG-107). */}
         <Box>
