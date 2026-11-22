@@ -1,5 +1,5 @@
 # ADR-025: Despliegue a Producción con Costo Cercano a Cero
-* Estado: Aprobado
+* Estado: Aprobado — parcialmente reemplazado por ADR-030 (puntos 5 y 7)
 * Fecha: 2026-11-19
 * Autor: León Nieves Huitzitzili Domingo
 * Complementa: ADR-005 y ADR-010 (seguridad), ADR-013 y ADR-023 (dependencias), ADR-017 y ADR-020 (web), ADR-021, ADR-022, ADR-026 y ADR-027 (IA)
