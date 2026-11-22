@@ -27,11 +27,10 @@ const (
 	// una imagen de unos cientos de KiB; 2 MiB cubre un PNG de 1024 × 1024.
 	MaxBytes = 2 << 20
 
-	// MinWidth es el ancho mínimo para recortar una portada 16:9 de 1024 × 576
-	// sin estirarla.
-	MinWidth = 1024
-	// MinHeight es el alto mínimo de esa portada.
-	MinHeight = 576
+	// MinCoverShortSide es el mínimo del lado más corto de una portada, en
+	// cualquier orientación. Es provisional: se ajusta con la resolución real
+	// que registre make api-cover-sample (ADR-029, punto 5).
+	MinCoverShortSide = 512
 
 	// maxSide limita el ancho y el alto antes de decodificar los píxeles, para
 	// que una imagen enorme no agote la memoria.
@@ -74,7 +73,7 @@ type Info struct {
 
 // Inspect comprueba, por sus bytes y no por el tipo que declare nadie
 // (ADR-010), que data es un JPEG, PNG o WebP de hasta MaxBytes, de al menos
-// MinWidth × MinHeight y de no más de maxSide por lado.
+// MinCoverShortSide en su lado más corto y de no más de maxSide por lado.
 func Inspect(data []byte) (Info, error) {
 	if len(data) == 0 || len(data) > MaxBytes {
 		return Info{}, fmt.Errorf("%w: %d bytes", ErrInvalidImage, len(data))
@@ -95,8 +94,8 @@ func Inspect(data []byte) (Info, error) {
 		return Info{}, fmt.Errorf("%w: signature says %s but decodes as %s", ErrInvalidImage, format.Name, name)
 	case config.Width > maxSide || config.Height > maxSide:
 		return Info{}, fmt.Errorf("%w: %dx%d is too large", ErrInvalidImage, config.Width, config.Height)
-	case config.Width < MinWidth || config.Height < MinHeight:
-		return Info{}, fmt.Errorf("%w: %dx%d is smaller than %dx%d", ErrInvalidImage, config.Width, config.Height, MinWidth, MinHeight)
+	case min(config.Width, config.Height) < MinCoverShortSide:
+		return Info{}, fmt.Errorf("%w: %dx%d has a side shorter than %d", ErrInvalidImage, config.Width, config.Height, MinCoverShortSide)
 	}
 
 	return Info{Format: format, Width: config.Width, Height: config.Height}, nil
