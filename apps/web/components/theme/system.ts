@@ -1,7 +1,8 @@
 import { createSystem, defaultConfig, defineConfig } from '@chakra-ui/react';
 
+import { AURORA_KEYFRAMES } from '@/lib/aurora';
 import { palette } from '@/lib/brand';
-import { GLASS } from '@/lib/glass';
+import { GLASS, HEADER_GLASS } from '@/lib/glass';
 
 const { light, dark } = palette;
 
@@ -67,8 +68,9 @@ const config = defineConfig({
     // Fondo aurora (components/aurora.tsx, lib/aurora.ts). Capa fija detrás de
     // todo (z-index -1, encima del fondo del html y debajo del body), recortada
     // a la pantalla: sin scroll horizontal ni efecto en el layout. Cada mancha
-    // es un gradiente radial que ya nace borroso; se anima solo transform y
-    // opacity. Quieta con prefers-reduced-motion.
+    // es un gradiente radial que ya nace borroso, con dos capas de tono en
+    // fundido cruzado; se anima solo transform y opacity, nunca filter.
+    // Quieta con prefers-reduced-motion: en su reposo y con su primer tono.
     '.aurora': {
       position: 'fixed',
       inset: '0',
@@ -77,10 +79,13 @@ const config = defineConfig({
       pointerEvents: 'none',
       contain: 'layout paint',
     },
+    // Por debajo de AURORA_MOBILE_MAX_PX (768) vale el alfa de móvil.
     '.aurora > span': {
       position: 'absolute',
-      borderRadius: '50%',
-      background: 'radial-gradient(closest-side, rgb(var(--aurora-rgb) / var(--aurora-alpha-light)), transparent)',
+      '--aurora-alpha': 'var(--aurora-alpha-light)',
+      '--aurora-below': 'var(--aurora-below-light)',
+      '--aurora-above': 'var(--aurora-above-light)',
+      '@media (max-width: 767.98px)': { '--aurora-alpha': 'var(--aurora-alpha-mobile-light)' },
       '@media (prefers-reduced-motion: no-preference)': {
         animationName: 'aurora-deriva',
         animationTimingFunction: 'ease-in-out',
@@ -90,7 +95,31 @@ const config = defineConfig({
       },
     },
     '.dark .aurora > span': {
-      background: 'radial-gradient(closest-side, rgb(var(--aurora-rgb) / var(--aurora-alpha-dark)), transparent)',
+      '--aurora-alpha': 'var(--aurora-alpha-dark)',
+      '--aurora-below': 'var(--aurora-below-dark)',
+      '--aurora-above': 'var(--aurora-above-dark)',
+      '@media (max-width: 767.98px)': { '--aurora-alpha': 'var(--aurora-alpha-mobile-dark)' },
+    },
+    '.aurora > span > i': {
+      position: 'absolute',
+      inset: '0',
+      borderRadius: '50%',
+      '@media (prefers-reduced-motion: no-preference)': {
+        animationDuration: 'var(--aurora-tone-duration)',
+        animationTimingFunction: 'ease-in-out',
+        animationIterationCount: 'infinite',
+        animationDirection: 'alternate',
+        willChange: 'opacity',
+      },
+    },
+    '.aurora > span > i:first-of-type': {
+      background: 'radial-gradient(closest-side, rgb(var(--aurora-below) / var(--aurora-alpha)), transparent)',
+      '@media (prefers-reduced-motion: no-preference)': { animationName: 'aurora-tono-sale' },
+    },
+    '.aurora > span > i:last-of-type': {
+      background: 'radial-gradient(closest-side, rgb(var(--aurora-above) / var(--aurora-alpha)), transparent)',
+      opacity: '0',
+      '@media (prefers-reduced-motion: no-preference)': { animationName: 'aurora-tono-entra' },
     },
     // Vidrio selectivo (BLOG-149, lib/glass.ts): solo en lo que flota sobre la
     // aurora. Tinte semitransparente de la superficie de la marca, desenfoque
@@ -133,10 +162,14 @@ const config = defineConfig({
       // desplazamiento de cada mancha. La opacidad máxima (1) es la del test
       // de contraste de lib/aurora.ts.
       'aurora-deriva': {
-        '0%': { transform: 'translate3d(0, 0, 0) scale(1)', opacity: '0.75' },
-        '50%': { opacity: '1' },
-        '100%': { transform: 'translate3d(var(--aurora-dx), var(--aurora-dy), 0) scale(var(--aurora-scale))', opacity: '0.85' },
+        '0%': { transform: 'translate3d(0, 0, 0) scale(1)', opacity: String(AURORA_KEYFRAMES.start) },
+        '50%': { opacity: String(AURORA_KEYFRAMES.peak) },
+        '100%': { transform: 'translate3d(var(--aurora-dx), var(--aurora-dy), 0) scale(var(--aurora-scale))', opacity: String(AURORA_KEYFRAMES.end) },
       },
+      // Cambio de tono de cada mancha: la capa de abajo se va mientras llega
+      // la de arriba, con la misma curva y duración (fundido cruzado).
+      'aurora-tono-sale': { from: { opacity: '1' }, to: { opacity: '0' } },
+      'aurora-tono-entra': { from: { opacity: '0' }, to: { opacity: '1' } },
     },
     tokens: {
       fonts: {
@@ -163,7 +196,7 @@ const config = defineConfig({
           accent: mode(light.accent, dark.accent),
           surface: mode(light.surface, dark.surface),
           code: mode(light.code, dark.code),
-          header: mode('rgba(240, 231, 219, 0.82)', 'rgba(32, 32, 35, 0.82)'),
+          header: mode(rgba(HEADER_GLASS.tint.light.color, HEADER_GLASS.tint.light.alpha), rgba(HEADER_GLASS.tint.dark.color, HEADER_GLASS.tint.dark.alpha)),
         },
       },
     },

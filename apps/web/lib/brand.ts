@@ -1,7 +1,9 @@
 /**
  * Colores de marca de la web anterior (fondo crema y carbón, links azul y
  * rosa, acento turquesa `glassTeal`), ajustados para contraste AA. El azul
- * original (#3d7aed) da 3,3:1 sobre el crema; este da más de 5:1.
+ * original (#3d7aed) da 3,3:1 sobre el crema; este da más de 5:1. El rosa
+ * del modo oscuro sube de #ff63c3 a #ff71c8 para pasar AA sobre la aurora v2
+ * (BLOG-150).
  */
 export const palette = {
   light: {
@@ -21,7 +23,7 @@ export const palette = {
     border: '#3a3a40',
     fg: '#f0e7db',
     muted: '#a9a39b',
-    link: '#ff63c3',
+    link: '#ff71c8',
     accent: '#88ccca',
   },
 } as const;
