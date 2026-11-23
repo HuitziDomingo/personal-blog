@@ -14,9 +14,10 @@ const (
 	// el plan gratuito de Gemini.
 	defaultRAGEmbeddingModel = "gemini-embedding-2"
 	// defaultRAGMinScore sale de make api-rag-eval con gemini-embedding-2
-	// (BLOG-155): con 0.65 las 11 consultas siguen encontrando su post y se
-	// descartan 8 de los 13 fragmentos de otros posts del top-4.
-	defaultRAGMinScore          = 0.65
+	// (BLOG-155): con 0.60 las 11 consultas siguen encontrando su post con
+	// margen (el más bajo fue 0.696). Se vuelve a medir con posts reales
+	// (BLOG-156).
+	defaultRAGMinScore          = 0.60
 	defaultRAGChunkMaxChars     = 800
 	defaultRAGTimeoutSeconds    = 10
 	defaultRAGIndexTimeoutSecs  = 30
