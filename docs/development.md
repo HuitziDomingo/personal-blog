@@ -669,15 +669,28 @@ rm cookies.txt
 
 `cookies.txt` contiene tokens válidos: no lo subas a git y bórralo al terminar.
 
-## Despliegue (ADR-025)
+## Despliegue (ADR-025 y ADR-030)
 
 Nada está en producción todavía. Lo que ya está en el repo:
 
-- **`.github/workflows/deploy-api.yml`:** despliega la API a Cloud Run cuando el workflow `ci` termina en verde para un push a `main` que cambió `services/api/`. Espera la aprobación de León en el environment `production` y se autentica con Workload Identity Federation (sin llaves JSON).
-- **`.github/workflows/backup-mongo.yml`:** `mongodump` semanal (y a mano) a un bucket privado, con la URI leída de Secret Manager al ejecutarse.
+- **`.github/workflows/deploy-api.yml`:** solo a mano (`workflow_dispatch`, ADR-030). Desde `main` y con el check `ci` del commit en verde, despliega la API a Cloud Run (`target: api`) o el job de respaldo (`target: backup-job`). Espera la aprobación de León en el environment `production` y se autentica con Workload Identity Federation (sin llaves JSON).
+- **`services/api/deploy/backup/`:** imagen del Cloud Run Job `mongo-backup` (`mongodump` semanal a un bucket privado, con la URI de Secret Manager) y `scheduler.sh`, la definición de Cloud Scheduler que aplica León.
 - **`services/api/deploy/production.env.yaml`:** variables no secretas de la API en producción. El workflow las aplica completas en cada despliegue; los secretos vienen de Secret Manager.
 - **[`docs/runbooks/despliegue.md`](runbooks/despliegue.md):** los pasos manuales en GCP, Atlas, Vercel, DreamHost y GitHub, la verificación del primer despliegue y la reversión.
-- **[`docs/runbooks/variables-produccion.md`](runbooks/variables-produccion.md):** las variables de cada app en producción y de dónde salen.
+- **[`docs/deploy/variables.md`](deploy/variables.md):** todas las variables de cada app, su propósito y de dónde salen en producción. `make api-test` comprueba que los nombres de la API coincidan con el código.
+- **`scripts/smoke.sh`:** smoke test de una API desplegada (ver abajo).
+
+### Ensayo del despliegue en local
+
+La imagen de producción contra el Mongo local, sin tocar la nube ni el `.env`:
+
+```sh
+make api-docker-build                       # imagen personal-blog-api
+API_URL=http://127.0.0.1:<puerto> ORIGIN=<origen permitido> \
+  SMOKE_ADMIN_EMAIL=<admin> SMOKE_ADMIN_PASSWORD=<contraseña> scripts/smoke.sh
+```
+
+`scripts/smoke.sh` prueba `/health`, `/ready`, las cabeceras de seguridad, el listado de posts y un post, el CV y su descarga, y que otro origen no pueda cambiar estado. Con un admin, además crea y publica un post, sube un CV, envía un comentario y lo aprueba (si `COMMENTS_ENABLED`), y consulta el estado del RAG. Sale con código distinto de 0 si algo falla. Contra producción, solo `--read-only` (el workflow lo corre así después de cada despliegue).
 
 Para validar los workflows en local (sin instalar nada en el repo):
 

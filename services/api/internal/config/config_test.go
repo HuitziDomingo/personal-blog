@@ -239,9 +239,34 @@ func TestLoadFailsWhenRequiredVariableIsMissing(t *testing.T) {
 
 			_, err := Load()
 
-			require.ErrorContains(t, err, "missing required environment variable "+key)
+			require.EqualError(t, err, "missing required environment variables: "+key)
 		})
 	}
+}
+
+// Con todo el entorno vacío, el error nombra todas las obligatorias juntas y
+// ningún valor: así se arreglan en un solo intento de despliegue.
+func TestLoadNamesEveryMissingRequiredVariable(t *testing.T) {
+	setRequiredEnv(t)
+	t.Setenv("MONGO_URI", "")
+	t.Setenv("JWT_SECRET", "")
+
+	_, err := Load()
+
+	require.EqualError(t, err, "missing required environment variables: MONGO_URI, JWT_SECRET")
+}
+
+// Un JWT_SECRET demasiado corto falla sin aparecer en el error.
+func TestLoadNeverPrintsSecretValues(t *testing.T) {
+	setRequiredEnv(t)
+	t.Setenv("JWT_SECRET", "short-secret-value")
+	t.Setenv("MONGO_URI", "mongodb://user:S3CRET@localhost:27017")
+
+	_, err := Load()
+
+	require.Error(t, err)
+	assert.NotContains(t, err.Error(), "short-secret-value")
+	assert.NotContains(t, err.Error(), "S3CRET")
 }
 
 func TestLoadUsesDefaultPortWhenUnset(t *testing.T) {

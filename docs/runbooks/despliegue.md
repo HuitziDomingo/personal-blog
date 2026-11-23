@@ -1,8 +1,8 @@
-# Runbook: despliegue a producción (ADR-025)
+# Runbook: despliegue a producción (ADR-025 y ADR-030)
 
 Pasos manuales que hace León, en orden. Ningún agente ejecuta nada de esto (ADR-025, punto 14). Los comandos usan placeholders entre `<>`; ninguno lleva valores secretos. Los secretos se escriben siempre por la entrada estándar (`read -rs`), nunca en la línea de comandos, para que no queden en el historial de la shell.
 
-Variables de entorno de cada app: [variables-produccion.md](variables-produccion.md).
+Variables de entorno de cada app, con su propósito y origen: [docs/deploy/variables.md](../deploy/variables.md).
 
 ## Placeholders
 
@@ -45,7 +45,8 @@ gcloud services enable \
   sts.googleapis.com \
   storage.googleapis.com \
   monitoring.googleapis.com \
-  billingbudgets.googleapis.com
+  billingbudgets.googleapis.com \
+  cloudscheduler.googleapis.com
 ```
 
 ## 3. Presupuesto ($5 USD al mes)
@@ -72,7 +73,7 @@ Tres, cada una con lo mínimo (ADR-025, punto 7):
 ```sh
 gcloud iam service-accounts create api-deploy  --display-name="Deploy de la API (GitHub Actions)"
 gcloud iam service-accounts create api-runtime --display-name="Ejecución de la API (Cloud Run)"
-gcloud iam service-accounts create mongo-backup --display-name="Respaldo de Mongo (GitHub Actions)"
+gcloud iam service-accounts create mongo-backup --display-name="Respaldo de Mongo (Cloud Run Job)"
 
 export DEPLOY_SA="api-deploy@$PROJECT_ID.iam.gserviceaccount.com"
 export RUNTIME_SA="api-runtime@$PROJECT_ID.iam.gserviceaccount.com"
@@ -83,11 +84,12 @@ export BACKUP_SA="mongo-backup@$PROJECT_ID.iam.gserviceaccount.com"
 |---|---|---|
 | `api-deploy` | `roles/run.developer` | Proyecto (crea y actualiza el servicio; no puede cambiar su IAM) |
 | | `roles/artifactregistry.writer` | Solo el repositorio `api` (paso 6) |
-| | `roles/iam.serviceAccountUser` | Solo sobre `api-runtime` (para desplegar con ella) |
+| | `roles/iam.serviceAccountUser` | Solo sobre `api-runtime` y `mongo-backup` (para desplegar el servicio y el job con ellas) |
 | `api-runtime` | `roles/secretmanager.secretAccessor` | Solo cada secreto que usa (paso 7) |
 | | `roles/storage.objectUser` | Solo `<FILES_BUCKET>` (paso 8) |
 | `mongo-backup` | `roles/secretmanager.secretAccessor` | Solo `mongo-uri` |
 | | `roles/storage.objectCreator` | Solo `<BACKUP_BUCKET>`: crea respaldos, no puede leerlos ni borrarlos |
+| | `roles/run.invoker` | Solo el job `mongo-backup` (paso 17): Cloud Scheduler lo ejecuta con esta cuenta |
 
 `api-deploy` no tiene acceso a ningún secreto. `--set-secrets` solo guarda la referencia; quien lee el valor es `api-runtime` al arrancar.
 
@@ -96,6 +98,9 @@ gcloud projects add-iam-policy-binding "$PROJECT_ID" \
   --member="serviceAccount:$DEPLOY_SA" --role=roles/run.developer --condition=None
 
 gcloud iam service-accounts add-iam-policy-binding "$RUNTIME_SA" \
+  --member="serviceAccount:$DEPLOY_SA" --role=roles/iam.serviceAccountUser
+
+gcloud iam service-accounts add-iam-policy-binding "$BACKUP_SA" \
   --member="serviceAccount:$DEPLOY_SA" --role=roles/iam.serviceAccountUser
 ```
 
@@ -118,7 +123,7 @@ gcloud iam workload-identity-pools providers create-oidc personal-blog \
   --attribute-condition="assertion.repository_id=='<GITHUB_REPO_ID>' && assertion.ref=='refs/heads/main'"
 ```
 
-La condición deja pasar solo tokens de este repo (por id, que no cambia aunque se renombre) y de `main`. Cada cuenta de servicio, además, acepta un solo `subject`, el del environment de GitHub de su workflow:
+La condición deja pasar solo tokens de este repo (por id, que no cambia aunque se renombre) y de `main`. La cuenta de despliegue, además, acepta un solo `subject`, el del environment `production` de GitHub. El respaldo ya no usa WIF: es un Cloud Run Job con su propia cuenta (ADR-030).
 
 ```sh
 export POOL="projects/<PROJECT_NUMBER>/locations/global/workloadIdentityPools/github"
@@ -127,9 +132,6 @@ gcloud iam service-accounts add-iam-policy-binding "$DEPLOY_SA" \
   --role=roles/iam.workloadIdentityUser \
   --member="principal://iam.googleapis.com/$POOL/subject/repo:HuitziDomingo/personal-blog:environment:production"
 
-gcloud iam service-accounts add-iam-policy-binding "$BACKUP_SA" \
-  --role=roles/iam.workloadIdentityUser \
-  --member="principal://iam.googleapis.com/$POOL/subject/repo:HuitziDomingo/personal-blog:environment:backup"
 ```
 
 Nombre completo del provider (va en la variable de GitHub `GCP_WIF_PROVIDER`):
@@ -204,7 +206,7 @@ gcloud storage buckets add-iam-policy-binding gs://<FILES_BUCKET> \
   --member="serviceAccount:$RUNTIME_SA" --role=roles/storage.objectUser
 ```
 
-La API lo usa con `FILES_STORE=gcs` y `FILES_GCS_BUCKET=<FILES_BUCKET>` (pendiente de merge de #148; agrégalas a `services/api/deploy/production.env.yaml` al mergearlo). `FILES_GCS_PUBLIC_URL` se deja sin definir: las URLs públicas salen de `https://storage.googleapis.com`. La API se autentica con la cuenta `api-runtime` de Cloud Run (Application Default Credentials), sin llaves.
+La API lo usa con `FILES_STORE=gcs` (ya en `services/api/deploy/production.env.yaml`) y `FILES_GCS_BUCKET=<FILES_BUCKET>`, que el workflow agrega desde la variable de GitHub `FILES_GCS_BUCKET` (paso 10). Sin esa variable el workflow no despliega. `FILES_GCS_PUBLIC_URL` se deja sin definir: las URLs públicas salen de `https://storage.googleapis.com`. La API se autentica con la cuenta `api-runtime` de Cloud Run (Application Default Credentials), sin llaves.
 
 > **Pendiente de decisión de León (ADR-028, punto 6):** GCS **no envía `X-Content-Type-Options: nosniff`** en los objetos públicos, y no hay forma de agregar esa cabecera desde los metadatos del objeto. El `Content-Type: application/pdf` sí se fija al subir y el archivo se sirve desde `storage.googleapis.com`, aislado de `huitzi.xyz` y `admin.huitzi.xyz`, que es la defensa principal. Opciones: aceptar el riesgo y corregir ADR-028 con un ADR nuevo, o servir los archivos a través de algo que sí ponga la cabecera (la propia API o un balanceador; este último cuesta unos $18 USD al mes, ADR-025). Compruébalo tras el primer PDF: `curl -sSI https://storage.googleapis.com/<FILES_BUCKET>/cv/<archivo>.pdf`.
 
@@ -239,8 +241,9 @@ Los respaldos usan la misma URI; `readWrite` incluye la lectura que necesita `mo
 
 **Settings → Environments:**
 
-- `production`: *Required reviewers* = León; *Deployment branches* = solo `main`. Cada despliegue de la API espera tu aprobación.
-- `backup`: sin reviewers; *Deployment branches* = solo `main`. Solo existe para que el token del respaldo tenga su propio `subject` (paso 5).
+- `production`: *Required reviewers* = León; *Deployment branches* = solo `main`. Cada despliegue (de la API o del job de respaldo) espera tu aprobación.
+
+Ya no hace falta el environment `backup` (ADR-030). Si lo creaste, bórralo.
 
 **Settings → Secrets and variables → Actions → Variables** (no son secretas; nada va en *Secrets*):
 
@@ -251,6 +254,7 @@ Los respaldos usan la misma URI; `readWrite` incluye la lectura que necesita `mo
 | `GCP_DEPLOY_SA` | `api-deploy@<PROJECT_ID>.iam.gserviceaccount.com` |
 | `GCP_RUNTIME_SA` | `api-runtime@<PROJECT_ID>.iam.gserviceaccount.com` |
 | `GCP_BACKUP_SA` | `mongo-backup@<PROJECT_ID>.iam.gserviceaccount.com` |
+| `FILES_GCS_BUCKET` | `<FILES_BUCKET>` |
 | `GCP_ARTIFACT_REPO` | `api` |
 | `GCP_BACKUP_BUCKET` | `<BACKUP_BUCKET>` |
 | `CLOUD_RUN_SERVICE` | `api` |
@@ -258,8 +262,8 @@ Los respaldos usan la misma URI; `readWrite` incluye la lectura que necesita `mo
 
 ## 11. Primer despliegue de la API
 
-1. Haz cualquier cambio en `services/api/` (o vuelve a correr el workflow `deploy-api` desde una corrida anterior) para que se dispare tras el CI verde en `main`.
-2. Aprueba el job `deploy` en *Actions → deploy-api* (environment `production`).
+1. *Actions → deploy-api → Run workflow*, rama `main`, `target` = `api` (ADR-030: nunca se dispara solo). El job `check` comprueba que el `ci` de ese commit esté en verde.
+2. Aprueba el job `deploy` (environment `production`). Al terminar corre `scripts/smoke.sh --read-only` contra el servicio.
 3. El servicio nace privado. Ábrelo a internet una sola vez (la cuenta de despliegue no puede cambiar el IAM del servicio, a propósito):
 
    ```sh
@@ -312,7 +316,7 @@ Dos proyectos, plan Hobby, importados del mismo repo (ADR-025, punto 6):
 | Node.js | 24.x | 24.x |
 | Production Branch | `main` | `main` |
 | Dominio | `huitzi.xyz` (y `www` con redirección) | `admin.huitzi.xyz` |
-| Variables (Production) | ver [variables-produccion.md](variables-produccion.md) | ninguna: la URL de la API está en `angular.json` |
+| Variables (Production) | ver [docs/deploy/variables.md](../deploy/variables.md#web-vercel-proyecto-appsweb) | ninguna: la URL de la API está en `angular.json` |
 
 **Previews sin la API de producción (ADR-025, punto 6).** No hay API de staging, así que lo más simple es no construir previews. En cada proyecto, *Settings → Git → Ignored Build Step*, comando:
 
@@ -351,16 +355,30 @@ Con `min-instances=0`, cada chequeo puede despertar una instancia. Con 15 minuto
 
 Crea una alerta sobre ese chequeo en *Monitoring → Alerting* con notificación por email.
 
-## 17. Respaldo
+## 17. Respaldo (Cloud Run Job, ADR-030)
 
-1. Corre el workflow `backup-mongo` a mano (*Actions → backup-mongo → Run workflow*).
-2. Comprueba el archivo: `gcloud storage ls -l gs://<BACKUP_BUCKET>/`.
-3. Prueba restaurarlo en tu Mongo local una vez (ver **Reversión → Base de datos**).
+1. *Actions → deploy-api → Run workflow*, rama `main`, `target` = `backup-job`, y aprueba el job. Crea o actualiza el Cloud Run Job `mongo-backup` (imagen de `services/api/deploy/backup/`); no lo ejecuta.
+2. Programación semanal (domingos 09:00 UTC), una sola vez:
+
+   ```sh
+   PROJECT_ID="$PROJECT_ID" sh services/api/deploy/backup/scheduler.sh
+   ```
+
+3. Primera ejecución a mano y comprobación:
+
+   ```sh
+   gcloud run jobs execute mongo-backup --region="$REGION" --wait
+   gcloud storage ls -l gs://<BACKUP_BUCKET>/
+   ```
+
+4. Prueba restaurarlo en tu Mongo local una vez (ver **Reversión → Base de datos**).
+
+El historial de ejecuciones queda en *Cloud Run → Jobs → mongo-backup*; agrega una alerta de log en *Monitoring → Alerting* para las ejecuciones fallidas.
 
 ## 18. Verificación del primer despliegue (BLOG-041)
 
 1. **Salud:** `curl -sS https://api.huitzi.xyz/health`.
-2. **IP del cliente y `TRUSTED_PROXIES`:** con `TRUSTED_PROXIES` vacía, la API usa la IP del socket, que en Cloud Run es la del frontend de Google, no la tuya. Haz unas peticiones y revisa en Cloud Logging el campo `remoteIp` del log de acceso (`accesslog.go`):
+2. **IP del cliente y `TRUSTED_PROXIES`:** con `TRUSTED_PROXIES` vacía, la API usa la IP del socket, que en Cloud Run es la del frontend de Google, no la tuya. Haz unas peticiones y revisa en Cloud Logging el campo `remoteIp` del log de acceso (`accesslog.go`; va truncado a /24 en IPv4 y /48 en IPv6, para no guardar datos personales, pero alcanza para ver de qué red llega):
    - si todas salen con la misma IP interna, el rate limit por IP está agrupando a todos los clientes;
    - decide el rango de confianza según lo que veas (por ejemplo, el de los frontends de Google) y ponlo en `TRUSTED_PROXIES` en `services/api/deploy/production.env.yaml`, en un PR. No confíes en `X-Forwarded-For` sin ese rango: cualquiera podría falsificar su IP.
 3. **Cookies:** inicia sesión en `https://admin.huitzi.xyz` y revisa en DevTools que `access_token` y `refresh_token` lleguen con `Secure`, `HttpOnly`, `SameSite=Strict` y el dominio y path esperados (ADR-005).

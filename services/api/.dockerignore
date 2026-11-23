@@ -10,3 +10,4 @@ oapi-codegen.yaml
 **/*_test.go
 tmp/
 .air.toml
+deploy/

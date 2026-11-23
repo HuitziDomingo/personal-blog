@@ -98,8 +98,20 @@ type Config struct {
 	GinMode string
 }
 
+// AlwaysRequired son las variables sin las que la API nunca arranca. Las que
+// dependen de una función encendida (GEMINI_API_KEY con el asistente,
+// FILES_GCS_BUCKET con FILES_STORE=gcs…) se validan con su función.
+var AlwaysRequired = []string{"MONGO_URI", "MONGO_DB_NAME", "JWT_SECRET"}
+
 // Load lee la configuración del entorno y devuelve un error si no es válida.
+// Primero comprueba todas las variables de AlwaysRequired juntas, para que el
+// error las nombre todas de una vez. Los errores nombran variables, nunca
+// valores secretos.
 func Load() (Config, error) {
+	if missing := missingVars(AlwaysRequired); len(missing) > 0 {
+		return Config{}, fmt.Errorf("missing required environment variables: %s", strings.Join(missing, ", "))
+	}
+
 	port, err := loadPort()
 	if err != nil {
 		return Config{}, err
@@ -425,6 +437,19 @@ func isValidProxy(proxy string) bool {
 	ones, _ := network.Mask.Size()
 
 	return ones > 0
+}
+
+// missingVars devuelve, en orden, las variables que no están definidas o están
+// vacías.
+func missingVars(keys []string) []string {
+	var missing []string
+	for _, key := range keys {
+		if value, ok := os.LookupEnv(key); !ok || value == "" {
+			missing = append(missing, key)
+		}
+	}
+
+	return missing
 }
 
 // required devuelve el valor de una variable obligatoria o un error si falta.

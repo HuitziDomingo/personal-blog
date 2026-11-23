@@ -45,6 +45,9 @@ func TestAccessLogWritesCloudLoggingHTTPRequest(t *testing.T) {
 	assert.Equal(t, "test-agent", httpRequest["userAgent"])
 	assert.Regexp(t, `^\d+\.\d{6}s$`, httpRequest["latency"])
 	assert.NotContains(t, out.String(), "secret-cookie")
+	// httptest usa 192.0.2.1 como IP del cliente: en el log queda truncada.
+	assert.Equal(t, "192.0.2.0", httpRequest["remoteIp"])
+	assert.NotContains(t, out.String(), "192.0.2.1")
 
 	out.Reset()
 	router.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/boom", nil))
@@ -113,4 +116,18 @@ func TestPanicsAreNotDumpedWithTheRequestHeaders(t *testing.T) {
 
 	assert.Equal(t, http.StatusInternalServerError, rec.Code)
 	assert.NotContains(t, out.String(), "secret-cookie")
+}
+
+func TestAnonymizeIP(t *testing.T) {
+	cases := map[string]string{
+		"203.0.113.57":          "203.0.113.0",
+		"::ffff:203.0.113.57":   "203.0.113.0",
+		"2001:db8:1234:5678::1": "2001:db8:1234::",
+		"fe80::1%eth0":          "fe80::",
+		"":                      "",
+		"not-an-ip":             "",
+	}
+	for ip, want := range cases {
+		assert.Equal(t, want, anonymizeIP(ip), ip)
+	}
 }
