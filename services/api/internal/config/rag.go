@@ -16,7 +16,7 @@ const (
 	// defaultRAGMinScore sale de make api-rag-eval con gemini-embedding-2
 	// (BLOG-155): con 0.60 las 11 consultas siguen encontrando su post con
 	// margen (el más bajo fue 0.696). Se vuelve a medir con posts reales
-	// (BLOG-156).
+	// (BLOG-157).
 	defaultRAGMinScore          = 0.60
 	defaultRAGChunkMaxChars     = 800
 	defaultRAGTimeoutSeconds    = 10
