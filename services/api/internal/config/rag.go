@@ -13,9 +13,10 @@ const (
 	// defaultRAGEmbeddingModel es GA desde el 22 de abril de 2026 y está en
 	// el plan gratuito de Gemini.
 	defaultRAGEmbeddingModel = "gemini-embedding-2"
-	// defaultRAGMinScore es un punto de partida: se ajusta con el set de
-	// evaluación (make api-rag-eval).
-	defaultRAGMinScore          = 0.55
+	// defaultRAGMinScore sale de make api-rag-eval con gemini-embedding-2
+	// (BLOG-155): con 0.65 las 11 consultas siguen encontrando su post y se
+	// descartan 8 de los 13 fragmentos de otros posts del top-4.
+	defaultRAGMinScore          = 0.65
 	defaultRAGChunkMaxChars     = 800
 	defaultRAGTimeoutSeconds    = 10
 	defaultRAGIndexTimeoutSecs  = 30
