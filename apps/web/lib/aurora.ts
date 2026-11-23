@@ -4,9 +4,14 @@
  * que se desplazan y se cruzan despacio. Los datos viven aquí, sin React ni CSS, para que el test de
  * contraste mida exactamente lo que se pinta.
  *
- * - Cada mancha es un `radial-gradient(closest-side, color, transparent)`: ya
- *   nace borrosa, sin `filter`. Su opacidad cae en línea recta del centro
- *   (`alpha`) al borde (0).
+ * - Cada mancha es un `radial-gradient(closest-side, …)`: ya nace borrosa,
+ *   sin `filter`. Su opacidad cae del centro (`alpha`) al borde (0) con la
+ *   curva `falloff`, en `FALLOFF` paradas (BLOG-156).
+ * - Arriba, un resplandor ESTÁTICO (`AURORA_GLOW_OVALS`, BLOG-156): óvalos
+ *   de tonos algo más saturados que se apagan antes de `AURORA_GLOW_MAX_VH`,
+ *   con el alfa de `AURORA_GLOW_ALPHA`.
+ * - Encima de todo, un grano estático muy tenue (`AURORA_GRAIN`) que rompe
+ *   las bandas de los degradados.
  * - Cada mancha tiene un solo tono (`tone`): sin cambio de tono, que
  *   costaba una capa compuesta más por mancha (BLOG-151).
  * - En móvil (< `AURORA_MOBILE_MAX_PX`) solo se pintan las manchas con
@@ -51,6 +56,38 @@ export interface AuroraBlob {
   duration: number;
 }
 
+/**
+ * Caída de la opacidad de una mancha o de un óvalo del resplandor, del
+ * centro (t = 0) al borde (t = 1): el núcleo triweight (1 − t²)³, parecido a
+ * una gaussiana, con pendiente cero en el centro y en el borde: no deja
+ * bordes ni anillos (BLOG-156).
+ */
+export function falloff(t: number): number {
+  if (t >= 1) return 0;
+  const u = 1 - t * t;
+
+  return u * u * u;
+}
+
+/** Paradas del degradado `[posición 0–1, fracción del alfa]`, redondeadas como se escriben en CSS. */
+export const FALLOFF: readonly (readonly [number, number])[] = Array.from({ length: 9 }, (_, i) => {
+  const t = i / 8;
+
+  return [t, Math.round(falloff(t) * 1000) / 1000] as const;
+});
+
+/** Lo que pinta el navegador con `FALLOFF`: interpolación lineal entre paradas. */
+export function falloffCss(t: number): number {
+  if (t >= 1) return 0;
+  const segments = FALLOFF.length - 1;
+  const i = Math.floor(t * segments);
+  const f = t * segments - i;
+  const a = FALLOFF[i]?.[1] ?? 0;
+  const b = FALLOFF[i + 1]?.[1] ?? 0;
+
+  return a * (1 - f) + b * f;
+}
+
 export const TONES = {
   ambar: { name: 'ambar', light: '#ffd25a', dark: '#7a3d00' },
   coral: { name: 'coral', light: '#ffc4a3', dark: '#82200f' },
@@ -67,6 +104,77 @@ export const AURORA_BLOBS: readonly AuroraBlob[] = [
   { name: 'derecha', tone: ambar, mobile: false, alpha: { light: 0.5, dark: 0.45, mobileLight: 0.5, mobileDark: 0.45 }, size: 50, maxSizeVh: 80, x: 98, y: 50, drift: -12, rise: 8, scale: 1.08, duration: 27 },
   { name: 'abajo-centro', tone: violeta, mobile: true, alpha: { light: 0.5, dark: 0.45, mobileLight: 0.5, mobileDark: 0.45 }, size: 62, maxSizeVh: 92, x: 46, y: 112, drift: 10, rise: -10, scale: 1.1, duration: 16 },
 ];
+
+/** Óvalo del resplandor superior: centro en vw/vh y radios en vw/vh. */
+export interface GlowOval {
+  name: string;
+  tone: AuroraTone;
+  x: number;
+  y: number;
+  rx: number;
+  ry: number;
+}
+
+/** Tonos del resplandor: los de las manchas, algo más saturados (BLOG-156). */
+export const GLOW_TONES = {
+  ambar: { name: 'ambar', light: '#ffc640', dark: '#8f4600' },
+  magenta: { name: 'magenta', light: '#ffa8d4', dark: '#940a57' },
+  violeta: { name: 'violeta', light: '#c6b0ff', dark: '#4a1cc4' },
+} as const satisfies Record<string, AuroraTone>;
+
+/** El resplandor no llega por debajo de este alto, en vh. */
+export const AURORA_GLOW_MAX_VH = 45;
+
+/** De abajo arriba en el orden de pintado. */
+export const AURORA_GLOW_OVALS: readonly GlowOval[] = [
+  { name: 'centro', tone: GLOW_TONES.ambar, x: 50, y: -6, rx: 42, ry: 44 },
+  { name: 'izquierda', tone: GLOW_TONES.magenta, x: 14, y: -4, rx: 40, ry: 42 },
+  { name: 'derecha', tone: GLOW_TONES.violeta, x: 86, y: -4, rx: 40, ry: 42 },
+];
+
+export interface GlowAlpha {
+  light: number;
+  dark: number;
+  mobileLight: number;
+  mobileDark: number;
+}
+
+/**
+ * Alfa del centro de cada óvalo del resplandor: la variante B, la media de
+ * las tres que se compararon (BLOG-156). El máximo que pasa el test de
+ * contraste es 0,60 en claro (link sobre el óvalo violeta) y 0,45 en oscuro
+ * (texto atenuado sobre el centro).
+ */
+export const AURORA_GLOW_ALPHA: GlowAlpha = { light: 0.42, dark: 0.32, mobileLight: 0.42, mobileDark: 0.32 };
+
+export function glowAlphaFor(mode: AuroraMode, viewportWidth: number): number {
+  const alpha = AURORA_GLOW_ALPHA;
+  const mobile = viewportWidth < AURORA_MOBILE_MAX_PX;
+  if (mode === 'light') return mobile ? alpha.mobileLight : alpha.light;
+
+  return mobile ? alpha.mobileDark : alpha.dark;
+}
+
+/** Fracción del alfa del óvalo en el punto (px, py) de una pantalla de w × h px. */
+export function glowCoverage(oval: GlowOval, px: number, py: number, w: number, h: number): number {
+  const rx = (oval.rx * w) / 100;
+  const ry = (oval.ry * h) / 100;
+
+  return falloffCss(Math.hypot((px - (oval.x * w) / 100) / rx, (py - (oval.y * h) / 100) / ry));
+}
+
+/**
+ * Grano estático (BLOG-156): un mosaico de `size` px (scripts/build-grain.ts)
+ * en que cada píxel es blanco o negro con un alfa al azar, pintado con
+ * `opacity` encima de las manchas. Basta para romper las bandas de 1/255 de
+ * los degradados sin verse como textura. Su peor caso (un píxel blanco o
+ * negro opaco) entra en el test de contraste.
+ */
+export const AURORA_GRAIN = {
+  src: '/img/aurora-grano.png',
+  size: 128,
+  opacity: { light: 0.012, dark: 0.006 },
+} as const;
 
 /** Por debajo de este ancho (el `md` de Chakra, 48em) vale el alfa de móvil. */
 export const AURORA_MOBILE_MAX_PX = 768;
@@ -129,7 +237,7 @@ export function maxCoverage(blob: AuroraBlob, px: number, py: number, w: number,
     const cy = blob.y * vh + blob.rise * vh * progress;
     const r = radius * (1 + (blob.scale - 1) * progress);
 
-    return opacity * Math.max(0, 1 - Math.hypot(px - cx, py - cy) / r);
+    return opacity * falloffCss(Math.hypot(px - cx, py - cy) / r);
   };
 
   let max = cover(0, 1);
@@ -172,9 +280,28 @@ export function visibleBlobs(w: number): readonly AuroraBlob[] {
  * Medir en el extremo de cada canal es del lado seguro: no todas las esquinas
  * de la caja se dan a la vez.
  */
-export function colorBox(bg: string, mode: AuroraMode, px: number, py: number, w: number, h: number): ColorBox {
+export function colorBox(
+  bg: string,
+  mode: AuroraMode,
+  px: number,
+  py: number,
+  w: number,
+  h: number,
+): ColorBox {
   const lo = [...parseHex(bg)];
   const hi = [...lo];
+
+  // El resplandor es estático: un solo color encima del lienzo.
+  const glowAlpha = glowAlphaFor(mode, w);
+  for (const oval of AURORA_GLOW_OVALS) {
+    const a = glowCoverage(oval, px, py, w, h) * glowAlpha;
+    if (a === 0) continue;
+    const tone = parseHex(oval.tone[mode]);
+    for (let c = 0; c < 3; c++) {
+      lo[c] = (lo[c] ?? 0) * (1 - a) + (tone[c as 0]) * a;
+      hi[c] = (hi[c] ?? 0) * (1 - a) + (tone[c as 0]) * a;
+    }
+  }
 
   for (const blob of visibleBlobs(w)) {
     const a = maxCoverage(blob, px, py, w, h) * alphaFor(blob, mode, w);
@@ -187,7 +314,55 @@ export function colorBox(bg: string, mode: AuroraMode, px: number, py: number, w
     }
   }
 
+  // El grano, encima de todo: cada píxel puede ir de negro a blanco.
+  const grain = AURORA_GRAIN.opacity[mode];
+  for (let c = 0; c < 3; c++) {
+    lo[c] = (lo[c] ?? 0) * (1 - grain);
+    hi[c] = (hi[c] ?? 0) * (1 - grain) + grain;
+  }
+
   return { lo: lo as unknown as Rgb, hi: hi as unknown as Rgb };
+}
+
+function cssRgb(hex: string): string {
+  return [1, 3, 5].map((i) => Number.parseInt(hex.slice(i, i + 2), 16)).join(' ');
+}
+
+function pct(t: number): string {
+  return `${String(Math.round(t * 1000) / 10)}%`;
+}
+
+/** Degradado de una mancha: lee el tono y el alfa de variables CSS. */
+export function blobGradient(toneVar: string, alphaVar: string): string {
+  const stops = FALLOFF.map(([t, g]) => `rgb(var(${toneVar}) / calc(var(${alphaVar}) * ${String(g)})) ${pct(t)}`);
+
+  return `radial-gradient(closest-side, ${stops.join(', ')})`;
+}
+
+/** Variable CSS con el tono (`r g b`) de un óvalo del resplandor. */
+export function glowToneVar(oval: GlowOval): `--${string}` {
+  return `--aurora-glow-${oval.name}`;
+}
+
+/** Tonos del resplandor de un modo, como variables CSS. */
+export function glowToneVars(mode: AuroraMode): Record<`--${string}`, string> {
+  return Object.fromEntries(AURORA_GLOW_OVALS.map((oval) => [glowToneVar(oval), cssRgb(oval.tone[mode])]));
+}
+
+/**
+ * Fondo del resplandor, escrito una sola vez: los tonos y el alfa salen de
+ * variables CSS (`glowToneVars` y `--aurora-glow-alpha`), que cambian por
+ * modo y ancho. El primer óvalo de la lista va arriba en CSS.
+ */
+export function glowGradient(): string {
+  return [...AURORA_GLOW_OVALS]
+    .reverse()
+    .map((oval) => {
+      const stops = FALLOFF.map(([t, g]) => `rgb(var(${glowToneVar(oval)}) / calc(var(--aurora-glow-alpha) * ${String(g)})) ${pct(t)}`);
+
+      return `radial-gradient(${String(oval.rx)}vw ${String(oval.ry)}vh at ${String(oval.x)}vw ${String(oval.y)}vh, ${stops.join(', ')})`;
+    })
+    .join(', ');
 }
 
 /** Pantallas en que se mide: móviles, tableta y escritorio hasta 2560 px. */
