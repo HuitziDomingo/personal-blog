@@ -16,7 +16,7 @@ func TestLoadRAGIsDisabledByDefault(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, RAG{
 		EmbeddingModel: "gemini-embedding-2",
-		MinScore:       0.65,
+		MinScore:       0.60,
 		ChunkMaxChars:  800,
 		EmbedTimeout:   10 * time.Second,
 		IndexTimeout:   30 * time.Second,
