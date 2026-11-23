@@ -13,17 +13,25 @@ const DEVTOOLS_LINE = /DevTools listening on (ws:\/\/\S+)/;
 /** Intentos de arranque: con uno basta casi siempre; tres acotan el peor caso a ~45 s. */
 export const LAUNCH_ATTEMPTS = 3;
 
-
-/** Termina un proceso hijo propio (por su handle) y espera a que salga, con un tope. */
-export function stop(child) {
-  if (child.exitCode !== null || child.signalCode !== null) {
-    return Promise.resolve();
+/**
+ * Termina un proceso hijo propio (por su handle) y espera a que salga. Si no
+ * sale con SIGTERM en `graceMs`, le manda SIGKILL: Chrome y Brave headless a
+ * veces ignoran SIGTERM y quedaban vivos, huérfanos, después de la prueba.
+ */
+export async function stop(child, graceMs = 5000) {
+  const gone = () => child.exitCode !== null || child.signalCode !== null;
+  if (gone()) {
+    return;
   }
   const exited = new Promise((resolve) => child.once('exit', resolve));
+  // Los topes no retienen el proceso de Node si el hijo ya salió.
+  const wait = (ms) => Promise.race([exited, new Promise((resolve) => setTimeout(resolve, ms).unref())]);
   child.kill();
-  // El tope no retiene el proceso de Node si el hijo ya salió.
-  const cap = new Promise((resolve) => setTimeout(resolve, 5000).unref());
-  return Promise.race([exited, cap]);
+  await wait(graceMs);
+  if (!gone()) {
+    child.kill('SIGKILL');
+    await wait(2000);
+  }
 }
 
 /**

@@ -3,7 +3,7 @@ import { EventEmitter } from 'node:events';
 import { PassThrough } from 'node:stream';
 import { test } from 'node:test';
 
-import { LAUNCH_ATTEMPTS, launchBrowser, runUrl } from './launch-browser.mjs';
+import { LAUNCH_ATTEMPTS, launchBrowser, runUrl, stop } from './launch-browser.mjs';
 
 /** Un «Chrome» falso: responde con la línea de DevTools o se queda callado. */
 function fakeBrowser(responds) {
@@ -82,6 +82,34 @@ test('en GitHub Actions cada intento fallido es un warning con el enlace a su ru
   options.env = { GITHUB_ACTIONS: 'true', GITHUB_SERVER_URL: 'https://github.com', GITHUB_REPOSITORY: 'o/r', GITHUB_RUN_ID: '42' };
   await launchBrowser(options);
   assert.match(logs[0], /^::warning title=check-csp-browser::intento 1\/3: .*\(https:\/\/github\.com\/o\/r\/actions\/runs\/42\)$/);
+});
+
+test('stop manda SIGKILL si el proceso ignora SIGTERM', async () => {
+  const child = new EventEmitter();
+  child.exitCode = null;
+  child.signalCode = null;
+  const signals = [];
+  child.kill = (signal = 'SIGTERM') => {
+    signals.push(signal);
+    if (signal === 'SIGKILL') {
+      child.signalCode = 'SIGKILL';
+      child.emit('exit', null, 'SIGKILL');
+    }
+  };
+  await stop(child, 10);
+  assert.deepEqual(signals, ['SIGTERM', 'SIGKILL']);
+});
+
+test('stop no manda SIGKILL si el proceso sale con SIGTERM', async () => {
+  const child = fakeBrowser(false);
+  const signals = [];
+  const kill = child.kill;
+  child.kill = (signal = 'SIGTERM') => {
+    signals.push(signal);
+    kill();
+  };
+  await stop(child, 10);
+  assert.deepEqual(signals, ['SIGTERM']);
 });
 
 test('runUrl solo existe dentro de Actions', () => {
