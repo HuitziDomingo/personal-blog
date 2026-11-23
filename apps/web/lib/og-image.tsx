@@ -11,8 +11,8 @@ import { profile } from '@/lib/site';
  * sitio en el idioma de la página (ADR-024, punto 5).
  */
 export async function ogImage(description: string): Promise<ImageResponse> {
-  const logo = await readFile(join(process.cwd(), 'assets/img/logo.png'));
-  const logoSrc = `data:image/png;base64,${logo.toString('base64')}`;
+  const logo = await readFile(join(process.cwd(), 'assets/img/leon.svg'));
+  const logoSrc = `data:image/svg+xml;base64,${logo.toString('base64')}`;
 
   return new ImageResponse(
     (

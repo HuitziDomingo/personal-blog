@@ -1,12 +1,12 @@
 'use client';
 
 import { Box, Container, HStack, IconButton, Link } from '@chakra-ui/react';
-import Image from 'next/image';
+import Image, { type StaticImageData } from 'next/image';
 import NextLink from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
-import logo from '@/assets/img/logo.png';
+import leon from '@/assets/img/leon.svg';
 import { alternateHref, localizedPath } from '@/lib/content/routes';
 import type { Locale, SiteContent } from '@/lib/content/types';
 import { HEADER_GLASS } from '@/lib/glass';
@@ -15,6 +15,10 @@ import { profile } from '@/lib/site';
 import { ColorModeToggle } from './color-mode-toggle';
 import { CvDownloadButton } from './cv-download-button';
 import { BriefcaseIcon, FileUserIcon, HomeIcon, MenuIcon, PenLineIcon } from './icons';
+
+// next/image-types declara `*.svg` como `any` (por si se usa SVGR); aquí es
+// un import estático de imagen, como los PNG.
+const logo = leon as StaticImageData;
 
 interface NavItem {
   href: string;
@@ -151,13 +155,15 @@ export function SiteHeader({ locale, ui, cvUrl }: { locale: Locale; ui: SiteCont
           _hover={{ textDecoration: 'none', '& img': { transform: 'rotate(20deg)' } }}
         >
           <NextLink href={home} aria-label={ui.homeLinkLabel}>
+            {/* El león es decorativo: el link se nombra con su aria-label. */}
             <Image
               src={logo}
               alt=""
+              aria-hidden="true"
               width={28}
               height={28}
               priority
-              style={{ transition: 'transform 0.2s ease' }}
+              style={{ flexShrink: 0, transition: 'transform 0.2s ease' }}
             />
             {/* Por debajo de 360 px solo la imagen: el texto no cabe junto al menú, el idioma y el tema. */}
             <Box as="span" aria-hidden="true" css={{ '@media (max-width: 359.98px)': { display: 'none' } }}>
