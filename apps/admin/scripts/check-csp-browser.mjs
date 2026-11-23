@@ -26,6 +26,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { launchBrowser, stop, waitForOutput } from './launch-browser.mjs';
+
 const SERVER = fileURLToPath(new URL('./serve-dist.mjs', import.meta.url));
 const PORT = 4310;
 const ORIGIN = `http://127.0.0.1:${PORT}`;
@@ -70,33 +72,6 @@ function withTimeout(promise, label) {
     timer = setTimeout(() => reject(new Error(`${label}: sin respuesta en ${TIMEOUT_MS} ms`)), TIMEOUT_MS);
   });
   return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
-}
-
-// Termina un proceso y espera a que salga, con un tope.
-function stop(child) {
-  if (child.exitCode !== null || child.signalCode !== null) {
-    return Promise.resolve();
-  }
-  const exited = new Promise((resolve) => child.once('exit', resolve));
-  child.kill();
-  return Promise.race([exited, sleep(5000)]);
-}
-
-// Espera una línea de la salida de un proceso que cumpla la expresión regular.
-function waitForOutput(child, stream, pattern) {
-  return new Promise((resolve, reject) => {
-    let output = '';
-    const timer = setTimeout(() => reject(new Error(`sin respuesta en ${TIMEOUT_MS} ms:\n${output}`)), TIMEOUT_MS);
-    child[stream].on('data', (chunk) => {
-      output += chunk;
-      const match = pattern.exec(output);
-      if (match) {
-        clearTimeout(timer);
-        resolve(match);
-      }
-    });
-    child.on('exit', (code) => reject(new Error(`el proceso terminó (${code}):\n${output}`)));
-  });
 }
 
 // Cliente mínimo del protocolo de DevTools: un id por mensaje, y eventos por
@@ -294,31 +269,36 @@ async function run() {
     throw new Error('no se encontró Chrome ni Chromium; define CHROME_PATH');
   }
 
-  const profile = mkdtempSync(join(tmpdir(), 'check-csp-browser-'));
+  const removeProfile = (dir) => {
+    try {
+      rmSync(dir, { recursive: true, force: true, maxRetries: 3 });
+    } catch (error) {
+      console.warn(`check-csp-browser: no se pudo borrar ${dir}: ${error.message}`);
+    }
+  };
+  const profiles = [];
   const children = [];
   // Espera a que el navegador salga antes de borrar el perfil: si no, sigue
   // escribiendo en él y rmSync puede fallar y tapar el resultado.
   const cleanup = async () => {
     await Promise.all(children.map(stop));
-    try {
-      rmSync(profile, { recursive: true, force: true, maxRetries: 3 });
-    } catch (error) {
-      console.warn(`check-csp-browser: no se pudo borrar ${profile}: ${error.message}`);
-    }
+    profiles.forEach(removeProfile);
   };
 
   try {
     const server = spawn(process.execPath, [SERVER, String(PORT), ...process.argv.slice(2)], { stdio: ['ignore', 'pipe', 'pipe'] });
     children.push(server);
-    await waitForOutput(server, 'stdout', /serve-dist: /);
+    await waitForOutput(server, 'stdout', /serve-dist: /, TIMEOUT_MS, 'arranque de serve-dist');
 
-    const browser = spawn(
+    const { child: browser, profile, debuggerUrl } = await launchBrowser({
+      spawn,
       browserPath,
-      ['--headless=new', '--remote-debugging-port=0', `--user-data-dir=${profile}`, '--no-first-run', '--no-default-browser-check', 'about:blank'],
-      { stdio: ['ignore', 'ignore', 'pipe'] },
-    );
+      makeProfile: () => mkdtempSync(join(tmpdir(), 'check-csp-browser-')),
+      removeProfile,
+      timeoutMs: TIMEOUT_MS,
+    });
     children.push(browser);
-    const [, debuggerUrl] = await waitForOutput(browser, 'stderr', /DevTools listening on (ws:\/\/\S+)/);
+    profiles.push(profile);
 
     const target = await fetch(`${new URL(debuggerUrl).origin.replace('ws:', 'http:')}/json/new?${ORIGIN}/login`, {
       method: 'PUT',

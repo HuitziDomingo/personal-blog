@@ -12,13 +12,25 @@ const editable = () => screen.findByRole('textbox', { name: 'Contenido' });
 const preview = () => screen.getByRole('region', { name: 'Vista previa' });
 
 describe('MarkdownEditor', () => {
-  beforeAll(installMissingBrowserApis);
+  // El primer import() de Milkdown (ProseMirror, CodeMirror, Vue) en frío
+  // tarda más de lo que espera findByRole (1 s) en un runner del CI cargado:
+  // así fallaba el primer test (BLOG-115). Se paga aquí, una vez, con el tope
+  // de los hooks; los tests miden el componente, no la carga del módulo.
+  beforeAll(async () => {
+    installMissingBrowserApis();
+    await import('./milkdown');
+  });
 
   it('muestra un aviso mientras carga Milkdown', async () => {
-    await render(MarkdownEditor, { providers: [themeLoaded], inputs: { value: '' } });
+    // El tema queda pendiente hasta comprobar el aviso: con el módulo ya en
+    // caché, el editor podría crearse antes de mirarlo.
+    let themeReady!: () => void;
+    const theme = { load: () => new Promise<void>((resolve) => (themeReady = resolve)) };
+    await render(MarkdownEditor, { providers: [{ provide: MILKDOWN_THEME_LOADER, useValue: theme }], inputs: { value: '' } });
     const loading = screen.getByText('Cargando el editor…');
 
     expect(loading.parentElement?.getAttribute('aria-busy')).toBe('true');
+    themeReady();
     const editor = await editable();
     expect(screen.queryByText('Cargando el editor…')).toBeNull();
     expect(editor.closest('[aria-busy]')).toBeNull();
