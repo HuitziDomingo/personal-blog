@@ -1,25 +1,35 @@
 name: deploy-api
 
-# Despliegue de la API a Cloud Run (ADR-025, punto 7).
+# Despliegue manual de la API y del job de respaldo a Cloud Run (ADR-025,
+# puntos 2, 3 y 7, con el disparador y el respaldo de ADR-030).
 #
-# Se dispara cuando termina el workflow "ci" de un push a main, y solo sigue si
-# el CI pasó y el commit cambió la API. workflow_run siempre usa este archivo tal
-# como está en main, así que un PR no puede cambiar cómo se despliega.
+# Solo workflow_dispatch: nunca corre con un push ni con un PR. Además exige
+# que se lance desde main y que el check "ci" de ese mismo commit esté en
+# verde, y el job "deploy" usa el environment "production": GitHub lo detiene
+# hasta que León lo apruebe. La autenticación es con Workload Identity
+# Federation: sin llaves JSON guardadas en GitHub.
 #
-# El job "deploy" usa el environment "production": GitHub lo detiene hasta que
-# León lo apruebe. La autenticación es con Workload Identity Federation: sin
-# llaves JSON guardadas en GitHub.
+# target:
+#   api         construye services/api, la sube a Artifact Registry y despliega
+#               el servicio (min-instances=0, max-instances=1, us-central1).
+#   backup-job  construye services/api/deploy/backup y crea o actualiza el
+#               Cloud Run Job mongo-backup. Cloud Scheduler lo corre cada semana
+#               (services/api/deploy/backup/scheduler.sh, lo aplica León).
 #
 # Variables de GitHub (Settings → Secrets and variables → Actions → Variables),
-# ninguna es secreta; ver docs/runbooks/despliegue.md:
+# ninguna es secreta; ver docs/deploy/variables.md:
 #   GCP_PROJECT_ID, GCP_WIF_PROVIDER, GCP_DEPLOY_SA, GCP_RUNTIME_SA,
-#   GCP_ARTIFACT_REPO, CLOUD_RUN_SERVICE, GEMINI_MODEL
+#   GCP_ARTIFACT_REPO, CLOUD_RUN_SERVICE, GEMINI_MODEL, FILES_GCS_BUCKET,
+#   GCP_BACKUP_SA, GCP_BACKUP_BUCKET
 
 on:
-  workflow_run:
-    workflows: [ci]
-    types: [completed]
-    branches: [main]
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Qué desplegar
+        type: choice
+        options: [api, backup-job]
+        default: api
 
 permissions:
   contents: read
@@ -32,47 +42,38 @@ env:
   REGION: us-central1
 
 jobs:
-  changes:
-    name: changes
-    if: >-
-      github.event.workflow_run.conclusion == 'success' &&
-      github.event.workflow_run.event == 'push' &&
-      github.event.workflow_run.head_branch == 'main'
+  check:
+    name: check
     runs-on: ubuntu-latest
-    outputs:
-      api: ${{ steps.diff.outputs.api }}
+    permissions:
+      contents: read
+      checks: read
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          ref: ${{ github.event.workflow_run.head_sha }}
-          fetch-depth: 2
-          persist-credentials: false
-
-      # Los PR se mergean con squash: cada push a main es un solo commit, así
-      # que basta compararlo con su padre.
-      - id: diff
+      - name: Only main, with a green ci
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REF: ${{ github.ref }}
+          SHA: ${{ github.sha }}
+          REPO: ${{ github.repository }}
         run: |
-          if git diff --name-only HEAD^ HEAD | grep -qE '^(services/api/|\.github/workflows/deploy-api\.yml$)'; then
-            echo "api=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "api=false" >> "$GITHUB_OUTPUT"
-          fi
+          set -euo pipefail
+          test "$REF" = "refs/heads/main" || { echo "Solo se despliega desde main (es $REF)"; exit 1; }
+          conclusion=$(gh api "repos/$REPO/commits/$SHA/check-runs?check_name=ci" --jq '[.check_runs[].conclusion] | first // "missing"')
+          test "$conclusion" = "success" || { echo "El check ci de $SHA no está en verde ($conclusion)"; exit 1; }
 
   deploy:
     name: deploy
-    needs: changes
-    if: needs.changes.outputs.api == 'true'
+    needs: check
     runs-on: ubuntu-latest
     environment: production
     permissions:
       contents: read
       id-token: write
     env:
-      IMAGE: us-central1-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/${{ vars.GCP_ARTIFACT_REPO }}/api:${{ github.event.workflow_run.head_sha }}
+      REGISTRY: us-central1-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/${{ vars.GCP_ARTIFACT_REPO }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ github.event.workflow_run.head_sha }}
           persist-credentials: false
 
       - id: auth
@@ -89,27 +90,32 @@ jobs:
           TOKEN: ${{ steps.auth.outputs.access_token }}
         run: echo "$TOKEN" | docker login -u oauth2accesstoken --password-stdin "https://${REGION}-docker.pkg.dev"
 
-      - name: Build and push
+      - name: Build and push the API
+        if: inputs.target == 'api'
         run: |
-          docker build --platform linux/amd64 -t "$IMAGE" services/api
-          docker push "$IMAGE"
+          docker build --platform linux/amd64 -t "$REGISTRY/api:$GITHUB_SHA" services/api
+          docker push "$REGISTRY/api:$GITHUB_SHA"
 
       # --env-vars-file reemplaza todas las variables no secretas; --set-secrets
       # reemplaza todos los secretos montados. Así el servicio queda igual a lo
       # que dice el repo, sin restos de configuraciones anteriores.
-      - name: Deploy to Cloud Run
+      - name: Deploy the API to Cloud Run
+        if: inputs.target == 'api'
         env:
           SERVICE: ${{ vars.CLOUD_RUN_SERVICE }}
           RUNTIME_SA: ${{ vars.GCP_RUNTIME_SA }}
           GEMINI_MODEL: ${{ vars.GEMINI_MODEL }}
+          FILES_GCS_BUCKET: ${{ vars.FILES_GCS_BUCKET }}
         run: |
+          set -euo pipefail
           test -n "$GEMINI_MODEL" || { echo "Falta la variable de GitHub GEMINI_MODEL"; exit 1; }
+          test -n "$FILES_GCS_BUCKET" || { echo "Falta la variable de GitHub FILES_GCS_BUCKET"; exit 1; }
           cp services/api/deploy/production.env.yaml "$RUNNER_TEMP/env.yaml"
-          printf 'GEMINI_MODEL: "%s"\n' "$GEMINI_MODEL" >> "$RUNNER_TEMP/env.yaml"
+          printf 'GEMINI_MODEL: "%s"\nFILES_GCS_BUCKET: "%s"\n' "$GEMINI_MODEL" "$FILES_GCS_BUCKET" >> "$RUNNER_TEMP/env.yaml"
           gcloud run deploy "$SERVICE" \
             --project "${{ vars.GCP_PROJECT_ID }}" \
             --region "$REGION" \
-            --image "$IMAGE" \
+            --image "$REGISTRY/api:$GITHUB_SHA" \
             --service-account "$RUNTIME_SA" \
             --min-instances 0 \
             --max-instances 1 \
@@ -117,9 +123,43 @@ jobs:
             --set-secrets "JWT_SECRET=jwt-secret:latest,MONGO_URI=mongo-uri:latest,GEMINI_API_KEY=gemini-api-key:latest" \
             --quiet
 
-      - name: Smoke test
+      # Solo lectura contra producción: health, posts, un post y el CV. No
+      # crea comentarios ni datos.
+      - name: Smoke test the API
+        if: inputs.target == 'api'
         env:
           SERVICE: ${{ vars.CLOUD_RUN_SERVICE }}
         run: |
+          set -euo pipefail
           url=$(gcloud run services describe "$SERVICE" --project "${{ vars.GCP_PROJECT_ID }}" --region "$REGION" --format 'value(status.url)')
-          curl --fail --silent --show-error --max-time 30 --retry 3 --retry-all-errors "$url/health"
+          API_URL="$url" ./scripts/smoke.sh --read-only
+
+      - name: Build and push the backup job
+        if: inputs.target == 'backup-job'
+        run: |
+          docker build --platform linux/amd64 -t "$REGISTRY/mongo-backup:$GITHUB_SHA" services/api/deploy/backup
+          docker push "$REGISTRY/mongo-backup:$GITHUB_SHA"
+
+      # Solo crea o actualiza el job: no lo ejecuta. Lo ejecuta Cloud Scheduler
+      # cada semana, o León a mano con gcloud run jobs execute.
+      - name: Deploy the backup job
+        if: inputs.target == 'backup-job'
+        env:
+          BACKUP_SA: ${{ vars.GCP_BACKUP_SA }}
+          BACKUP_BUCKET: ${{ vars.GCP_BACKUP_BUCKET }}
+        run: |
+          set -euo pipefail
+          test -n "$BACKUP_BUCKET" || { echo "Falta la variable de GitHub GCP_BACKUP_BUCKET"; exit 1; }
+          gcloud run jobs deploy mongo-backup \
+            --project "${{ vars.GCP_PROJECT_ID }}" \
+            --region "$REGION" \
+            --image "$REGISTRY/mongo-backup:$GITHUB_SHA" \
+            --service-account "$BACKUP_SA" \
+            --tasks 1 \
+            --max-retries 1 \
+            --task-timeout 15m \
+            --cpu 1 \
+            --memory 512Mi \
+            --set-env-vars "BACKUP_BUCKET=$BACKUP_BUCKET" \
+            --set-secrets "MONGO_URI=mongo-uri:latest" \
+            --quiet
