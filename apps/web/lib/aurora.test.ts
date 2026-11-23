@@ -2,13 +2,23 @@ import { describe, expect, it } from 'vitest';
 
 import {
   AURORA_BLOBS,
+  AURORA_GLOW_ALPHA,
+  AURORA_GLOW_MAX_VH,
+  AURORA_GLOW_OVALS,
+  AURORA_GRAIN,
   AURORA_KEYFRAMES,
   AURORA_MOBILE_MAX_PX,
   AURORA_VIEWPORTS,
+  FALLOFF,
   alphaFor,
   blobState,
   colorBox,
   easeInOut,
+  falloff,
+  falloffCss,
+  glowGradient,
+  glowToneVars,
+  glowCoverage,
   gridPoints,
   maxCoverage,
   parseHex,
@@ -87,6 +97,49 @@ describe('fondo aurora v2 (BLOG-150)', () => {
     }
   });
 
+  describe('aurora v3 (BLOG-156)', () => {
+    it('la caída tiene 9 paradas, de 1 a 0, decreciente y plana en el centro y en el borde', () => {
+      expect(FALLOFF).toHaveLength(9);
+      expect(FALLOFF[0]).toEqual([0, 1]);
+      expect(FALLOFF.at(-1)).toEqual([1, 0]);
+      for (let i = 1; i < FALLOFF.length; i++) expect(FALLOFF[i]?.[1]).toBeLessThan(FALLOFF[i - 1]?.[1] ?? 0);
+      // Pendiente cero en los extremos: sin borde ni anillo.
+      expect(1 - falloff(0.01)).toBeLessThan(0.001);
+      expect(falloff(0.99)).toBeLessThan(0.0001);
+      expect(falloffCss(0.5)).toBeCloseTo(falloff(0.5), 3);
+    });
+
+    it('el resplandor se queda en los primeros 45 vh de cada pantalla', () => {
+      for (const [w, h] of AURORA_VIEWPORTS) {
+        for (const oval of AURORA_GLOW_OVALS) {
+          for (let x = 0; x <= w; x += w / 24) {
+            expect(glowCoverage(oval, x, (h * AURORA_GLOW_MAX_VH) / 100, w, h)).toBe(0);
+          }
+        }
+      }
+    });
+
+    it('el resplandor de la variante B: 0,42 en claro y 0,32 en oscuro', () => {
+      expect(AURORA_GLOW_ALPHA).toEqual({ light: 0.42, dark: 0.32, mobileLight: 0.42, mobileDark: 0.32 });
+    });
+
+    it('el resplandor se escribe una vez, con una parada por punto de la caída', () => {
+      const css = glowGradient();
+      expect(css.match(/radial-gradient/g)).toHaveLength(AURORA_GLOW_OVALS.length);
+      expect(css.match(/var\(--aurora-glow-alpha\)/g)).toHaveLength(AURORA_GLOW_OVALS.length * FALLOFF.length);
+      expect(Object.keys(glowToneVars('dark'))).toHaveLength(AURORA_GLOW_OVALS.length);
+    });
+
+    it('el grano pesa menos de 15 KB y es el que genera el script', async () => {
+      const { grainPng } = await import('../scripts/build-grain');
+      const { readFileSync } = await import('node:fs');
+      const file = readFileSync(new URL(`../public${AURORA_GRAIN.src}`, import.meta.url));
+      expect(file.length).toBeLessThanOrEqual(15 * 1024);
+      expect(file.equals(grainPng())).toBe(true);
+      expect(file.readUInt32BE(16)).toBe(AURORA_GRAIN.size);
+    });
+  });
+
   describe('modelo', () => {
     it('ease-in-out de CSS: simétrica, de 0 a 1', () => {
       expect(easeInOut(0)).toBeCloseTo(0);
@@ -108,10 +161,13 @@ describe('fondo aurora v2 (BLOG-150)', () => {
       expect(maxCoverage(blob, (blob.x * w) / 100, (blob.y * h) / 100, w, h)).toBeCloseTo(1);
     });
 
-    it('lejos de todas las manchas, el color es el del lienzo', () => {
+    it('lejos de todas las manchas y del resplandor, el color es el del lienzo con el grano', () => {
       const box = colorBox('#f0e7db', 'light', -5000, -5000, 1440, 900);
-      expect(box.lo).toEqual(parseHex('#f0e7db'));
-      expect(box.hi).toEqual(parseHex('#f0e7db'));
+      const o = AURORA_GRAIN.opacity.light;
+      parseHex('#f0e7db').forEach((c, i) => {
+        expect(box.lo[i as 0]).toBeCloseTo(c * (1 - o));
+        expect(box.hi[i as 0]).toBeCloseTo(c * (1 - o) + o);
+      });
     });
 
     it('worstContrast toma el extremo de la caja más cercano al texto', () => {

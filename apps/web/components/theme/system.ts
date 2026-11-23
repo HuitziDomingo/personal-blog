@@ -1,6 +1,15 @@
 import { createSystem, defaultConfig, defineConfig } from '@chakra-ui/react';
 
-import { AURORA_KEYFRAMES } from '@/lib/aurora';
+import {
+  AURORA_GLOW_MAX_VH,
+  AURORA_GRAIN,
+  AURORA_KEYFRAMES,
+  AURORA_MOBILE_MAX_PX,
+  blobGradient,
+  glowAlphaFor,
+  glowGradient,
+  glowToneVars,
+} from '@/lib/aurora';
 import { accentButtonText, palette } from '@/lib/brand';
 import { GLASS, HEADER_GLASS } from '@/lib/glass';
 
@@ -73,6 +82,10 @@ const config = defineConfig({
     // en la portada (la isla 3D ya usa la GPU; HomeView marca la página con
     // data-aurora-quieta). En móvil solo se pintan 3 manchas.
     '.aurora': {
+      // Tonos y alfa del resplandor (BLOG-156); los lee .aurora::before.
+      ...glowToneVars('light'),
+      '--aurora-glow-alpha': String(glowAlphaFor('light', AURORA_MOBILE_MAX_PX)),
+      '@media (max-width: 767.98px)': { '--aurora-glow-alpha': String(glowAlphaFor('light', 0)) },
       position: 'fixed',
       inset: '0',
       zIndex: '-1',
@@ -81,12 +94,16 @@ const config = defineConfig({
       contain: 'layout paint',
     },
     // Por debajo de AURORA_MOBILE_MAX_PX (768) vale el alfa de móvil.
+    // El degradado se escribe una vez; el tono y el alfa de cada modo y ancho
+    // llegan por --aurora-t y --aurora-a (el CSS global viaja en cada HTML).
     '.aurora > span': {
       position: 'absolute',
       borderRadius: '50%',
-      background: 'radial-gradient(closest-side, rgb(var(--aurora-tone-light) / var(--aurora-alpha-light)), transparent)',
+      '--aurora-t': 'var(--aurora-tone-light)',
+      '--aurora-a': 'var(--aurora-alpha-light)',
+      background: blobGradient('--aurora-t', '--aurora-a'),
       '@media (max-width: 767.98px)': {
-        background: 'radial-gradient(closest-side, rgb(var(--aurora-tone-light) / var(--aurora-alpha-mobile-light)), transparent)',
+        '--aurora-a': 'var(--aurora-alpha-mobile-light)',
       },
       '@media (prefers-reduced-motion: no-preference)': {
         animationName: 'aurora-deriva',
@@ -97,10 +114,40 @@ const config = defineConfig({
       },
     },
     '.dark .aurora > span': {
-      background: 'radial-gradient(closest-side, rgb(var(--aurora-tone-dark) / var(--aurora-alpha-dark)), transparent)',
+      '--aurora-t': 'var(--aurora-tone-dark)',
+      '--aurora-a': 'var(--aurora-alpha-dark)',
       '@media (max-width: 767.98px)': {
-        background: 'radial-gradient(closest-side, rgb(var(--aurora-tone-dark) / var(--aurora-alpha-mobile-dark)), transparent)',
+        '--aurora-a': 'var(--aurora-alpha-mobile-dark)',
       },
+    },
+    // Resplandor superior (BLOG-156): estático, debajo de las manchas, solo en
+    // los primeros AURORA_GLOW_MAX_VH, con el alfa de --aurora-glow-alpha.
+    '.aurora::before, .aurora::after': {
+      content: '""',
+      position: 'absolute',
+      pointerEvents: 'none',
+    },
+    '.aurora::before': {
+      top: '0',
+      left: '0',
+      right: '0',
+      height: `${String(AURORA_GLOW_MAX_VH)}vh`,
+      background: glowGradient(),
+    },
+    '.dark .aurora': {
+      ...glowToneVars('dark'),
+      '--aurora-glow-alpha': String(glowAlphaFor('dark', AURORA_MOBILE_MAX_PX)),
+      '@media (max-width: 767.98px)': { '--aurora-glow-alpha': String(glowAlphaFor('dark', 0)) },
+    },
+    // Grano (BLOG-156): estático, encima de las manchas, casi invisible.
+    '.aurora::after': {
+      inset: '0',
+      backgroundImage: `url(${AURORA_GRAIN.src})`,
+      backgroundSize: `${String(AURORA_GRAIN.size)}px`,
+      opacity: String(AURORA_GRAIN.opacity.light),
+    },
+    '.dark .aurora::after': {
+      opacity: String(AURORA_GRAIN.opacity.dark),
     },
     '.aurora > span[data-desktop]': {
       '@media (max-width: 767.98px)': { display: 'none' },

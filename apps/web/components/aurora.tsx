@@ -31,7 +31,8 @@ function blobStyle(blob: AuroraBlob): CSSProperties {
 /**
  * Fondo «aurora» (BLOG-142, BLOG-150, BLOG-151), detrás de todo el contenido.
  * Solo HTML y CSS, sin JavaScript: los estilos y la animación están en
- * `.aurora` de theme/system.ts y los datos en lib/aurora.ts. Las manchas sin
+ * `.aurora` de theme/system.ts y los datos en lib/aurora.ts. El resplandor
+ * superior y el grano son sus ::before y ::after (BLOG-156). Las manchas sin
  * `mobile` llevan `data-desktop` y no se pintan en móvil. Decorativo: oculto
  * para los lectores de pantalla.
  */

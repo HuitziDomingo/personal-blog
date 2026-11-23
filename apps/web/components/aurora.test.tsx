@@ -44,6 +44,19 @@ describe('Aurora', () => {
     expect(css['.aurora > span']).toHaveProperty(['@media (max-width: 767.98px)']);
   });
 
+  it('el resplandor y el grano son estáticos (BLOG-156)', () => {
+    for (const [selector, rule] of Object.entries(css)) {
+      if (selector.includes('::before') || selector.includes('::after')) {
+        if (selector.includes('.aurora')) expect(JSON.stringify(rule)).not.toMatch(/animation|transition/i);
+      }
+    }
+    expect(css['.aurora::after']).toMatchObject({ backgroundImage: 'url(/img/aurora-grano.png)' });
+    expect(css['.aurora::before']).toHaveProperty('background');
+    expect(css['.aurora']).toHaveProperty('--aurora-glow-alpha');
+    expect(css['.dark .aurora']).toHaveProperty('--aurora-glow-alpha');
+    expect(Object.keys(css).some((selector) => selector.includes('data-variant'))).toBe(false);
+  });
+
   it('el body no tiene fondo propio: taparía la capa de z-index -1', () => {
     expect(system._config.globalCss?.body).toMatchObject({ bg: 'transparent' });
   });
