@@ -85,7 +85,7 @@
 - [x] BLOG-043: Activar JavaScript/TypeScript en CodeQL (Settings → Advanced Security) cuando se mergee el primer código de apps/admin o apps/web. (Activado en Settings; `Analyze (javascript-typescript)` corre desde [#34](https://github.com/HuitziDomingo/personal-blog/pull/34))
 - [ ] BLOG-033: Volver el job api a ubuntu-latest cuando su kernel sea compatible con MongoDB 8 (SERVER-121912).
 - [x] BLOG-048: ADR de política de dependencias: edad mínima de versiones con pnpm minimumReleaseAge y cooldown en Dependabot. ([#32](https://github.com/HuitziDomingo/personal-blog/pull/32))
-- [ ] BLOG-115: La prueba de CSP del admin (`check-csp-browser.mjs`) sigue fallando de forma intermitente con «sin respuesta en 15000 ms» aun con el arreglo de AppArmor (BLOG-109). Investigar en qué paso se cuelga (arranque de Chrome, del servidor o carga de la página), si un reintento acotado del arranque lo resuelve, y registrar cada falla con el enlace a su run.
+- [x] BLOG-115: La prueba de CSP del admin (`check-csp-browser.mjs`) sigue fallando de forma intermitente con «sin respuesta en 15000 ms» aun con el arreglo de AppArmor (BLOG-109). Investigar en qué paso se cuelga (arranque de Chrome, del servidor o carga de la página), si un reintento acotado del arranque lo resuelve, y registrar cada falla con el enlace a su run. ([#163](https://github.com/HuitziDomingo/personal-blog/pull/163))
 - [x] BLOG-116: La carpeta `.claude/skills/archify/bin/` queda fuera de la regla `bin/` del `.gitignore` y se versiona desde el release v3.2.0 verificado, para que `make docs-architecture` funcione en un clon limpio. ([#125](https://github.com/HuitziDomingo/personal-blog/pull/125))
 
 ## Por definir
