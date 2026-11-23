@@ -24,7 +24,7 @@ import (
 // key de .env sin imprimirla.
 //
 // RAG_EVAL_MODEL cambia el modelo (por defecto gemini-embedding-2) y
-// RAG_MIN_SCORE el umbral (por defecto 0.55). El recall se mide sin umbral; la
+// RAG_MIN_SCORE el umbral (por defecto 0.65, el de la API). El recall se mide sin umbral; la
 // tabla dice además qué fragmentos lo superan, para ajustarlo. Hace una
 // petición por post y una por consulta, espaciadas; un error detiene la
 // corrida sin reintentar.
@@ -39,7 +39,7 @@ func TestRAGEvalAgainstGemini(t *testing.T) {
 		model = "gemini-embedding-2"
 	}
 
-	minScore := 0.55
+	minScore := 0.65
 	if value := os.Getenv("RAG_MIN_SCORE"); value != "" {
 		parsed, err := strconv.ParseFloat(value, 64)
 		require.NoError(t, err, "RAG_MIN_SCORE")
