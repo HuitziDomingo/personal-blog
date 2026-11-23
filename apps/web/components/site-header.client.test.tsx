@@ -109,3 +109,15 @@ describe('botón «Descargar CV» (BLOG-152)', () => {
     expect(screen.queryAllByRole('link', { name: 'Descargar CV', hidden: true })).toHaveLength(0);
   });
 });
+
+describe('logo de la cabecera (BLOG-158)', () => {
+  it('el león es decorativo y el link conserva su nombre', () => {
+    setup(es, '/');
+    const home = screen.getByRole('link', { name: es.ui.homeLinkLabel });
+    const img = home.querySelector('img');
+    expect(img?.getAttribute('aria-hidden')).toBe('true');
+    expect(img?.getAttribute('alt')).toBe('');
+    // En el build es /_next/static/media/leon.….svg; Vite (en los tests) lo pone inline.
+    expect(img?.getAttribute('src')).toMatch(/leon\..*svg|^data:image\/svg\+xml/);
+  });
+});
