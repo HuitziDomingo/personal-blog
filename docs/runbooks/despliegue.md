@@ -89,7 +89,7 @@ export BACKUP_SA="mongo-backup@$PROJECT_ID.iam.gserviceaccount.com"
 | | `roles/storage.objectUser` | Solo `<FILES_BUCKET>` (paso 8) |
 | `mongo-backup` | `roles/secretmanager.secretAccessor` | Solo `mongo-uri` |
 | | `roles/storage.objectCreator` | Solo `<BACKUP_BUCKET>`: crea respaldos, no puede leerlos ni borrarlos |
-| | `roles/run.invoker` | Solo el job `mongo-backup` (paso 17): Cloud Scheduler lo ejecuta con esta cuenta |
+| | `roles/run.invoker` | Solo el job `mongo-backup` (paso 18): Cloud Scheduler lo ejecuta con esta cuenta |
 
 `api-deploy` no tiene acceso a ningún secreto. `--set-secrets` solo guarda la referencia; quien lee el valor es `api-runtime` al arrancar.
 
@@ -283,15 +283,62 @@ Ya no hace falta el environment `backup` (ADR-030). Si lo creaste, bórralo.
 
    Entra al admin y comprueba la sesión. El siguiente despliegue del workflow quita las dos variables (reemplaza todas con `--env-vars-file` y `--set-secrets`). Después borra el secreto: `gcloud secrets delete initial-admin-password`.
 
-## 12. Verificación del dominio
+## 12. Migración del contenido local (BLOG-159)
+
+Copia los posts de tu Mongo local a Atlas y sus portadas de `services/api/tmp/files/` al bucket, con las URLs reescritas de `http://localhost:8080/media/...` a `https://storage.googleapis.com/<FILES_BUCKET>/...` (portada, imagen de Open Graph e imágenes del markdown; el `blurDataUrl` es un `data:` y se copia tal cual). Lo corres tú, desde la raíz del repo, con tu sesión de `gcloud`. Solo copia la colección `posts`: ni usuarios, ni sesiones, ni comentarios, ni CV, ni el índice del RAG.
+
+1. Mongo local arriba y el proyecto correcto en `gcloud`:
+
+   ```sh
+   make db-up
+   gcloud config get-value project   # debe ser <PROJECT_ID>
+   ```
+
+2. **Simulacro** (es el modo por defecto). La URI sale de Secret Manager dentro de `$(...)`: no pasa por la pantalla ni queda en el historial, y el comando nunca la imprime.
+
+   ```sh
+   TARGET_MONGO_URI="$(gcloud secrets versions access latest --secret=mongo-uri)" \
+     make prod-migrate-content TARGET_DB=personal_blog TARGET_BUCKET=<FILES_BUCKET>
+   ```
+
+   Revisa lo que informa: cuántos posts se migran y cuáles se excluyen, qué hará con cada uno (`crear`, `actualizar`, `sin cambios`, `no se pisa` si se editó en Atlas después que en local, `conflicto`), qué URLs reescribe, qué archivos sube con qué `Content-Type`, y los problemas. Con cualquier problema (una portada que falta en disco, un slug que en Atlas tiene otro `_id`, una URL local que no sabe reescribir) sale con error y no escribe nada.
+
+   Por defecto migra los estados `published` y `draft`; los `archived` (por ejemplo, los posts que dejan los flujos de Bruno) quedan fuera. Para elegir posts, `SLUGS=slug-1,slug-2`; para otros estados, `STATUSES=published`. Tu base local tiene posts de prueba (`prueba-isr-…`): usa `SLUGS` con los reales.
+
+3. **Escritura**, con los mismos argumentos y `DRY_RUN=0`:
+
+   ```sh
+   TARGET_MONGO_URI="$(gcloud secrets versions access latest --secret=mongo-uri)" \
+     make prod-migrate-content TARGET_DB=personal_blog TARGET_BUCKET=<FILES_BUCKET> DRY_RUN=0
+   ```
+
+   Sube primero los archivos (`gcloud storage cp --no-clobber`, con el `Content-Type`, `Cache-Control` y `Content-Disposition` con que los sube la API) y después escribe los posts por su `_id`, con sus fechas y su estado. Es idempotente: puedes volver a correrlo; no duplica posts ni vuelve a subir un archivo que ya está.
+
+4. **Comprobación:**
+
+   ```sh
+   API_URL="$(gcloud run services describe api --region="$REGION" --format='value(status.url)')"
+   curl -sS "$API_URL/api/v1/posts" | jq -r '.items[].slug'
+   gcloud storage ls -L "gs://<FILES_BUCKET>/covers/**" | grep -E "^gs://|Content-Type|Cache-Control"
+   ```
+
+Después:
+
+- **Portadas en la web:** solo se ven con `COVER_IMAGES_BASE_URL=https://storage.googleapis.com/<FILES_BUCKET>/covers/` en Vercel (paso 15 y [variables](../deploy/variables.md)).
+- **RAG:** si `RAG_ENABLED=true`, entra al admin y usa *Ajustes → Reindexar todo*: el índice no se copia.
+- **Autor:** `author_id` es el id de tu administrador local, que no existe en Atlas. Ninguna regla de la API depende de él; solo se devuelve en las respuestas.
+- **Portadas de los posts de la web anterior** (`arreglos` y `backend-api`, BLOG-076): si en local apuntan a `http://localhost:3000/img/blog/...`, el comando lo reporta como problema. Excluye esos slugs con `SLUGS` y asígnales la portada en producción con `make api-migrate-covers` y `SITE_URL=https://huitzi.xyz` (ver `docs/development.md`, «Portadas de los posts migrados»).
+- **Revertir:** si Atlas ya tenía posts, respáldalo antes (paso 18 o `mongodump`). Un post migrado por error se borra desde el admin.
+
+## 13. Verificación del dominio
 
 ```sh
 gcloud domains verify huitzi.xyz
 ```
 
-Abre Search Console: agrega `huitzi.xyz` como **propiedad de dominio** y crea en DreamHost el registro `TXT` que te da (paso 15). Usa la misma cuenta de Google con la que corres `gcloud`.
+Abre Search Console: agrega `huitzi.xyz` como **propiedad de dominio** y crea en DreamHost el registro `TXT` que te da (paso 16). Usa la misma cuenta de Google con la que corres `gcloud`.
 
-## 13. Mapeo de dominio de Cloud Run
+## 14. Mapeo de dominio de Cloud Run
 
 Gratuito, en vista previa (ADR-025, punto 2):
 
@@ -302,7 +349,7 @@ gcloud beta run domain-mappings describe --domain=api.huitzi.xyz --region="$REGI
 
 `describe` muestra el registro DNS a crear (normalmente `CNAME api → ghs.googlehosted.com.`). El certificado se emite solo cuando el DNS resuelve; puede tardar hasta 24 h.
 
-## 14. Vercel
+## 15. Vercel
 
 Dos proyectos, plan Hobby, importados del mismo repo (ADR-025, punto 6):
 
@@ -328,7 +375,7 @@ Dos proyectos, plan Hobby, importados del mismo repo (ADR-025, punto 6):
 
 Ningún secreto va en Vercel (ADR-025, punto 8): solo la URL pública de la API.
 
-## 15. DNS en DreamHost
+## 16. DNS en DreamHost
 
 En *Domains → Manage → DNS* de `huitzi.xyz`, con los valores exactos que muestren Vercel y Cloud Run:
 
@@ -337,12 +384,12 @@ En *Domains → Manage → DNS* de `huitzi.xyz`, con los valores exactos que mue
 | `huitzi.xyz` | `A` | El que indique Vercel (hoy `76.76.21.21`) | Web |
 | `www` | `CNAME` | El que indique Vercel (`cname.vercel-dns.com.`) | Web |
 | `admin` | `CNAME` | El que indique Vercel para el proyecto admin | Admin |
-| `api` | `CNAME` | `ghs.googlehosted.com.` (el de `describe`, paso 13) | API |
-| `huitzi.xyz` | `TXT` | `google-site-verification=…` (paso 12) | Verificación |
+| `api` | `CNAME` | `ghs.googlehosted.com.` (el de `describe`, paso 14) | API |
+| `huitzi.xyz` | `TXT` | `google-site-verification=…` (paso 13) | Verificación |
 
 Si DreamHost tiene registros `A` o `CNAME` previos para esos nombres (por ejemplo, el hosting de DreamHost), bórralos antes. Comprueba con `dig +short api.huitzi.xyz` y `dig +short admin.huitzi.xyz`.
 
-## 16. Uptime check
+## 17. Uptime check
 
 ```sh
 gcloud monitoring uptime create api-health \
@@ -355,7 +402,7 @@ Con `min-instances=0`, cada chequeo puede despertar una instancia. Con 15 minuto
 
 Crea una alerta sobre ese chequeo en *Monitoring → Alerting* con notificación por email.
 
-## 17. Respaldo (Cloud Run Job, ADR-030)
+## 18. Respaldo (Cloud Run Job, ADR-030)
 
 1. *Actions → deploy-api → Run workflow*, rama `main`, `target` = `backup-job`, y aprueba el job. Crea o actualiza el Cloud Run Job `mongo-backup` (imagen de `services/api/deploy/backup/`); no lo ejecuta.
 2. Programación semanal (domingos 09:00 UTC), una sola vez:
@@ -375,7 +422,7 @@ Crea una alerta sobre ese chequeo en *Monitoring → Alerting* con notificación
 
 El historial de ejecuciones queda en *Cloud Run → Jobs → mongo-backup*; agrega una alerta de log en *Monitoring → Alerting* para las ejecuciones fallidas.
 
-## 18. Verificación del primer despliegue (BLOG-041)
+## 19. Verificación del primer despliegue (BLOG-041)
 
 1. **Salud:** `curl -sS https://api.huitzi.xyz/health`.
 2. **IP del cliente y `TRUSTED_PROXIES`:** con `TRUSTED_PROXIES` vacía, la API usa la IP del socket, que en Cloud Run es la del frontend de Google, no la tuya. Haz unas peticiones y revisa en Cloud Logging el campo `remoteIp` del log de acceso (`accesslog.go`; va truncado a /24 en IPv4 y /48 en IPv6, para no guardar datos personales, pero alcanza para ver de qué red llega):
