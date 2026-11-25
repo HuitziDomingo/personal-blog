@@ -28,6 +28,7 @@ No inventes comandos. Cuando exista uno real, sustituye su TODO.
 - Tests de integración de Go: `make api-test-integration` (levanta MongoDB con docker compose)
 - Correr los comentarios de ejemplo de la moderación contra Gemini real: `make api-moderation-samples` (gasta cuota; nunca en CI)
 - Generar una portada real y ver su formato y metadatos: `make api-cover-sample` (gasta cuota de Cloudflare; nunca en CI)
+- Copiar los posts locales y sus portadas a producción: `make prod-migrate-content` (lo corre León; simulacro salvo con `DRY_RUN=0`)
 - Importar los 2 posts de la web anterior al Mongo local: `make api-import-old-posts` (simulacro salvo con `DRY_RUN=0`)
 - Medir recall@4 del RAG con embeddings reales: `make api-rag-eval` (gasta cuota; nunca en CI)
 - Tests del admin: `make admin-test`

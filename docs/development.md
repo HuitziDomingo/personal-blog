@@ -239,6 +239,7 @@ Los valores de producción son los previstos; el despliegue está pendiente (BLO
 | `make api-test-integration` | Levanta MongoDB y corre los tests de `internal/repository` contra él |
 | `make api-moderation-samples` | Corre los comentarios de ejemplo de la moderación contra Gemini real (`gemini-3.6-flash`). Gasta cuota: nunca en CI |
 | `make api-migrate-covers` | Asigna la portada a los 2 posts migrados (`arreglos` y `backend-api`). Pide `MIGRATE_MONGO_URI` en el entorno (nunca la toma de `.env`), `MIGRATE_DB` y `SITE_URL`; `DRY_RUN=1` solo informa. Idempotente. Ver «Portadas de los posts migrados» |
+| `make prod-migrate-content` | Copia los posts de Mongo local a otra base (Atlas) y sus portadas de `FILES_LOCAL_DIR` al bucket, con las URLs reescritas (BLOG-159). Pide `TARGET_MONGO_URI` en el entorno (nunca de `.env`), `TARGET_DB` y `TARGET_BUCKET`; simulacro salvo con `DRY_RUN=0`. `SLUGS` y `STATUSES` eligen los posts. Idempotente. Lo corre León: ver «Migrar el contenido local a producción» |
 | `make api-import-old-posts` | Importa los 2 posts de la web anterior (`docs/web/posts-migrados/`) al Mongo local de `.env`, publicados con sus fechas originales y con la portada en `FILES_LOCAL_DIR` (BLOG-076). Autor: `INITIAL_ADMIN_EMAIL` de `.env`, o `AUTHOR_ID`. Simulacro salvo con `DRY_RUN=0`. Idempotente; rechaza una URI que no sea de esta máquina. Ver «Portadas de los posts migrados» |
 | `make api-cover-sample` | Genera UNA portada real con FLUX.1 [schnell] (necesita `CLOUDFLARE_ACCOUNT_ID` y `CLOUDFLARE_AI_TOKEN` en `.env`), la guarda en `Claude outputs/portadas/` e imprime formato, resolución, tamaño, si trae C2PA/JUMBF, XMP, IPTC o EXIF y el largo del `blurDataUrl`. Gasta una imagen de la cuota de Cloudflare: nunca en CI |
 | `make api-rag-eval` | Mide recall@4 del RAG con embeddings reales sobre el set de `internal/assistant/gemini/testdata/rag_eval.json` (ADR-027, punto 12) e imprime, por consulta, los 4 fragmentos más parecidos y cuáles superan el umbral. `RAG_EVAL_MODEL` y `RAG_MIN_SCORE` cambian modelo y umbral. Gasta cuota: nunca en CI |
@@ -694,6 +695,23 @@ API_URL=http://127.0.0.1:<puerto> ORIGIN=<origen permitido> \
 ```
 
 `scripts/smoke.sh` prueba `/health`, `/ready`, las cabeceras de seguridad, el listado de posts y un post, el CV y su descarga, y que otro origen no pueda cambiar estado. Con un admin, además crea y publica un post, sube un CV, envía un comentario y lo aprueba (si `COMMENTS_ENABLED`), y consulta el estado del RAG. Sale con código distinto de 0 si algo falla. Contra producción, solo `--read-only` (el workflow lo corre así después de cada despliegue).
+
+### Migrar el contenido local a producción
+
+`make prod-migrate-content` (`services/api/cmd/migrate-content`, BLOG-159) copia la colección `posts` del Mongo local a otra base y las portadas de `FILES_LOCAL_DIR` al bucket. Los pasos para producción están en el [runbook](runbooks/despliegue.md), paso 12; lo corre León.
+
+- **Qué copia:** cada documento de `posts` completo, por su `_id`, con todas sus fechas. Reescribe en cualquier campo de texto las URLs `FILES_LOCAL_BASE_URL/covers/<post>/<hash>.<ext>` a `https://storage.googleapis.com/<TARGET_BUCKET>/covers/...`. Cualquier otra URL local (`localhost`, `127.0.0.1`) es un problema.
+- **Cuándo no escribe nada:** si falta una portada en disco, si su contenido no es del tipo de su extensión, si un slug existe en el destino con otro `_id` o si queda una URL local. En el simulacro (por defecto) solo informa.
+- **Idempotente:** un post igual en el destino no se toca; uno editado en el destino después que en el origen (`updated_at`) no se pisa; un archivo que ya está no se vuelve a subir (`gcloud storage cp --no-clobber`).
+- **URIs:** el origen es `MONGO_URI` de `.env` y el destino `TARGET_MONGO_URI`, siempre del entorno, nunca como argumento. Ninguna se imprime: un error de conexión solo dice cuál falló.
+- **Probarlo en local** sin GCS ni Atlas: un segundo Mongo como destino y un directorio como bucket (`TARGET_FILES_DIR`). Detén el contenedor por su id al terminar:
+
+  ```sh
+  cid=$(docker run -d --rm -p 127.0.0.1:27018:27017 mongo:8.0)
+  TARGET_MONGO_URI=mongodb://127.0.0.1:27018/ make prod-migrate-content \
+    TARGET_DB=personal_blog TARGET_BUCKET=huitzi-blog-files-01 TARGET_FILES_DIR=/tmp/bucket-de-prueba
+  docker stop "$cid"
+  ```
 
 Para validar los workflows en local (sin instalar nada en el repo):
 

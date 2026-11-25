@@ -2,7 +2,7 @@ API_DIR := services/api
 # Swagger UI para ver el contrato en local; fijada por tag y digest.
 SWAGGER_UI_IMAGE := swaggerapi/swagger-ui:v5.33.3@sha256:b26661cd754a7efbb2e1aab419ffb5603320d8f35f0bd086d1d7506e23934d23
 
-.PHONY: web-dev web-lint web-typecheck web-test web-build web-start e2e e2e-clean admin-dev admin-lint admin-test admin-build admin-preview admin-csp-test api-run api-watch api-test api-test-integration api-moderation-samples api-rag-eval api-cover-sample api-migrate-covers api-import-old-posts api-lint api-build mcp-build api-docker-build api-docs api-flows generate db-up db-down db-logs db-reset docs-architecture
+.PHONY: web-dev web-lint web-typecheck web-test web-build web-start e2e e2e-clean admin-dev admin-lint admin-test admin-build admin-preview admin-csp-test api-run api-watch api-test api-test-integration api-moderation-samples api-rag-eval api-cover-sample api-migrate-covers prod-migrate-content api-import-old-posts api-lint api-build mcp-build api-docker-build api-docs api-flows generate db-up db-down db-logs db-reset docs-architecture
 
 api-run:
 	@test -f .env || { echo "Falta .env: copia .env.example a .env"; exit 1; }
@@ -43,6 +43,24 @@ api-migrate-covers:
 	@test -n "$(MIGRATE_DB)" || { echo "Falta MIGRATE_DB=<base>"; exit 1; }
 	@test -n "$(SITE_URL)" || { echo "Falta SITE_URL=<url de la web>, por ejemplo http://localhost:3000"; exit 1; }
 	cd $(API_DIR) && go run ./cmd/migrate-covers -db "$(MIGRATE_DB)" -site-url "$(SITE_URL)" $(if $(DRY_RUN),-dry-run,)
+# Copia los posts de Mongo local a otra base y sus portadas de FILES_LOCAL_DIR
+# al bucket, con las URLs reescritas (BLOG-159). El origen es MONGO_URI de
+# .env; el destino, TARGET_MONGO_URI, nunca de .env, más TARGET_DB y
+# TARGET_BUCKET. Simulacro salvo con DRY_RUN=0. SLUGS y STATUSES (por defecto
+# published,draft) eligen los posts; TARGET_FILES_DIR copia a un directorio en
+# lugar del bucket, solo para probar. Nunca en CI.
+prod-migrate-content:
+	@test -f .env || { echo "Falta .env: copia .env.example a .env"; exit 1; }
+	@test -n "$$TARGET_MONGO_URI" || { echo "Falta TARGET_MONGO_URI (no se toma de .env)"; exit 1; }
+	@test -n "$(TARGET_DB)" || { echo "Falta TARGET_DB=<base de destino>, por ejemplo personal_blog"; exit 1; }
+	@test -n "$(TARGET_BUCKET)" || { echo "Falta TARGET_BUCKET=<bucket de archivos>"; exit 1; }
+	@set -a && . ./.env && set +a && cd $(API_DIR) && go run ./cmd/migrate-content \
+		-source-db "$$MONGO_DB_NAME" -target-db "$(TARGET_DB)" -bucket "$(TARGET_BUCKET)" \
+		-files-dir "$$FILES_LOCAL_DIR" -source-base-url "$$FILES_LOCAL_BASE_URL" \
+		-dry-run=$(if $(filter 0,$(DRY_RUN)),false,true) \
+		$(if $(SLUGS),-slugs "$(SLUGS)") $(if $(STATUSES),-statuses "$(STATUSES)") \
+		$(if $(TARGET_FILES_DIR),-target-files-dir "$(TARGET_FILES_DIR)")
+
 # Importa los 2 posts de la web anterior (docs/web/posts-migrados/) al Mongo
 # LOCAL de .env, con su portada en FILES_LOCAL_DIR (BLOG-076). El autor es
 # INITIAL_ADMIN_EMAIL de .env, o AUTHOR_ID. Simulacro salvo con DRY_RUN=0.

@@ -23,7 +23,7 @@ Las obligatorias que faltan se nombran todas juntas al arrancar (`missing requir
 | `JWT_SECRET` | Firma de los tokens de sesión y clave de los tokens de vista previa (HKDF). Mínimo 32 bytes. | **Sí** | SM `jwt-secret` |
 | `ALLOWED_ORIGINS` | Orígenes exactos (`https://…`, sin `*`) que pueden cambiar estado con cookies; CORS y comprobación de `Origin`. | Sí en la práctica | Archivo |
 | `MAX_BODY_BYTES` | Tamaño máximo del cuerpo de una petición JSON. | No (1 MiB) | Archivo |
-| `TRUSTED_PROXIES` | Proxies cuya cabecera `X-Forwarded-For` se cree, para la IP del rate limit. | No (vacía) | Archivo (vacía hasta el paso 18 del runbook) |
+| `TRUSTED_PROXIES` | Proxies cuya cabecera `X-Forwarded-For` se cree, para la IP del rate limit. | No (vacía) | Archivo (vacía hasta el paso 19 del runbook) |
 | `GIN_MODE` | `release` en producción. | No | Archivo |
 | `LOG_FORMAT` | `json` para Cloud Logging (`severity`, `message`, `httpRequest`). | No (`text`) | Archivo |
 | `INITIAL_ADMIN_EMAIL` | Crea el primer admin si no hay usuarios. | No | `gcloud run services update`, solo la primera vez |
