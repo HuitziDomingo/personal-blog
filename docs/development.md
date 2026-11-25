@@ -239,6 +239,7 @@ Los valores de producción son los previstos; el despliegue está pendiente (BLO
 | `make api-test-integration` | Levanta MongoDB y corre los tests de `internal/repository` contra él |
 | `make api-moderation-samples` | Corre los comentarios de ejemplo de la moderación contra Gemini real (`gemini-3.6-flash`). Gasta cuota: nunca en CI |
 | `make api-migrate-covers` | Asigna la portada a los 2 posts migrados (`arreglos` y `backend-api`). Pide `MIGRATE_MONGO_URI` en el entorno (nunca la toma de `.env`), `MIGRATE_DB` y `SITE_URL`; `DRY_RUN=1` solo informa. Idempotente. Ver «Portadas de los posts migrados» |
+| `make api-import-old-posts` | Importa los 2 posts de la web anterior (`docs/web/posts-migrados/`) al Mongo local de `.env`, publicados con sus fechas originales y con la portada en `FILES_LOCAL_DIR` (BLOG-076). Autor: `INITIAL_ADMIN_EMAIL` de `.env`, o `AUTHOR_ID`. Simulacro salvo con `DRY_RUN=0`. Idempotente; rechaza una URI que no sea de esta máquina. Ver «Portadas de los posts migrados» |
 | `make api-cover-sample` | Genera UNA portada real con FLUX.1 [schnell] (necesita `CLOUDFLARE_ACCOUNT_ID` y `CLOUDFLARE_AI_TOKEN` en `.env`), la guarda en `Claude outputs/portadas/` e imprime formato, resolución, tamaño, si trae C2PA/JUMBF, XMP, IPTC o EXIF y el largo del `blurDataUrl`. Gasta una imagen de la cuota de Cloudflare: nunca en CI |
 | `make api-rag-eval` | Mide recall@4 del RAG con embeddings reales sobre el set de `internal/assistant/gemini/testdata/rag_eval.json` (ADR-027, punto 12) e imprime, por consulta, los 4 fragmentos más parecidos y cuáles superan el umbral. `RAG_EVAL_MODEL` y `RAG_MIN_SCORE` cambian modelo y umbral. Gasta cuota: nunca en CI |
 | `make api-lint` | Corre `golangci-lint` |
@@ -789,6 +790,23 @@ ADR-026 (BLOG-112). La API genera la portada de un post con FLUX.1 [schnell] en 
 - **Probarlo a mano:** en `.env`, el asistente encendido, `IMAGES_ENABLED=true`, tu `CLOUDFLARE_ACCOUNT_ID` y `CLOUDFLARE_AI_TOKEN` y `FILES_STORE=local`. Gasta cuota de Cloudflare y de Gemini. Las portadas aceptadas quedan en `services/api/tmp/files/covers/` y se ven en `http://localhost:8080/media/covers/...`. Para que la web las muestre, `COVER_IMAGES_BASE_URL=http://localhost:8080/media/covers/` en el entorno de `make web-dev`.
 
 ### Portadas de los posts migrados
+
+**Importarlos (BLOG-076):** `make api-import-old-posts` crea los 2 posts en el Mongo local, ya con su portada, y reemplaza a `make api-migrate-covers` para ellos:
+
+- **Fuente:** los Markdown de `docs/web/posts-migrados/`, sin su primera línea (la portada, que la web muestra aparte). Título, extracto y tags del README de esa carpeta.
+- **Validación:** las reglas del service (`service.NormalizeImportedPost`: título, contenido, estado, slug y `alt` de la portada) y el esquema `PostWrite` del contrato, como si llegaran por la API.
+- **Fechas:** publicación y creación = el commit que creó cada página en la web anterior (2023-05-16 y 2023-05-24, −06:00); actualización = su último cambio (2023-05-24 y 2023-05-26).
+- **Imágenes:** la portada va a `FILES_LOCAL_DIR/covers/<post>/<hash>.webp`, con la clave de la API (sha256, 12 bytes), su URL local y su `blurDataUrl`. Las del texto se quedan como `/img/blog/...`, que sirve la web: `make prod-migrate-content` no las toca ni las sube. En la vista previa del admin esas imágenes no cargan (resuelven al origen del admin).
+- **Idempotente:** un post que ya existe igual no cambia; uno con otros datos no se pisa (informa qué campos difieren); una portada distinta tampoco.
+- **Solo local:** rechaza una `MONGO_URI` que no sea `mongodb://` en `localhost`, `127.0.0.1` o `::1`. Córrelo desde el checkout principal: `FILES_LOCAL_DIR` es relativo a `services/api` de donde corras `make`, y la API sirve las portadas desde ahí.
+
+```sh
+make api-import-old-posts            # simulacro
+make api-import-old-posts DRY_RUN=0  # escribe
+```
+
+Después, `make prod-migrate-content` los sube a producción con sus portadas (runbook de despliegue). Lo que sigue en esta sección es el camino anterior, con la portada servida por la web.
+
 
 Los 2 artículos de `docs/web/posts-migrados/` usan como portada la imagen que ya sirve la web, `/img/blog/arreglos-portada.webp`, con su `alt` en español y su `blurDataUrl`. `make api-migrate-covers` la asigna:
 

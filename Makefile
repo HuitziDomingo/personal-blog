@@ -2,7 +2,7 @@ API_DIR := services/api
 # Swagger UI para ver el contrato en local; fijada por tag y digest.
 SWAGGER_UI_IMAGE := swaggerapi/swagger-ui:v5.33.3@sha256:b26661cd754a7efbb2e1aab419ffb5603320d8f35f0bd086d1d7506e23934d23
 
-.PHONY: web-dev web-lint web-typecheck web-test web-build web-start e2e e2e-clean admin-dev admin-lint admin-test admin-build admin-preview admin-csp-test api-run api-watch api-test api-test-integration api-moderation-samples api-rag-eval api-cover-sample api-migrate-covers api-lint api-build mcp-build api-docker-build api-docs api-flows generate db-up db-down db-logs db-reset docs-architecture
+.PHONY: web-dev web-lint web-typecheck web-test web-build web-start e2e e2e-clean admin-dev admin-lint admin-test admin-build admin-preview admin-csp-test api-run api-watch api-test api-test-integration api-moderation-samples api-rag-eval api-cover-sample api-migrate-covers api-import-old-posts api-lint api-build mcp-build api-docker-build api-docs api-flows generate db-up db-down db-logs db-reset docs-architecture
 
 api-run:
 	@test -f .env || { echo "Falta .env: copia .env.example a .env"; exit 1; }
@@ -43,6 +43,17 @@ api-migrate-covers:
 	@test -n "$(MIGRATE_DB)" || { echo "Falta MIGRATE_DB=<base>"; exit 1; }
 	@test -n "$(SITE_URL)" || { echo "Falta SITE_URL=<url de la web>, por ejemplo http://localhost:3000"; exit 1; }
 	cd $(API_DIR) && go run ./cmd/migrate-covers -db "$(MIGRATE_DB)" -site-url "$(SITE_URL)" $(if $(DRY_RUN),-dry-run,)
+# Importa los 2 posts de la web anterior (docs/web/posts-migrados/) al Mongo
+# LOCAL de .env, con su portada en FILES_LOCAL_DIR (BLOG-076). El autor es
+# INITIAL_ADMIN_EMAIL de .env, o AUTHOR_ID. Simulacro salvo con DRY_RUN=0.
+# Rechaza una URI que no sea de esta máquina. Nunca en CI.
+api-import-old-posts:
+	@test -f .env || { echo "Falta .env: copia .env.example a .env"; exit 1; }
+	@set -a && . ./.env && set +a && cd $(API_DIR) && go run ./cmd/import-old-posts \
+		-db "$$MONGO_DB_NAME" -files-dir "$$FILES_LOCAL_DIR" -base-url "$$FILES_LOCAL_BASE_URL" \
+		$(if $(AUTHOR_ID),-author-id "$(AUTHOR_ID)",-author-email "$$INITIAL_ADMIN_EMAIL") \
+		-dry-run=$(if $(filter 0,$(DRY_RUN)),false,true)
+
 # Mide recall@4 del RAG (ADR-027, punto 12) con embeddings reales sobre el set
 # de testdata/rag_eval.json. Gasta cuota del plan gratuito: nunca en CI. Carga
 # .env sin imprimirlo; RAG_EVAL_MODEL y RAG_MIN_SCORE cambian modelo y umbral.

@@ -94,7 +94,7 @@
 
 - [x] BLOG-059: Crear `apps/web` (Next.js, ADR-017): TypeScript estricto, ISR, CSP y `packages/markdown` en el servidor. ([#53](https://github.com/HuitziDomingo/personal-blog/pull/53))
 - [x] BLOG-075: `apps/web` como sitio real: portafolio con el contenido de la web anterior, blog con vista de lectura, modo claro/oscuro/sistema, SEO (canónicas, Open Graph, sitemap, robots y RSS) e imágenes con `next/image`. ([#70](https://github.com/HuitziDomingo/personal-blog/pull/70))
-- [ ] BLOG-076: Crear en el admin los 2 posts de la web anterior (`docs/web/posts-migrados/`), con los slugs `arreglos` y `backend-api`.
+- [ ] BLOG-076: Crear en el admin los 2 posts de la web anterior (`docs/web/posts-migrados/`), con los slugs `arreglos` y `backend-api`. Se hace con `make api-import-old-posts` en el Mongo local: publicados con la fecha del commit que creó cada página, la portada en el almacén local y las imágenes del texto en `/img/blog/`; luego `make prod-migrate-content` los sube.
 - [x] BLOG-077: Decidir los pendientes del inventario de la web anterior: perro 3D (three.js), íconos de marca de las redes, resaltado de sintaxis del código y animaciones de entrada. ([#84](https://github.com/HuitziDomingo/personal-blog/pull/84))
   - Perro 3D: descartado por licencia. El `dog.glb` de la web anterior es el modelo de craftzdog (Takuya Matsuyama), bajo CC BY-NC-ND 4.0, y su README pide no usarlo. Un modelo propio sería una tarea aparte, si se decide.
   - Resaltado de sintaxis: en el servidor con Shiki, después de sanitizar. ([#77](https://github.com/HuitziDomingo/personal-blog/pull/77))
