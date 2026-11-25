@@ -1,4 +1,4 @@
-# Runbook: despliegue a producción (ADR-025 y ADR-030)
+# Runbook: despliegue a producción (ADR-025, ADR-030 y ADR-031)
 
 Pasos manuales que hace León, en orden. Ningún agente ejecuta nada de esto (ADR-025, punto 14). Los comandos usan placeholders entre `<>`; ninguno lleva valores secretos. Los secretos se escriben siempre por la entrada estándar (`read -rs`), nunca en la línea de comandos, para que no queden en el historial de la shell. Ver también «Cómo cargar un secreto sin que se cuele otra cosa» en el paso 7.
 
@@ -408,7 +408,7 @@ Ningún secreto va en Vercel (ADR-025, punto 8): solo la URL pública de la API.
 
 ## 16. DNS en Vercel
 
-Los nameservers de `huitzi.xyz` son los de Vercel, así que su DNS se administra en Vercel, no en DreamHost (DreamHost sigue siendo solo el registrador). En *Vercel → Domains → `huitzi.xyz` → DNS Records*, con los valores exactos que te muestren Search Console y Cloud Run:
+Los nameservers de `huitzi.xyz` son los de Vercel, así que su DNS se administra en Vercel, no en DreamHost (DreamHost sigue siendo solo el registrador; [ADR-031](../adr/031-dns-de-huitzi-xyz-en-vercel.md)). En *Vercel → Domains → `huitzi.xyz` → DNS Records*, con los valores exactos que te muestren Search Console y Cloud Run:
 
 | Nombre | Tipo | Valor | Para |
 |---|---|---|---|
