@@ -1,6 +1,6 @@
-# Runbook: despliegue a producción (ADR-025 y ADR-030)
+# Runbook: despliegue a producción (ADR-025, ADR-030 y ADR-031)
 
-Pasos manuales que hace León, en orden. Ningún agente ejecuta nada de esto (ADR-025, punto 14). Los comandos usan placeholders entre `<>`; ninguno lleva valores secretos. Los secretos se escriben siempre por la entrada estándar (`read -rs`), nunca en la línea de comandos, para que no queden en el historial de la shell.
+Pasos manuales que hace León, en orden. Ningún agente ejecuta nada de esto (ADR-025, punto 14). Los comandos usan placeholders entre `<>`; ninguno lleva valores secretos. Los secretos se escriben siempre por la entrada estándar (`read -rs`), nunca en la línea de comandos, para que no queden en el historial de la shell. Ver también «Cómo cargar un secreto sin que se cuele otra cosa» en el paso 7.
 
 Variables de entorno de cada app, con su propósito y origen: [docs/deploy/variables.md](../deploy/variables.md).
 
@@ -11,7 +11,8 @@ Variables de entorno de cada app, con su propósito y origen: [docs/deploy/varia
 | `<PROJECT_ID>` | Proyecto de GCP de la API | Lo eliges en el paso 1 (por ejemplo `huitzi-blog-prod`) |
 | `<PROJECT_NUMBER>` | Número del proyecto | `gcloud projects describe <PROJECT_ID> --format='value(projectNumber)'` |
 | `<BILLING_ACCOUNT_ID>` | Cuenta de facturación | `gcloud billing accounts list` |
-| `<GITHUB_REPO_ID>` | Id numérico del repo en GitHub (no cambia si se renombra) | `gh api repos/HuitziDomingo/personal-blog --jq .id` |
+| `<GITHUB_REPO_ID>` | Id numérico del repo en GitHub (no cambia si se renombra) | `gh api repos/HuitziDomingo/personal-blog --jq .id` (hoy `1441416732`) |
+| `<GITHUB_OWNER_ID>` | Id numérico del dueño del repo en GitHub | `gh api users/HuitziDomingo --jq .id` (hoy `42973573`) |
 | `<FILES_BUCKET>` | Bucket público de portadas y CV (`FILES_GCS_BUCKET`) | Lo eliges en el paso 8 (único en todo GCS) |
 | `<BACKUP_BUCKET>` | Bucket privado de respaldos | Lo eliges en el paso 8 |
 | `<ADMIN_EMAIL>` | Email del administrador inicial | Tuyo |
@@ -49,16 +50,24 @@ gcloud services enable \
   cloudscheduler.googleapis.com
 ```
 
-## 3. Presupuesto ($5 USD al mes)
+## 3. Presupuesto (unos 5 USD al mes)
 
 Primero, para que el tope exista antes de gastar nada (ADR-025, punto 3). El presupuesto **solo avisa**; el tope real es `max-instances=1`.
+
+El monto va en la **moneda de la cuenta de facturación**; otra moneda da error. Para ver cuál es:
+
+```sh
+gcloud billing accounts describe <BILLING_ACCOUNT_ID> --format='value(currencyCode)'
+```
+
+Con una cuenta en pesos mexicanos, 100 MXN son unos 5 USD. `--filter-projects` pide el **número** del proyecto, no su id:
 
 ```sh
 gcloud billing budgets create \
   --billing-account=<BILLING_ACCOUNT_ID> \
   --display-name="personal-blog" \
-  --budget-amount=5USD \
-  --filter-projects="projects/$PROJECT_ID" \
+  --budget-amount=100MXN \
+  --filter-projects="projects/<PROJECT_NUMBER>" \
   --threshold-rule=percent=0.5 \
   --threshold-rule=percent=0.9 \
   --threshold-rule=percent=1.0
@@ -125,13 +134,20 @@ gcloud iam workload-identity-pools providers create-oidc personal-blog \
 
 La condición deja pasar solo tokens de este repo (por id, que no cambia aunque se renombre) y de `main`. La cuenta de despliegue, además, acepta un solo `subject`, el del environment `production` de GitHub. El respaldo ya no usa WIF: es un Cloud Run Job con su propia cuenta (ADR-030).
 
+**El `subject` es inmutable.** Este repo usa el formato de *immutable subject* de GitHub: el `sub` del token lleva el id del dueño y el del repo además de sus nombres, `repo:<dueño>@<GITHUB_OWNER_ID>/<repo>@<GITHUB_REPO_ID>:environment:<environment>`, no `repo:HuitziDomingo/personal-blog:environment:production`. Con el formato viejo el binding no coincide y la autenticación del workflow falla. Para ver qué formato usa el repo:
+
+```sh
+gh api repos/HuitziDomingo/personal-blog/actions/oidc/customization/sub
+```
+
+La respuesta describe la plantilla del `sub` del repo. Con el formato inmutable, el `sub` del environment `production` es el de abajo; los dos ids salen de la tabla de placeholders.
+
 ```sh
 export POOL="projects/<PROJECT_NUMBER>/locations/global/workloadIdentityPools/github"
 
 gcloud iam service-accounts add-iam-policy-binding "$DEPLOY_SA" \
   --role=roles/iam.workloadIdentityUser \
-  --member="principal://iam.googleapis.com/$POOL/subject/repo:HuitziDomingo/personal-blog:environment:production"
-
+  --member="principal://iam.googleapis.com/$POOL/subject/repo:HuitziDomingo@42973573/personal-blog@1441416732:environment:production"
 ```
 
 Nombre completo del provider (va en la variable de GitHub `GCP_WIF_PROVIDER`):
@@ -179,6 +195,19 @@ read -rs MONGO_URI && printf '%s' "$MONGO_URI" | gcloud secrets create mongo-uri
 read -rs GEMINI_API_KEY && printf '%s' "$GEMINI_API_KEY" | gcloud secrets create gemini-api-key --replication-policy=automatic --data-file=- ; unset GEMINI_API_KEY
 ```
 
+**Cómo cargar un secreto sin que se cuele otra cosa:**
+
+- **No copies el comando al portapapeles** para pegar después el secreto. Si en algún paso usas `pbpaste` (por ejemplo `pbpaste | gcloud secrets create …`), lee lo que esté en el portapapeles en ese momento, que puede ser el propio comando. El secreto queda guardado con un valor equivocado y sin que se vea.
+- **Lo más seguro es la consola:** *Secret Manager → Crear secreto* (o *Nueva versión*), pegando el valor en el campo.
+- **Si el valor está en tu `.env`,** léelo del archivo sin mostrarlo, quitando las comillas simples y dobles con que `.env` lo guarda (no sirve si el secreto contiene comillas):
+
+  ```sh
+  grep '^GEMINI_API_KEY=' .env | cut -d= -f2- | tr -d "'\"" | tr -d '\n' \
+    | gcloud secrets create gemini-api-key --replication-policy=automatic --data-file=-
+  ```
+
+- Comprueba el largo sin ver el valor: `gcloud secrets versions access latest --secret=<secreto> | wc -c`.
+
 Accesos, uno por secreto:
 
 ```sh
@@ -198,7 +227,7 @@ Para rotar un secreto: `gcloud secrets versions add <secreto> --data-file=-` y v
 
 ```sh
 gcloud storage buckets create gs://<FILES_BUCKET> \
-  --location="$REGION" --uniform-bucket-level-access --public-access-prevention=inherited
+  --location="$REGION" --uniform-bucket-level-access
 
 gcloud storage buckets add-iam-policy-binding gs://<FILES_BUCKET> \
   --member=allUsers --role=roles/storage.objectViewer
@@ -210,6 +239,8 @@ La API lo usa con `FILES_STORE=gcs` (ya en `services/api/deploy/production.env.y
 
 > **Pendiente de decisión de León (ADR-028, punto 6):** GCS **no envía `X-Content-Type-Options: nosniff`** en los objetos públicos, y no hay forma de agregar esa cabecera desde los metadatos del objeto. El `Content-Type: application/pdf` sí se fija al subir y el archivo se sirve desde `storage.googleapis.com`, aislado de `huitzi.xyz` y `admin.huitzi.xyz`, que es la defensa principal. Opciones: aceptar el riesgo y corregir ADR-028 con un ADR nuevo, o servir los archivos a través de algo que sí ponga la cabecera (la propia API o un balanceador; este último cuesta unos $18 USD al mes, ADR-025). Compruébalo tras el primer PDF: `curl -sSI https://storage.googleapis.com/<FILES_BUCKET>/cv/<archivo>.pdf`.
 
+`--pap` y `--no-pap` (prevención de acceso público) ya no reciben valor: `--public-access-prevention=enforced` o `=inherited` dan error. El bucket público se crea sin la bandera, y el de respaldos con `--pap`.
+
 **Respaldos:** privado, con borrado a los 90 días (ADR-025, punto 5). Archivo `lifecycle.json` fuera del repo:
 
 ```json
@@ -218,7 +249,7 @@ La API lo usa con `FILES_STORE=gcs` (ya en `services/api/deploy/production.env.y
 
 ```sh
 gcloud storage buckets create gs://<BACKUP_BUCKET> \
-  --location="$REGION" --uniform-bucket-level-access --public-access-prevention=enforced
+  --location="$REGION" --uniform-bucket-level-access --pap
 gcloud storage buckets update gs://<BACKUP_BUCKET> --lifecycle-file=lifecycle.json
 gcloud storage buckets add-iam-policy-binding gs://<BACKUP_BUCKET> \
   --member="serviceAccount:$BACKUP_SA" --role=roles/storage.objectCreator
@@ -336,7 +367,7 @@ Después:
 gcloud domains verify huitzi.xyz
 ```
 
-Abre Search Console: agrega `huitzi.xyz` como **propiedad de dominio** y crea en DreamHost el registro `TXT` que te da (paso 16). Usa la misma cuenta de Google con la que corres `gcloud`.
+Abre Search Console y agrega `huitzi.xyz` como propiedad de tipo **Dominio**, no **Prefijo de URL**: el mapeo de Cloud Run pide la verificación del dominio entero, y la de prefijo no cuenta. Crea en Vercel el registro `TXT` que te da (paso 16). Usa la misma cuenta de Google con la que corres `gcloud`.
 
 ## 14. Mapeo de dominio de Cloud Run
 
@@ -375,19 +406,16 @@ Dos proyectos, plan Hobby, importados del mismo repo (ADR-025, punto 6):
 
 Ningún secreto va en Vercel (ADR-025, punto 8): solo la URL pública de la API.
 
-## 16. DNS en DreamHost
+## 16. DNS en Vercel
 
-En *Domains → Manage → DNS* de `huitzi.xyz`, con los valores exactos que muestren Vercel y Cloud Run:
+Los nameservers de `huitzi.xyz` son los de Vercel, así que su DNS se administra en Vercel, no en DreamHost (DreamHost sigue siendo solo el registrador; [ADR-031](../adr/031-dns-de-huitzi-xyz-en-vercel.md)). En *Vercel → Domains → `huitzi.xyz` → DNS Records*, con los valores exactos que te muestren Search Console y Cloud Run:
 
-| Registro | Tipo | Valor | Para |
+| Nombre | Tipo | Valor | Para |
 |---|---|---|---|
-| `huitzi.xyz` | `A` | El que indique Vercel (hoy `76.76.21.21`) | Web |
-| `www` | `CNAME` | El que indique Vercel (`cname.vercel-dns.com.`) | Web |
-| `admin` | `CNAME` | El que indique Vercel para el proyecto admin | Admin |
+| `@` (`huitzi.xyz`) | `TXT` | `google-site-verification=…` (paso 13) | Verificación del dominio |
 | `api` | `CNAME` | `ghs.googlehosted.com.` (el de `describe`, paso 14) | API |
-| `huitzi.xyz` | `TXT` | `google-site-verification=…` (paso 13) | Verificación |
 
-Si DreamHost tiene registros `A` o `CNAME` previos para esos nombres (por ejemplo, el hosting de DreamHost), bórralos antes. Comprueba con `dig +short api.huitzi.xyz` y `dig +short admin.huitzi.xyz`.
+La web (`huitzi.xyz` y `www`) y el admin (`admin.huitzi.xyz`) no necesitan registros a mano: Vercel los crea al asignar el dominio a cada proyecto (paso 15). Comprueba con `dig +short api.huitzi.xyz`, `dig +short admin.huitzi.xyz` y `dig +short TXT huitzi.xyz`.
 
 ## 17. Uptime check
 

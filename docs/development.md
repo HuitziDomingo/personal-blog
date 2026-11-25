@@ -680,7 +680,7 @@ Nada está en producción todavía. Lo que ya está en el repo:
 - **`.github/workflows/deploy-api.yml`:** solo a mano (`workflow_dispatch`, ADR-030). Desde `main` y con el check `ci` del commit en verde, despliega la API a Cloud Run (`target: api`) o el job de respaldo (`target: backup-job`). Espera la aprobación de León en el environment `production` y se autentica con Workload Identity Federation (sin llaves JSON).
 - **`services/api/deploy/backup/`:** imagen del Cloud Run Job `mongo-backup` (`mongodump` semanal a un bucket privado, con la URI de Secret Manager) y `scheduler.sh`, la definición de Cloud Scheduler que aplica León.
 - **`services/api/deploy/production.env.yaml`:** variables no secretas de la API en producción. El workflow las aplica completas en cada despliegue; los secretos vienen de Secret Manager.
-- **[`docs/runbooks/despliegue.md`](runbooks/despliegue.md):** los pasos manuales en GCP, Atlas, Vercel, DreamHost y GitHub, la verificación del primer despliegue y la reversión.
+- **[`docs/runbooks/despliegue.md`](runbooks/despliegue.md):** los pasos manuales en GCP, Atlas, Vercel (también el DNS) y GitHub, la verificación del primer despliegue y la reversión.
 - **[`docs/deploy/variables.md`](deploy/variables.md):** todas las variables de cada app, su propósito y de dónde salen en producción. `make api-test` comprueba que los nombres de la API coincidan con el código.
 - **`scripts/smoke.sh`:** smoke test de una API desplegada (ver abajo).
 
