@@ -136,6 +136,21 @@ func TestRewriteReportsLocalURLsItCannotRewrite(t *testing.T) {
 	assert.Empty(t, out.keys)
 }
 
+// Las imágenes que sirve la web en /img/blog/ (posts de la web anterior,
+// BLOG-076) no son del almacén de la API: no se reescriben ni se suben.
+func TestRewriteLeavesWebPathsAlone(t *testing.T) {
+	content := "![Terminal](/img/blog/init.webp)\n\n![Árbol](/img/blog/srcdir.webp \"src\")"
+	post := rawPost("backend-api", "published", older, content, localCover(coverKey))
+
+	out := newRewriter(sourceBase, targetBase).rewrite(post.Doc)
+
+	assert.Equal(t, content, field(t, out.doc, "content"))
+	assert.Empty(t, out.leftovers)
+	assert.Equal(t, []string{coverKey}, out.keys, "only the cover is uploaded")
+	require.Len(t, out.changes, 1)
+	assert.Equal(t, "cover.url", out.changes[0].field)
+}
+
 func TestRewriteReportsANonLocalhostSourceBase(t *testing.T) {
 	post := rawPost("lan", "published", older, "![x](http://192.168.1.5:8080/media/otra.png)", nil)
 
