@@ -1,0 +1,28 @@
+info:
+  name: 5 Cambiar sin sesion
+  type: http
+  seq: 5
+
+http:
+  method: POST
+  url: "{{baseUrl}}/api/v1/auth/password"
+  body:
+    type: json
+    data: |-
+      {
+        "currentPassword": "{{adminPassword}}",
+        "newPassword": "una-frase-nueva-de-prueba"
+      }
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "401"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: true

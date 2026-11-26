@@ -26,6 +26,16 @@ var (
 	// ErrTooManyAttempts indica que un email agotó sus logins fallidos.
 	ErrTooManyAttempts = errors.New("too many login attempts")
 
+	// ErrIncorrectPassword indica que la contraseña actual no coincide al
+	// cambiarla. No es ErrInvalidCredentials: la sesión sigue siendo válida.
+	ErrIncorrectPassword = errors.New("current password is incorrect")
+
+	// ErrPasswordUnchanged, ErrPasswordTooShort y ErrPasswordTooLong son las
+	// reglas de una contraseña nueva (ADR-032).
+	ErrPasswordUnchanged = errors.New("new password must differ from the current one")
+	ErrPasswordTooShort  = errors.New("new password is too short")
+	ErrPasswordTooLong   = errors.New("new password is too long")
+
 	// ErrInvalidComment indica un nombre o contenido que no cumple las reglas
 	// de un comentario, como uno con solo espacios.
 	ErrInvalidComment = errors.New("invalid comment")

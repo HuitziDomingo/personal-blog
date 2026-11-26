@@ -34,6 +34,7 @@ type Sessions interface {
 	Logout(ctx context.Context, refreshToken string) error
 	Authenticate(accessToken string) (service.AccessClaims, error)
 	CurrentUser(ctx context.Context, userID string) (*domain.User, error)
+	ChangePassword(ctx context.Context, userID, currentPassword, newPassword string) (service.Session, error)
 }
 
 // Claves tipadas del contexto: un tipo propio no choca con claves de otros

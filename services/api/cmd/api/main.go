@@ -152,16 +152,17 @@ func run(logger *slog.Logger) error {
 		Logger:              logger,
 		JSONLogs:            cfg.LogFormat == config.LogFormatJSON,
 		RateLimits: handler.RateLimits{
-			Global:      handler.RateLimit(cfg.GlobalRateLimit),
-			Login:       handler.RateLimit(cfg.LoginRateLimit),
-			Refresh:     handler.RateLimit(cfg.RefreshRateLimit),
-			Preflight:   handler.RateLimit(cfg.PreflightRateLimit),
-			User:        handler.RateLimit(cfg.UserRateLimit),
-			Assistant:   handler.RateLimit(cfg.AssistantRateLimit),
-			Comments:    handler.WindowLimit{Max: cfg.Comments.RateLimitMax, Window: cfg.Comments.RateLimitWindow},
-			CVUploads:   handler.WindowLimit{Max: cfg.Files.CVUploadsMax, Window: cfg.Files.CVUploadsWindow},
-			Images:      handler.RateLimit(cfg.ImagesRateLimit),
-			ImagesDaily: handler.WindowLimit{Max: cfg.ImagesPerDay, Window: 24 * time.Hour},
+			Global:         handler.RateLimit(cfg.GlobalRateLimit),
+			Login:          handler.RateLimit(cfg.LoginRateLimit),
+			Refresh:        handler.RateLimit(cfg.RefreshRateLimit),
+			Preflight:      handler.RateLimit(cfg.PreflightRateLimit),
+			User:           handler.RateLimit(cfg.UserRateLimit),
+			Assistant:      handler.RateLimit(cfg.AssistantRateLimit),
+			Comments:       handler.WindowLimit{Max: cfg.Comments.RateLimitMax, Window: cfg.Comments.RateLimitWindow},
+			CVUploads:      handler.WindowLimit{Max: cfg.Files.CVUploadsMax, Window: cfg.Files.CVUploadsWindow},
+			AccountChanges: handler.WindowLimit{Max: service.MaxAccountChanges, Window: service.AccountChangesWindow},
+			Images:         handler.RateLimit(cfg.ImagesRateLimit),
+			ImagesDaily:    handler.WindowLimit{Max: cfg.ImagesPerDay, Window: 24 * time.Hour},
 		},
 	}
 
@@ -206,7 +207,7 @@ func newSessions(cfg config.Config, client *mongodb.Client, users *mongodb.UserR
 		return nil, fmt.Errorf("create token service: %w", err)
 	}
 
-	sessions, err := service.NewAuthService(users, tokens, time.Now)
+	sessions, err := service.NewAuthService(users, tokens, time.Now, slog.Default())
 	if err != nil {
 		return nil, fmt.Errorf("create auth service: %w", err)
 	}

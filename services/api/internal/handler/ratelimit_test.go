@@ -232,16 +232,17 @@ func ipRouter(configure func(*gin.Engine) error) (*gin.Engine, error) {
 	}
 
 	router.Use(newRateLimiter(RateLimits{
-		Global:      RateLimit{PerMinute: 1, Burst: 1},
-		Login:       RateLimit{PerMinute: 1, Burst: 1},
-		Refresh:     RateLimit{PerMinute: 1, Burst: 1},
-		Preflight:   RateLimit{PerMinute: 1, Burst: 1},
-		User:        RateLimit{PerMinute: 1, Burst: 1},
-		Assistant:   RateLimit{PerMinute: 1, Burst: 1},
-		Comments:    WindowLimit{Max: 1, Window: time.Minute},
-		CVUploads:   WindowLimit{Max: 1, Window: time.Minute},
-		Images:      RateLimit{PerMinute: 1, Burst: 1},
-		ImagesDaily: WindowLimit{Max: 1, Window: time.Hour},
+		Global:         RateLimit{PerMinute: 1, Burst: 1},
+		Login:          RateLimit{PerMinute: 1, Burst: 1},
+		Refresh:        RateLimit{PerMinute: 1, Burst: 1},
+		Preflight:      RateLimit{PerMinute: 1, Burst: 1},
+		User:           RateLimit{PerMinute: 1, Burst: 1},
+		Assistant:      RateLimit{PerMinute: 1, Burst: 1},
+		Comments:       WindowLimit{Max: 1, Window: time.Minute},
+		CVUploads:      WindowLimit{Max: 1, Window: time.Minute},
+		Images:         RateLimit{PerMinute: 1, Burst: 1},
+		ImagesDaily:    WindowLimit{Max: 1, Window: time.Hour},
+		AccountChanges: WindowLimit{Max: 1, Window: time.Minute},
 	}, rejectAllTokens, time.Now).handle)
 	router.GET("/api/v1/posts", func(c *gin.Context) { c.Status(http.StatusOK) })
 

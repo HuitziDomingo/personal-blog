@@ -134,6 +134,56 @@ paths:
         default:
           $ref: "#/components/responses/UnexpectedError"
 
+  /api/v1/auth/password:
+    post:
+      tags: [auth]
+      operationId: changePassword
+      summary: Cambia la contraseña y cierra las demás sesiones.
+      description: >-
+        Comprueba la contraseña actual, guarda el hash bcrypt de la nueva y
+        revoca todos los refresh tokens del usuario, también el de esta sesión
+        (ADR-032). La respuesta abre una sesión nueva en este dispositivo con
+        cookies nuevas. Los JWT de acceso ya emitidos en otros dispositivos
+        siguen valiendo hasta que vencen (15 minutos como mucho). Tiene un
+        límite propio de 5 intentos por usuario cada 15 minutos, cuente o no
+        la contraseña actual.
+      security:
+        - accessCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PasswordChange"
+      responses:
+        "204":
+          description: Contraseña cambiada; las cookies son de la sesión nueva.
+          headers:
+            Set-Cookie:
+              $ref: "#/components/headers/SessionCookies"
+        "400":
+          description: >-
+            La petición no cumple el contrato o las reglas de la contraseña.
+            `detail` distingue el caso: `current password is incorrect`,
+            `new password must differ from the current one`,
+            `new password is too short` o `new password is too long` (más de
+            72 bytes en UTF-8, el límite de bcrypt). La contraseña actual
+            incorrecta es un 400 y no un 401: la sesión sigue siendo válida.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "413":
+          $ref: "#/components/responses/PayloadTooLarge"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        default:
+          $ref: "#/components/responses/UnexpectedError"
+
   /api/v1/posts:
     get:
       tags: [posts]
@@ -1328,6 +1378,24 @@ components:
           type: string
           format: password
           minLength: 1
+
+    PasswordChange:
+      type: object
+      description: >-
+        La nueva tiene entre 14 y 72 caracteres (ADR-032); la API comprueba
+        además que no pase de 72 bytes y que no sea igual a la actual.
+      required: [currentPassword, newPassword]
+      properties:
+        currentPassword:
+          type: string
+          format: password
+          minLength: 1
+          maxLength: 72
+        newPassword:
+          type: string
+          format: password
+          minLength: 14
+          maxLength: 72
 
     UserRole:
       type: string

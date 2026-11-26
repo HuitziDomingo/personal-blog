@@ -1,0 +1,15 @@
+info:
+  name: contrasena
+  type: folder
+
+request:
+  auth: inherit
+
+docs:
+  content: |-
+    Cambio de contraseña (ADR-032) sin cambiarla de verdad: una contraseña
+    actual incorrecta responde 400 y deja la sesión abierta, y sin sesión
+    responde 401. Gasta 1 de los 5 intentos por usuario cada 15 minutos.
+    Pide adminEmail y adminPassword, variables secretas del environment local.
+    El cambio con éxito lo cubren los tests de Go y el E2E.
+  type: text/markdown

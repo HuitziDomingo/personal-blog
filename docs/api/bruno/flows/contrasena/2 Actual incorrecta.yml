@@ -1,0 +1,41 @@
+info:
+  name: 2 Actual incorrecta
+  type: http
+  seq: 2
+
+http:
+  method: POST
+  url: "{{baseUrl}}/api/v1/auth/password"
+  body:
+    type: json
+    data: |-
+      {
+        "currentPassword": "no-es-la-contrasena-actual",
+        "newPassword": "una-frase-nueva-de-prueba"
+      }
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "400"
+    - expression: res.body.detail
+      operator: eq
+      value: current password is incorrect
+  scripts:
+    - type: tests
+      code: |-
+        test("keeps the current cookies", function () {
+          expect(res.getHeader("set-cookie")).to.be.undefined;
+        });
+
+        test("does not cache the response", function () {
+          expect(res.getHeader("cache-control")).to.equal("no-store");
+        });
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: true

@@ -41,6 +41,13 @@ type fakeSessions struct {
 	logoutErr error
 	userErr   error
 	loggedOut []string
+	changeErr error
+	changes   []passwordChange
+}
+
+// passwordChange es una llamada a ChangePassword que recibió el fake.
+type passwordChange struct {
+	userID, current, next string
 }
 
 func newFakeSessions() *fakeSessions {
@@ -100,6 +107,18 @@ func (f *fakeSessions) CurrentUser(_ context.Context, userID string) (*domain.Us
 	}
 
 	return testUser, nil
+}
+
+func (f *fakeSessions) ChangePassword(_ context.Context, userID, current, next string) (service.Session, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	f.changes = append(f.changes, passwordChange{userID: userID, current: current, next: next})
+	if f.changeErr != nil {
+		return service.Session{}, f.changeErr
+	}
+
+	return service.Session{AccessToken: newAccessToken, RefreshToken: newRefreshToken}, nil
 }
 
 func sessionRouter(t *testing.T, sessions *fakeSessions) *gin.Engine {

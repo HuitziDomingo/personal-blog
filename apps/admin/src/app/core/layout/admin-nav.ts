@@ -4,6 +4,7 @@ import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
   lucideFileText,
   lucideFileUser,
+  lucideKeyRound,
   lucideLogOut,
   lucideMessageSquare,
   lucideMonitor,
@@ -37,6 +38,7 @@ import { BackgroundPicker } from './background-picker';
     provideIcons({
       lucideFileText,
       lucideFileUser,
+      lucideKeyRound,
       lucideLogOut,
       lucideMessageSquare,
       lucideMonitor,
@@ -84,6 +86,13 @@ import { BackgroundPicker } from './background-picker';
 
       <div class="flex flex-col gap-2 px-3">
         <p class="truncate text-sm font-medium" [title]="email() ?? ''">{{ email() }}</p>
+        <a
+          routerLink="/profile"
+          routerLinkActive="bg-sidebar-accent text-sidebar-accent-foreground"
+          ariaCurrentWhenActive="page"
+          class="text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-ring/50 pointer-coarse:h-11 flex h-9 items-center gap-2 rounded-md px-3 text-sm font-medium outline-none focus-visible:ring-3"
+          ><ng-icon name="lucideKeyRound" size="1rem" aria-hidden="true" />Cambiar contraseña</a
+        >
         <button hlmBtn variant="outline" size="sm" type="button" [disabled]="loggingOut()" (click)="logout()">
           <ng-icon name="lucideLogOut" aria-hidden="true" />Cerrar sesión
         </button>

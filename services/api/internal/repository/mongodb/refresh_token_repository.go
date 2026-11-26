@@ -146,12 +146,27 @@ func (r *RefreshTokenRepository) RevokeFamily(ctx context.Context, familyID stri
 	return nil
 }
 
+// RevokeAllForUser revoca los tokens vigentes del usuario. Los ya revocados
+// conservan su fecha original.
+func (r *RefreshTokenRepository) RevokeAllForUser(ctx context.Context, userID string, now time.Time) (int64, error) {
+	filter := bson.M{"user_id": userID, "revoked_at": nil}
+
+	result, err := r.tokens.UpdateMany(ctx, filter, bson.M{"$set": bson.M{"revoked_at": now}})
+	if err != nil {
+		return 0, fmt.Errorf("revoke user refresh tokens: %w", err)
+	}
+
+	return result.ModifiedCount, nil
+}
+
 // refreshTokenIndexes son el índice único del hash, el TTL que borra los tokens
-// expirados y el índice de familia para RevokeFamily.
+// expirados, el índice de familia para RevokeFamily y el de usuario para
+// RevokeAllForUser.
 func refreshTokenIndexes() []mongo.IndexModel {
 	return []mongo.IndexModel{
 		{Keys: bson.D{{Key: "token_hash", Value: 1}}, Options: options.Index().SetUnique(true)},
 		{Keys: bson.D{{Key: "expires_at", Value: 1}}, Options: options.Index().SetExpireAfterSeconds(0)},
 		{Keys: bson.D{{Key: "family_id", Value: 1}}},
+		{Keys: bson.D{{Key: "user_id", Value: 1}}},
 	}
 }

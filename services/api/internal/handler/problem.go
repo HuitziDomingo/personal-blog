@@ -95,6 +95,11 @@ func handlerError(c *gin.Context, err error) {
 		invalidSession(c)
 	case errors.Is(err, domain.ErrInvalidToken):
 		invalidSession(c)
+	// Las reglas de la contraseña nueva: detail dice cuál (ADR-032). Van con
+	// su propio mensaje del dominio, que ya está en inglés.
+	case errors.Is(err, domain.ErrIncorrectPassword), errors.Is(err, domain.ErrPasswordUnchanged),
+		errors.Is(err, domain.ErrPasswordTooShort), errors.Is(err, domain.ErrPasswordTooLong):
+		writeProblem(c, http.StatusBadRequest, passwordDetail(err))
 	case errors.Is(err, domain.ErrForbidden):
 		writeProblem(c, http.StatusForbidden, "")
 	case errors.Is(err, domain.ErrNotFound):
@@ -152,6 +157,18 @@ func handlerError(c *gin.Context, err error) {
 	default:
 		internalError(c, err)
 	}
+}
+
+// passwordDetail devuelve el mensaje del error de dominio, no el envuelto: el
+// envoltorio podría añadir contexto interno.
+func passwordDetail(err error) string {
+	for _, rule := range []error{domain.ErrIncorrectPassword, domain.ErrPasswordUnchanged, domain.ErrPasswordTooShort, domain.ErrPasswordTooLong} {
+		if errors.Is(err, rule) {
+			return rule.Error()
+		}
+	}
+
+	return ""
 }
 
 // invalidSession borra las cookies de una sesión que ya no vale y responde 401.

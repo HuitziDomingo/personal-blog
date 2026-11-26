@@ -4,6 +4,7 @@ export const API_PATHS = {
   refresh: '/api/v1/auth/refresh',
   logout: '/api/v1/auth/logout',
   me: '/api/v1/auth/me',
+  password: '/api/v1/auth/password',
   adminPosts: '/api/v1/admin/posts',
   adminComments: '/api/v1/admin/comments',
   adminCV: '/api/v1/admin/cv',
