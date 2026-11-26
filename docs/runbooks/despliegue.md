@@ -461,6 +461,10 @@ El historial de ejecuciones queda en *Cloud Run → Jobs → mongo-backup*; agre
 5. **CORS:** desde la consola de `https://huitzi.xyz`, una petición a la API funciona; desde otro origen, no.
 6. **Web y admin:** las cabeceras de seguridad (`curl -sSI https://huitzi.xyz`, `https://admin.huitzi.xyz`) coinciden con `apps/web/lib/security-headers.ts` y `apps/admin/vercel.json`.
 
+## Recuperar el acceso al admin
+
+Si no puedes entrar al admin (contraseña olvidada o filtrada), sigue el [runbook de recuperación](recuperar-acceso-admin.md): `make reset-admin-password` contra Atlas, con la URI de Secret Manager (ADR-032).
+
 ## Reversión
 
 **API (Cloud Run):** devuelve el tráfico a la revisión anterior. No hace falta reconstruir nada.
