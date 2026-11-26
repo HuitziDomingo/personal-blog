@@ -70,9 +70,9 @@ type RateLimits struct {
 	// por día.
 	Images      RateLimit
 	ImagesDaily WindowLimit
-	// Password es por usuario (o por IP sin sesión), solo para cambiar la
+	// PasswordChanges es por usuario (o por IP sin sesión), solo para cambiar la
 	// contraseña y además de Global o User (ADR-032).
-	Password WindowLimit
+	PasswordChanges WindowLimit
 }
 
 // accessVerifier valida un access token con las reglas de ADR-011 y devuelve
@@ -202,7 +202,7 @@ func (limits RateLimits) validate() error {
 		}
 	}
 
-	for name, limit := range map[string]WindowLimit{"comments": limits.Comments, "cv uploads": limits.CVUploads, "daily images": limits.ImagesDaily, "password": limits.Password} {
+	for name, limit := range map[string]WindowLimit{"comments": limits.Comments, "cv uploads": limits.CVUploads, "daily images": limits.ImagesDaily, "password changes": limits.PasswordChanges} {
 		if limit.Max <= 0 || limit.Window <= 0 {
 			return fmt.Errorf("%s rate limit must be positive: %+v", name, limit)
 		}
@@ -223,7 +223,7 @@ func newRateLimiter(limits RateLimits, verify accessVerifier, now func() time.Ti
 		cvUploads:  newWindowLimiter(limits.CVUploads, now),
 		images:     newKeyedLimiter(limits.Images, now),
 		imagesDay:  newWindowLimiter(limits.ImagesDaily, now),
-		password:   newWindowLimiter(limits.Password, now),
+		password:   newWindowLimiter(limits.PasswordChanges, now),
 		verify:     verify,
 	}
 }
