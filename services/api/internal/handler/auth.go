@@ -68,6 +68,23 @@ func (s server) GetCurrentUser(ctx context.Context, _ gen.GetCurrentUserRequestO
 	return gen.GetCurrentUser200JSONResponse(toUser(user)), nil
 }
 
+// ChangePassword cambia la contraseña del usuario de la sesión y fija las
+// cookies de la sesión nueva: el service revocó todas las anteriores, también
+// la de este dispositivo (ADR-032).
+func (s server) ChangePassword(ctx context.Context, request gen.ChangePasswordRequestObject) (gen.ChangePasswordResponseObject, error) {
+	claims, ok := claimsFrom(ctx)
+	if !ok {
+		return nil, domain.ErrInvalidToken
+	}
+
+	session, err := s.sessions.ChangePassword(ctx, claims.UserID, request.Body.CurrentPassword, request.Body.NewPassword)
+	if err != nil {
+		return nil, err
+	}
+
+	return changePasswordResponse{cookies: sessionCookies(session)}, nil
+}
+
 func toUser(user *domain.User) gen.User {
 	return gen.User{
 		Id:    user.ID,
@@ -86,7 +103,10 @@ type (
 	refreshResponse struct {
 		cookies []string
 	}
-	logoutResponse struct{}
+	logoutResponse         struct{}
+	changePasswordResponse struct {
+		cookies []string
+	}
 )
 
 func (r loginResponse) VisitLoginResponse(w http.ResponseWriter) error {
@@ -105,4 +125,10 @@ func (logoutResponse) VisitLogoutResponse(w http.ResponseWriter) error {
 	addCookies(w, clearedCookies())
 
 	return gen.Logout204Response{}.VisitLogoutResponse(w)
+}
+
+func (r changePasswordResponse) VisitChangePasswordResponse(w http.ResponseWriter) error {
+	addCookies(w, r.cookies)
+
+	return gen.ChangePassword204Response{}.VisitChangePasswordResponse(w)
 }

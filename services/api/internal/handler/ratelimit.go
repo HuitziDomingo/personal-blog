@@ -20,6 +20,7 @@ const (
 	apiPathPrefix     = "/api/v1/"
 	loginPath         = "/api/v1/auth/login"
 	refreshPath       = "/api/v1/auth/refresh"
+	passwordPath      = "/api/v1/auth/password" //nolint:gosec // Es una ruta, no una credencial.
 	detailRateLimited = "rate limit exceeded"
 
 	// Una clave inactiva se olvida tras minIdleTTL, o tras lo que tarde su bucket en
@@ -69,6 +70,9 @@ type RateLimits struct {
 	// por día.
 	Images      RateLimit
 	ImagesDaily WindowLimit
+	// Password es por usuario (o por IP sin sesión), solo para cambiar la
+	// contraseña y además de Global o User (ADR-032).
+	Password WindowLimit
 }
 
 // accessVerifier valida un access token con las reglas de ADR-011 y devuelve
@@ -168,8 +172,8 @@ func (l *keyedLimiter) size() int {
 
 // rateLimiter aplica a /api/v1 el límite por usuario o el global por IP, uno
 // extra por IP a login, refresh y el envío de comentarios, uno extra por
-// usuario al asistente y a las vistas previas de portada, y uno propio por IP
-// a los preflight CORS.
+// usuario al asistente, a las vistas previas de portada, a la subida del CV y
+// al cambio de contraseña, y uno propio por IP a los preflight CORS.
 type rateLimiter struct {
 	global     *keyedLimiter
 	login      *keyedLimiter
@@ -181,6 +185,7 @@ type rateLimiter struct {
 	cvUploads  *keyedLimiter
 	images     *keyedLimiter
 	imagesDay  *keyedLimiter
+	password   *keyedLimiter
 	verify     accessVerifier
 }
 
@@ -197,7 +202,7 @@ func (limits RateLimits) validate() error {
 		}
 	}
 
-	for name, limit := range map[string]WindowLimit{"comments": limits.Comments, "cv uploads": limits.CVUploads, "daily images": limits.ImagesDaily} {
+	for name, limit := range map[string]WindowLimit{"comments": limits.Comments, "cv uploads": limits.CVUploads, "daily images": limits.ImagesDaily, "password": limits.Password} {
 		if limit.Max <= 0 || limit.Window <= 0 {
 			return fmt.Errorf("%s rate limit must be positive: %+v", name, limit)
 		}
@@ -218,6 +223,7 @@ func newRateLimiter(limits RateLimits, verify accessVerifier, now func() time.Ti
 		cvUploads:  newWindowLimiter(limits.CVUploads, now),
 		images:     newKeyedLimiter(limits.Images, now),
 		imagesDay:  newWindowLimiter(limits.ImagesDaily, now),
+		password:   newWindowLimiter(limits.Password, now),
 		verify:     verify,
 	}
 }
@@ -286,6 +292,18 @@ func (r *rateLimiter) handle(c *gin.Context) {
 			admit(c, r.cvUploads, "user:"+userID)
 		} else {
 			admit(c, r.cvUploads, "ip:"+ip)
+		}
+
+		return
+	}
+
+	// Cada intento compara bcrypt: cuenta salga bien o mal, y sin sesión
+	// también gasta, por IP, aunque después el validador responda 401.
+	if path == passwordPath {
+		if authenticated {
+			admit(c, r.password, "user:"+userID)
+		} else {
+			admit(c, r.password, "ip:"+ip)
 		}
 
 		return

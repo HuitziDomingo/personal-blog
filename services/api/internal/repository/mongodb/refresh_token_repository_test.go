@@ -175,6 +175,47 @@ func TestRefreshTokenRevokeFamily(t *testing.T) {
 	assert.False(t, other.IsRevoked(), "other families are untouched")
 }
 
+func TestRefreshTokenRevokeAllForUser(t *testing.T) {
+	repository, _ := newRefreshTokenRepository(t)
+	earlier := testNow.Add(-time.Hour)
+
+	userID := bson.NewObjectID().Hex()
+	forUser := func(hash, family string) *domain.RefreshToken {
+		token := newRefreshToken(hash, family)
+		token.UserID = userID
+
+		return token
+	}
+
+	require.NoError(t, repository.Create(t.Context(), forUser("a-old", "family-a")))
+	require.NoError(t, repository.Rotate(t.Context(), "a-old", forUser("a-current", "family-a"), earlier))
+	require.NoError(t, repository.Create(t.Context(), forUser("b-current", "family-b")))
+	require.NoError(t, repository.Create(t.Context(), newRefreshToken("other-user", "family-c")))
+
+	revoked, err := repository.RevokeAllForUser(t.Context(), userID, testNow)
+	require.NoError(t, err)
+	assert.EqualValues(t, 2, revoked, "only the active tokens count")
+
+	old, err := repository.GetByHash(t.Context(), "a-old")
+	require.NoError(t, err)
+	assert.Equal(t, earlier, *old.RevokedAt, "already revoked tokens keep their date")
+
+	for _, hash := range []string{"a-current", "b-current"} {
+		token, err := repository.GetByHash(t.Context(), hash)
+		require.NoError(t, err)
+		require.True(t, token.IsRevoked(), hash)
+		assert.Equal(t, testNow, *token.RevokedAt, hash)
+	}
+
+	other, err := repository.GetByHash(t.Context(), "other-user")
+	require.NoError(t, err)
+	assert.False(t, other.IsRevoked(), "other users are untouched")
+
+	again, err := repository.RevokeAllForUser(t.Context(), userID, testNow.Add(time.Minute))
+	require.NoError(t, err)
+	assert.Zero(t, again, "revoking twice is a no-op")
+}
+
 func TestRefreshTokenIndexes(t *testing.T) {
 	_, client := newRefreshTokenRepository(t)
 
@@ -192,4 +233,5 @@ func TestRefreshTokenIndexes(t *testing.T) {
 	assert.Equal(t, true, byName["token_hash_1"]["unique"])
 	assert.EqualValues(t, 0, byName["expires_at_1"]["expireAfterSeconds"])
 	assert.Contains(t, byName, "family_id_1")
+	assert.Contains(t, byName, "user_id_1")
 }

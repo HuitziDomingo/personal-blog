@@ -75,6 +75,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cambia la contraseña y cierra las demás sesiones.
+         * @description Comprueba la contraseña actual, guarda el hash bcrypt de la nueva y revoca todos los refresh tokens del usuario, también el de esta sesión (ADR-032). La respuesta abre una sesión nueva en este dispositivo con cookies nuevas. Los JWT de acceso ya emitidos en otros dispositivos siguen valiendo hasta que vencen (15 minutos como mucho). Tiene un límite propio de 5 intentos por usuario cada 15 minutos, cuente o no la contraseña actual.
+         */
+        post: operations["changePassword"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/posts": {
         parameters: {
             query?: never;
@@ -620,6 +640,13 @@ export interface components {
             email: string;
             /** Format: password */
             password: string;
+        };
+        /** @description La nueva tiene entre 14 y 72 caracteres (ADR-032); la API comprueba además que no pase de 72 bytes y que no sea igual a la actual. */
+        PasswordChange: {
+            /** Format: password */
+            currentPassword: string;
+            /** Format: password */
+            newPassword: string;
         };
         /** @enum {string} */
         UserRole: "admin";
@@ -1179,6 +1206,43 @@ export interface operations {
                 };
             };
             401: components["responses"]["Unauthorized"];
+            429: components["responses"]["TooManyRequests"];
+            default: components["responses"]["UnexpectedError"];
+        };
+    };
+    changePassword: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PasswordChange"];
+            };
+        };
+        responses: {
+            /** @description Contraseña cambiada; las cookies son de la sesión nueva. */
+            204: {
+                headers: {
+                    "Set-Cookie": components["headers"]["SessionCookies"];
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description La petición no cumple el contrato o las reglas de la contraseña. `detail` distingue el caso: `current password is incorrect`, `new password must differ from the current one`, `new password is too short` o `new password is too long` (más de 72 bytes en UTF-8, el límite de bcrypt). La contraseña actual incorrecta es un 400 y no un 401: la sesión sigue siendo válida. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            413: components["responses"]["PayloadTooLarge"];
             429: components["responses"]["TooManyRequests"];
             default: components["responses"]["UnexpectedError"];
         };

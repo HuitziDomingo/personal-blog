@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"errors"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"golang.org/x/crypto/bcrypt"
@@ -31,13 +32,17 @@ type AuthService struct {
 	users    domain.UserRepository
 	tokens   *TokenService
 	attempts *loginAttempts
+	now      func() time.Time
+	// logger recibe el log de auditoría de los cambios de contraseña, sin
+	// contraseñas, hashes, tokens ni emails (ADR-010).
+	logger *slog.Logger
 	// dummyHash se compara cuando el email no existe, para que esa respuesta
 	// tarde lo mismo que una contraseña incorrecta.
 	dummyHash []byte
 }
 
 // NewAuthService crea el service. Calcula una vez el hash falso del login.
-func NewAuthService(users domain.UserRepository, tokens *TokenService, now func() time.Time) (*AuthService, error) {
+func NewAuthService(users domain.UserRepository, tokens *TokenService, now func() time.Time, logger *slog.Logger) (*AuthService, error) {
 	dummyHash, err := bcrypt.GenerateFromPassword([]byte(rand.Text()), bcrypt.DefaultCost)
 	if err != nil {
 		return nil, fmt.Errorf("hash dummy password: %w", err)
@@ -47,6 +52,8 @@ func NewAuthService(users domain.UserRepository, tokens *TokenService, now func(
 		users:     users,
 		tokens:    tokens,
 		attempts:  newLoginAttempts(now),
+		now:       now,
+		logger:    logger,
 		dummyHash: dummyHash,
 	}, nil
 }

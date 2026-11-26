@@ -242,6 +242,7 @@ func ipRouter(configure func(*gin.Engine) error) (*gin.Engine, error) {
 		CVUploads:   WindowLimit{Max: 1, Window: time.Minute},
 		Images:      RateLimit{PerMinute: 1, Burst: 1},
 		ImagesDaily: WindowLimit{Max: 1, Window: time.Hour},
+		Password:    WindowLimit{Max: 1, Window: time.Minute},
 	}, rejectAllTokens, time.Now).handle)
 	router.GET("/api/v1/posts", func(c *gin.Context) { c.Status(http.StatusOK) })
 

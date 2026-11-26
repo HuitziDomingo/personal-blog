@@ -197,6 +197,22 @@ func (s *TokenService) Refresh(ctx context.Context, raw string) (Session, error)
 	return Session{AccessToken: access, RefreshToken: refresh}, nil
 }
 
+// ReplaceSessions revoca todos los refresh tokens del usuario, de todas sus
+// familias, y abre una sesión nueva. Devuelve cuántos tokens revocó.
+func (s *TokenService) ReplaceSessions(ctx context.Context, user *domain.User) (Session, int64, error) {
+	revoked, err := s.refreshTokens.RevokeAllForUser(ctx, user.ID, s.now())
+	if err != nil {
+		return Session{}, 0, fmt.Errorf("revoke user sessions: %w", err)
+	}
+
+	session, err := s.StartSession(ctx, user)
+	if err != nil {
+		return Session{}, revoked, err
+	}
+
+	return session, revoked, nil
+}
+
 // EndSession revoca la familia del refresh token. Un token desconocido no es
 // un error: el logout siempre termina bien.
 func (s *TokenService) EndSession(ctx context.Context, raw string) error {

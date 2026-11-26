@@ -160,6 +160,7 @@ func run(logger *slog.Logger) error {
 			Assistant:   handler.RateLimit(cfg.AssistantRateLimit),
 			Comments:    handler.WindowLimit{Max: cfg.Comments.RateLimitMax, Window: cfg.Comments.RateLimitWindow},
 			CVUploads:   handler.WindowLimit{Max: cfg.Files.CVUploadsMax, Window: cfg.Files.CVUploadsWindow},
+			Password:    handler.WindowLimit{Max: service.MaxPasswordChanges, Window: service.PasswordChangeWindow},
 			Images:      handler.RateLimit(cfg.ImagesRateLimit),
 			ImagesDaily: handler.WindowLimit{Max: cfg.ImagesPerDay, Window: 24 * time.Hour},
 		},
@@ -206,7 +207,7 @@ func newSessions(cfg config.Config, client *mongodb.Client, users *mongodb.UserR
 		return nil, fmt.Errorf("create token service: %w", err)
 	}
 
-	sessions, err := service.NewAuthService(users, tokens, time.Now)
+	sessions, err := service.NewAuthService(users, tokens, time.Now, slog.Default())
 	if err != nil {
 		return nil, fmt.Errorf("create auth service: %w", err)
 	}

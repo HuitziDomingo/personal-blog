@@ -16,6 +16,7 @@ require (
 	go.mongodb.org/mongo-driver/v2 v2.10.0
 	golang.org/x/crypto v0.59.0
 	golang.org/x/image v0.48.0
+	golang.org/x/term v0.48.0
 	golang.org/x/text v0.44.0
 	golang.org/x/time v0.16.0
 	google.golang.org/api v0.312.0

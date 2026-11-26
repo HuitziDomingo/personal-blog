@@ -24,6 +24,7 @@ type fakeRefreshTokens struct {
 	tokens       map[string]*domain.RefreshToken // por hash
 	nextID       int
 	rotateErr    error
+	revokeAllErr error
 	beforeRotate func()
 }
 
@@ -98,6 +99,26 @@ func (f *fakeRefreshTokens) RevokeFamily(_ context.Context, familyID string, now
 	return nil
 }
 
+func (f *fakeRefreshTokens) RevokeAllForUser(_ context.Context, userID string, now time.Time) (int64, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	if f.revokeAllErr != nil {
+		return 0, f.revokeAllErr
+	}
+
+	var revoked int64
+
+	for _, token := range f.tokens {
+		if token.UserID == userID && !token.IsRevoked() {
+			token.RevokedAt = &now
+			revoked++
+		}
+	}
+
+	return revoked, nil
+}
+
 // activeInFamily cuenta los tokens vigentes de una familia.
 func (f *fakeRefreshTokens) activeInFamily(familyID string) int {
 	f.mu.Lock()
@@ -113,13 +134,29 @@ func (f *fakeRefreshTokens) activeInFamily(familyID string) int {
 	return active
 }
 
-// fakeUsersByID solo implementa las lecturas. err, si no es nil, lo devuelve
-// GetByEmail.
+// fakeUsersByID implementa las lecturas y Update. err, si no es nil, lo
+// devuelve GetByEmail; updateErr, Update.
 type fakeUsersByID struct {
 	domain.UserRepository
 
-	users map[string]*domain.User
-	err   error
+	users     map[string]*domain.User
+	err       error
+	updateErr error
+}
+
+func (f fakeUsersByID) Update(_ context.Context, user *domain.User) error {
+	if f.updateErr != nil {
+		return f.updateErr
+	}
+
+	if _, ok := f.users[user.ID]; !ok {
+		return domain.ErrNotFound
+	}
+
+	stored := *user
+	f.users[user.ID] = &stored
+
+	return nil
 }
 
 func (f fakeUsersByID) GetByID(_ context.Context, id string) (*domain.User, error) {
@@ -128,7 +165,10 @@ func (f fakeUsersByID) GetByID(_ context.Context, id string) (*domain.User, erro
 		return nil, domain.ErrNotFound
 	}
 
-	return user, nil
+	// Una copia, como un repositorio real: cambiarla no cambia lo guardado.
+	copied := *user
+
+	return &copied, nil
 }
 
 // testClock es un reloj que los tests adelantan a mano.

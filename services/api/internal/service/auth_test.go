@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"log/slog"
 	"testing"
 	"time"
 
@@ -19,7 +20,9 @@ func (f fakeUsersByID) GetByEmail(_ context.Context, email string) (*domain.User
 
 	for _, user := range f.users {
 		if user.Email == email {
-			return user, nil
+			copied := *user
+
+			return &copied, nil
 		}
 	}
 
@@ -39,7 +42,7 @@ func newAuthFixture(t *testing.T, users fakeUsersByID) authFixture {
 	tokens, err := NewTokenService(testSecret, newFakeRefreshTokens(), users, clock.Now)
 	require.NoError(t, err)
 
-	service, err := NewAuthService(users, tokens, clock.Now)
+	service, err := NewAuthService(users, tokens, clock.Now, slog.New(slog.DiscardHandler))
 	require.NoError(t, err)
 
 	return authFixture{service: service, tokens: tokens, clock: clock}

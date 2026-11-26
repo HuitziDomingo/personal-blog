@@ -153,6 +153,7 @@ func TestInvalidAccessTokensNeverUseTheUserBucket(t *testing.T) {
 				CVUploads:   WindowLimit{Max: 1, Window: time.Minute},
 				Images:      RateLimit{PerMinute: 1, Burst: 1},
 				ImagesDaily: WindowLimit{Max: 1, Window: time.Hour},
+				Password:    WindowLimit{Max: 1, Window: time.Minute},
 			}, tokens.ParseAccess, clock.Now)
 			router := gin.New()
 			router.Use(limiter.handle)
@@ -185,7 +186,7 @@ func bucketsRouter(t *testing.T, limits RateLimits) *gin.Engine {
 	generous := cfg.RateLimits.Global
 	cfg.RateLimits = RateLimits{
 		Global: generous, Login: generous, Refresh: generous, Preflight: generous, User: generous, Assistant: generous, Comments: generousWindow,
-		CVUploads: generousWindow, Images: generous, ImagesDaily: generousWindow,
+		CVUploads: generousWindow, Images: generous, ImagesDaily: generousWindow, Password: generousWindow,
 	}
 	if limits.ImagesDaily != (WindowLimit{}) {
 		cfg.RateLimits.ImagesDaily = limits.ImagesDaily

@@ -39,4 +39,7 @@ type RefreshTokenRepository interface {
 	Rotate(ctx context.Context, oldHash string, next *RefreshToken, now time.Time) error
 	// RevokeFamily revoca en now todos los tokens vigentes de la familia.
 	RevokeFamily(ctx context.Context, familyID string, now time.Time) error
+	// RevokeAllForUser revoca en now todos los tokens vigentes del usuario, de
+	// todas sus familias, y devuelve cuántos revocó.
+	RevokeAllForUser(ctx context.Context, userID string, now time.Time) (int64, error)
 }
