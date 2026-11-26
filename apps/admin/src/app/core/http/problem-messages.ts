@@ -1,6 +1,6 @@
 import { HttpErrorResponse } from '@angular/common/http';
 
-export type ProblemContext = 'login' | 'post' | 'assistant' | 'rag' | 'comment' | 'cv' | 'generic';
+export type ProblemContext = 'login' | 'post' | 'assistant' | 'rag' | 'comment' | 'cv' | 'password' | 'generic';
 
 const UNEXPECTED = 'Error inesperado del servidor. Inténtalo de nuevo.';
 
@@ -22,6 +22,9 @@ export function problemMessage(error: unknown, context: ProblemContext = 'generi
       }
       if (context === 'cv') {
         return 'El archivo no es un PDF válido.';
+      }
+      if (context === 'password') {
+        return passwordRejected(error);
       }
       if (context === 'comment') {
         return 'No se pudo responder: la respuesta debe tener entre 1 y 2000 caracteres, y solo se responde a comentarios aprobados que no son respuestas.';
@@ -73,7 +76,9 @@ function tooManyRequests(retryAfter: string | null, context: ProblemContext): st
       ? 'Pediste demasiadas sugerencias seguidas.'
       : context === 'rag'
         ? 'Hiciste demasiadas peticiones al asistente seguidas.'
-        : 'Demasiados intentos.';
+        : context === 'password'
+          ? 'Demasiados intentos de cambiar la contraseña.'
+          : 'Demasiados intentos.';
   const seconds = retryAfter === null ? Number.NaN : Number(retryAfter);
   if (!Number.isInteger(seconds) || seconds < 1) {
     return `${prefix} Inténtalo de nuevo más tarde.`;
@@ -101,6 +106,23 @@ function assistantUnavailable(error: HttpErrorResponse): string {
     default:
       return 'El asistente no está disponible ahora (el proveedor falló o agotó su cuota). Inténtalo de nuevo en unos minutos.';
   }
+}
+
+// Los `detail` del 400 de changePassword (openapi.yaml, ADR-032). Si llega
+// otro, el validador del contrato rechazó el cuerpo.
+const PASSWORD_DETAILS: Readonly<Record<string, string>> = {
+  'current password is incorrect': 'La contraseña actual no es correcta.',
+  'new password must differ from the current one': 'La contraseña nueva debe ser distinta de la actual.',
+  'new password is too short': 'La contraseña nueva debe tener al menos 14 caracteres.',
+  'new password is too long':
+    'La contraseña nueva es demasiado larga: el máximo es 72 bytes, y los acentos y emojis ocupan más de uno.',
+};
+
+function passwordRejected(error: HttpErrorResponse): string {
+  return (
+    PASSWORD_DETAILS[detailOf(error)] ??
+    'Revisa los datos: la contraseña nueva debe tener entre 14 y 72 caracteres.'
+  );
 }
 
 // Los `detail` del 503 de la moderación (ModerationUnavailable en

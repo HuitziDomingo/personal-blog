@@ -50,6 +50,16 @@ describe('rutas del admin', () => {
     expect(harness.routeNativeElement?.querySelector('main app-posts-list-page')).toBeTruthy();
   });
 
+  it('con sesión, /profile muestra el perfil dentro del shell (BLOG-163)', async () => {
+    const { harness, router } = await setup('authenticated');
+
+    await harness.navigateByUrl('/profile');
+
+    expect(router.url).toBe('/profile');
+    expect(harness.routeNativeElement?.querySelector('main app-profile-page')).toBeTruthy();
+    expect(document.title).toBe('Perfil · Admin');
+  });
+
   it('el login queda fuera del shell', async () => {
     const { harness, router } = await setup('anonymous');
 

@@ -68,6 +68,12 @@ describe('AdminNav', () => {
     expect(screen.getByRole('link', { name: 'CV' }).getAttribute('href')).toBe('/cv');
   });
 
+  it('enlaza a Cambiar contraseña desde el perfil (BLOG-163)', async () => {
+    await renderNav();
+
+    expect(screen.getByRole('link', { name: 'Cambiar contraseña' }).getAttribute('href')).toBe('/profile');
+  });
+
   it('enlaza a Ajustes (BLOG-133)', async () => {
     await renderNav();
 

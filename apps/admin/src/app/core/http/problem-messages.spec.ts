@@ -24,6 +24,26 @@ describe('problemMessage', () => {
     expect(problemMessage(new Error('boom'))).toBe('Error inesperado del servidor. Inténtalo de nuevo.');
   });
 
+  it('traduce los rechazos del cambio de contraseña por su detail (ADR-032)', () => {
+    const withDetail = (detail: string) =>
+      new HttpErrorResponse({ status: 400, error: { detail }, headers: new HttpHeaders() });
+
+    expect(problemMessage(withDetail('current password is incorrect'), 'password')).toBe('La contraseña actual no es correcta.');
+    expect(problemMessage(withDetail('new password must differ from the current one'), 'password')).toBe(
+      'La contraseña nueva debe ser distinta de la actual.',
+    );
+    expect(problemMessage(withDetail('new password is too short'), 'password')).toBe(
+      'La contraseña nueva debe tener al menos 14 caracteres.',
+    );
+    expect(problemMessage(withDetail('new password is too long'), 'password')).toContain('72 bytes');
+    expect(problemMessage(withDetail('invalid request body'), 'password')).toBe(
+      'Revisa los datos: la contraseña nueva debe tener entre 14 y 72 caracteres.',
+    );
+    expect(problemMessage(httpError(429, { 'Retry-After': '600' }), 'password')).toBe(
+      'Demasiados intentos de cambiar la contraseña. Inténtalo de nuevo en 10 minutos.',
+    );
+  });
+
   it('traduce los errores de la cola de comentarios', () => {
     const withDetail = (status: number, detail: string) =>
       new HttpErrorResponse({ status, error: { detail }, headers: new HttpHeaders() });

@@ -45,6 +45,11 @@ export const routes: Routes = [
         title: 'Ajustes · Admin',
         loadComponent: () => import('./features/settings/settings.page').then((m) => m.SettingsPage),
       },
+      {
+        path: 'profile',
+        title: 'Perfil · Admin',
+        loadComponent: () => import('./features/profile/profile.page').then((m) => m.ProfilePage),
+      },
       { path: '', pathMatch: 'full', redirectTo: 'posts' },
     ],
   },

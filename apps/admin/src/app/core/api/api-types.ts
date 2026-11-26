@@ -4,6 +4,7 @@ import type { components } from '@personal-blog/api-types';
 // se escribe a mano.
 export type User = components['schemas']['User'];
 export type LoginRequest = components['schemas']['LoginRequest'];
+export type PasswordChange = components['schemas']['PasswordChange'];
 export type Problem = components['schemas']['Problem'];
 export type PostStatus = components['schemas']['PostStatus'];
 export type PostSummary = components['schemas']['PostSummary'];
