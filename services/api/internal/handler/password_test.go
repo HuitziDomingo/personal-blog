@@ -103,7 +103,7 @@ func TestChangePasswordHasItsOwnRateLimit(t *testing.T) {
 
 	cfg := testRouterConfig()
 	cfg.Sessions = sessions
-	cfg.RateLimits.PasswordChanges = WindowLimit{Max: 5, Window: 15 * time.Minute}
+	cfg.RateLimits.AccountChanges = WindowLimit{Max: 5, Window: 15 * time.Minute}
 
 	spec, err := LoadSpec(t.Context())
 	require.NoError(t, err)

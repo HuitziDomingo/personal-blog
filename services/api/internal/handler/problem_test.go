@@ -30,7 +30,7 @@ func testRouterConfig() RouterConfig {
 		MaxBodyBytes:   testMaxBodyBytes,
 		RateLimits: RateLimits{
 			Global: generous, Login: generous, Refresh: generous, Preflight: generous, User: generous, Assistant: generous, Comments: generousWindow,
-			CVUploads: generousWindow, Images: generous, ImagesDaily: generousWindow, PasswordChanges: generousWindow,
+			CVUploads: generousWindow, Images: generous, ImagesDaily: generousWindow, AccountChanges: generousWindow,
 		},
 		Sessions:  newFakeSessions(),
 		Posts:     newFakePosts(),

@@ -70,9 +70,10 @@ type RateLimits struct {
 	// por día.
 	Images      RateLimit
 	ImagesDaily WindowLimit
-	// PasswordChanges es por usuario (o por IP sin sesión), solo para cambiar la
-	// contraseña y además de Global o User (ADR-032).
-	PasswordChanges WindowLimit
+	// AccountChanges es por usuario (o por IP sin sesión), solo para cambiar la
+	// contraseña y además de Global o User (ADR-032). El nombre evita la
+	// palabra «password»: CodeQL tomaría el límite por una contraseña.
+	AccountChanges WindowLimit
 }
 
 // accessVerifier valida un access token con las reglas de ADR-011 y devuelve
@@ -185,7 +186,7 @@ type rateLimiter struct {
 	cvUploads  *keyedLimiter
 	images     *keyedLimiter
 	imagesDay  *keyedLimiter
-	password   *keyedLimiter
+	accounts   *keyedLimiter
 	verify     accessVerifier
 }
 
@@ -202,7 +203,7 @@ func (limits RateLimits) validate() error {
 		}
 	}
 
-	for name, limit := range map[string]WindowLimit{"comments": limits.Comments, "cv uploads": limits.CVUploads, "daily images": limits.ImagesDaily, "password changes": limits.PasswordChanges} {
+	for name, limit := range map[string]WindowLimit{"comments": limits.Comments, "cv uploads": limits.CVUploads, "daily images": limits.ImagesDaily, "password changes": limits.AccountChanges} {
 		if limit.Max <= 0 || limit.Window <= 0 {
 			return fmt.Errorf("%s rate limit must be positive: %+v", name, limit)
 		}
@@ -223,7 +224,7 @@ func newRateLimiter(limits RateLimits, verify accessVerifier, now func() time.Ti
 		cvUploads:  newWindowLimiter(limits.CVUploads, now),
 		images:     newKeyedLimiter(limits.Images, now),
 		imagesDay:  newWindowLimiter(limits.ImagesDaily, now),
-		password:   newWindowLimiter(limits.PasswordChanges, now),
+		accounts:   newWindowLimiter(limits.AccountChanges, now),
 		verify:     verify,
 	}
 }
@@ -301,9 +302,9 @@ func (r *rateLimiter) handle(c *gin.Context) {
 	// también gasta, por IP, aunque después el validador responda 401.
 	if path == passwordPath {
 		if authenticated {
-			admit(c, r.password, "user:"+userID)
+			admit(c, r.accounts, "user:"+userID)
 		} else {
-			admit(c, r.password, "ip:"+ip)
+			admit(c, r.accounts, "ip:"+ip)
 		}
 
 		return

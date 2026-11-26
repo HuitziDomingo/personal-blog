@@ -17,11 +17,11 @@ const (
 	// caracteres (ADR-032). El bootstrap del admin inicial conserva su mínimo.
 	MinNewPasswordRunes = 14
 
-	// MaxPasswordChanges es cuántos cambios de contraseña admite un usuario
-	// por PasswordChangeWindow, salgan bien o mal (ADR-032).
-	MaxPasswordChanges = 5
-	// PasswordChangeWindow es la ventana del límite de cambios de contraseña.
-	PasswordChangeWindow = 15 * time.Minute
+	// MaxAccountChanges es cuántos cambios de contraseña admite un usuario
+	// por AccountChangesWindow, salgan bien o mal (ADR-032).
+	MaxAccountChanges = 5
+	// AccountChangesWindow es la ventana del límite de cambios de contraseña.
+	AccountChangesWindow = 15 * time.Minute
 
 	// auditEvent agrupa en los logs los eventos de contraseña.
 	auditEvent = "password_change"
